@@ -92,8 +92,18 @@ class UserController extends Controller
         return response()->json($user, 201);
     }
 
-    public function show(User $user): JsonResponse
+    public function show(Request $request, User $user): JsonResponse
     {
+        $actor = $request->user();
+        if (! $actor->isSuperAdmin()) {
+            if ($actor->isCompanyUser()) {
+                abort_unless($user->company_id === $actor->company_id, 403, 'Access denied.');
+            } elseif ($actor->isVendorUser()) {
+                abort_unless($user->vendor_id === $actor->vendor_id, 403, 'Access denied.');
+            } else {
+                abort(403, 'Access denied.');
+            }
+        }
         return response()->json($user->load(['company:id,name', 'vendor:id,name']));
     }
 

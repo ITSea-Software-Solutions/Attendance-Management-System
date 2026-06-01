@@ -1,19 +1,6 @@
 import { useState, useRef } from "react";
 import { Fingerprint, AlertTriangle, CheckCircle, RefreshCw, ExternalLink } from "lucide-react";
-
-const SGIBIOSRV = "https://localhost:8443";
-
-const SGI_ERRORS = {
-  51:    "Capture failed — try again",
-  52:    "Memory failure",
-  53:    "Device not found — check USB connection",
-  54:    "No finger detected — place finger on scanner and try again",
-  55:    "Device busy — wait a moment and retry",
-  56:    "Poor image quality — clean the sensor and try again",
-  57:    "Capture failed — try again",
-  63:    "SecuGen service not responding",
-  10004: "No finger detected — click Scan then immediately place your finger on the device",
-};
+import { captureFingerprint, SGI_ERRORS, BIOMETRIC_SIMULATION } from "@/lib/biometric";
 
 const STATUS = {
   IDLE:     "idle",
@@ -37,14 +24,7 @@ export default function FingerprintCapture({ worker, onCaptured, onSkip }) {
     abortRef.current = new AbortController();
 
     try {
-      const res = await fetch(`${SGIBIOSRV}/SGIFPCapture`, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: "Timeout=10000&Quality=50&licstr=&templateFormat=ISO&imageWSQRate=0.75",
-        signal: abortRef.current.signal,
-      });
-
-      const data = await res.json();
+      const data = await captureFingerprint({ signal: abortRef.current.signal });
 
       if (data.ErrorCode === 0) {
         const q = parseInt(data.ImageQuality, 10);

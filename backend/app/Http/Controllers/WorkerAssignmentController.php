@@ -97,13 +97,16 @@ class WorkerAssignmentController extends Controller
         return response()->json($assignment->load(['worker', 'company', 'vendor']), 201);
     }
 
-    public function show(WorkerAssignment $assignment): JsonResponse
+    public function show(Request $request, WorkerAssignment $assignment): JsonResponse
     {
+        $this->assertAssignmentVisible($request->user(), $assignment);
         return response()->json($assignment->load(['worker', 'company', 'vendor', 'attendanceLogs']));
     }
 
     public function update(Request $request, WorkerAssignment $assignment): JsonResponse
     {
+        $this->assertAssignmentVisible($request->user(), $assignment);
+
         if ($assignment->is_locked) {
             return response()->json([
                 'message' => 'This deployment is locked — attendance has already been marked. Dates cannot be changed.',
@@ -111,7 +114,7 @@ class WorkerAssignmentController extends Controller
         }
 
         $data = $request->validate([
-            'start_date' => 'nullable|date',
+            'start_date' => 'nullable|date|after_or_equal:today',
             'end_date'   => 'nullable|date|after_or_equal:start_date',
             'shift'      => 'nullable|string',
             'gate'       => 'nullable|string',
@@ -127,6 +130,8 @@ class WorkerAssignmentController extends Controller
 
     public function destroy(Request $request, WorkerAssignment $assignment): JsonResponse
     {
+        $this->assertAssignmentVisible($request->user(), $assignment);
+
         if ($assignment->is_locked) {
             // Allow cancel only when no pending IN exists (worker is fully out)
             $latestLog = AttendanceLog::where('worker_id', $assignment->worker_id)
@@ -167,11 +172,36 @@ class WorkerAssignmentController extends Controller
 
     public function forWorker(Request $request, Worker $worker): JsonResponse
     {
+        $user = $request->user();
+        // Vendor users may only see their own workers' deployments.
+        if ($user->isVendorUser()) {
+            abort_unless($worker->vendor_id === $user->vendor_id, 403, 'Access denied.');
+        }
+
         $assignments = WorkerAssignment::with(['company:id,name'])
             ->where('worker_id', $worker->id)
+            // Company users only see deployments at their own company.
+            ->when($user->isCompanyUser(), fn($q) => $q->where('company_id', $user->company_id))
             ->orderByDesc('start_date')
             ->paginate(20);
 
         return response()->json($assignments);
+    }
+
+    /** Tenant scoping for a single assignment. Aborts 403 otherwise. */
+    private function assertAssignmentVisible($user, WorkerAssignment $assignment): void
+    {
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+        if ($user->isVendorUser()) {
+            abort_unless($assignment->vendor_id === $user->vendor_id, 403, 'Access denied.');
+            return;
+        }
+        if ($user->isCompanyUser()) {
+            abort_unless($assignment->company_id === $user->company_id, 403, 'Access denied.');
+            return;
+        }
+        abort(403, 'Access denied.');
     }
 }

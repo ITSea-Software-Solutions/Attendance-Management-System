@@ -15,37 +15,9 @@ import {
   RefreshCw, MapPin, Search, User, VideoOff,
 } from "lucide-react";
 
-const SGIBIOSRV       = "https://localhost:8443";
-const MATCH_THRESHOLD = 40;
-
-const SGI_ERRORS = {
-  51:    "Capture failed — try again",
-  53:    "Device not found — check USB connection",
-  54:    "No finger detected — place finger and try again",
-  56:    "Poor image quality — clean the sensor",
-  63:    "SecuGen service not running",
-  10004: "No finger detected — click Scan then immediately place your finger",
-};
+import { captureFingerprint, SGI_ERRORS } from "@/lib/biometric";
 
 const PHASE = { IDLE: "idle", SCANNING: "scanning", MATCHING: "matching", CONFIRMED: "confirmed", ERROR: "error" };
-
-async function sgiCapture() {
-  const res = await fetch(`${SGIBIOSRV}/SGIFPCapture`, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=UTF-8" },
-    body: "Timeout=10000&Quality=50&licstr=&templateFormat=ISO&imageWSQRate=0.75",
-  });
-  return res.json();
-}
-
-async function sgiMatchScore(t1, t2) {
-  const res = await fetch(`${SGIBIOSRV}/SGIMatchScore`, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=UTF-8" },
-    body: `template1=${encodeURIComponent(t1)}&template2=${encodeURIComponent(t2)}&licstr=&templateFormat=ISO`,
-  });
-  return res.json();
-}
 
 // ─── Camera hook ──────────────────────────────────────────────────────────────
 
@@ -197,6 +169,7 @@ export default function AttendanceMark() {
   const [phase, setPhase]         = useState(PHASE.IDLE);
   const [message, setMessage]     = useState("Click Scan to begin.");
   const [matched, setMatched]     = useState(null);
+  const [probeTemplate, setProbe] = useState(null);
   const [certError, setCertError] = useState(false);
 
   // Manual-specific
@@ -258,7 +231,7 @@ export default function AttendanceMark() {
 
     let capture;
     try {
-      capture = await sgiCapture();
+      capture = await captureFingerprint();
     } catch {
       setCertError(true);
       setPhase(PHASE.ERROR);
@@ -275,42 +248,24 @@ export default function AttendanceMark() {
     setPhase(PHASE.MATCHING);
     setMessage("Identifying worker…");
 
-    let workers;
+    // Matching is performed SERVER-SIDE — the probe template is sent to the API
+    // which compares it against stored templates and returns the matched worker.
+    // Raw templates never reach the browser and the match cannot be forged here.
+    let match;
     try {
-      const res = await api.get("/attendance/worker-templates", { params: { company_id: companyId } });
-      workers = res.data;
+      const res = await api.post("/attendance/identify", {
+        company_id: companyId,
+        probe_template: capture.TemplateBase64,
+      });
+      match = res.data;
     } catch (err) {
       setPhase(PHASE.ERROR);
-      setMessage(err.response?.data?.message || "Failed to load worker list.");
+      setMessage(err.response?.data?.message || "No fingerprint match found.");
       return;
     }
 
-    if (!workers?.length) {
-      setPhase(PHASE.ERROR);
-      setMessage("No workers deployed today. Deploy workers via Vendor → Worker Deployments.");
-      return;
-    }
-
-    const results = await Promise.all(
-      workers.map(async (w) => {
-        try {
-          const v = await sgiMatchScore(w.template, capture.TemplateBase64);
-          return { worker: w, score: v.ErrorCode === 0 ? (v.MatchingScore ?? 0) : 0 };
-        } catch {
-          return { worker: w, score: 0 };
-        }
-      })
-    );
-
-    const best = results.reduce((a, b) => (a.score > b.score ? a : b));
-
-    if (best.score < MATCH_THRESHOLD) {
-      setPhase(PHASE.ERROR);
-      setMessage("No fingerprint match found. Worker may not be deployed or enrolled.");
-      return;
-    }
-
-    setMatched({ ...best.worker, score: best.score });
+    setProbe(capture.TemplateBase64);
+    setMatched(match); // { worker_id, name, photo_url, vendor, pending_type, score }
     setPhase(PHASE.CONFIRMED);
     setMessage("Worker identified!");
     await autoSnap(); // auto-capture photo at the moment of match
@@ -351,7 +306,7 @@ export default function AttendanceMark() {
         assignment_id:     worker.assignment_id,
         type:              worker.pending_type,
         method,
-        fingerprint_score: matched?.score,
+        probe_template:    matched ? probeTemplate : undefined,
         location_type:     locationType,
         location_name:     resolvedLocation,
       },
@@ -362,6 +317,7 @@ export default function AttendanceMark() {
   const reset = () => {
     setPhase(PHASE.IDLE);
     setMatched(null);
+    setProbe(null);
     setMessage("Click Scan to begin.");
     setCertError(false);
     setSel(null);

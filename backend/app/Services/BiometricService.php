@@ -28,6 +28,12 @@ class BiometricService
     // Raise to 50–60 for higher security; lower to 30 for more tolerance.
     private const MATCH_THRESHOLD = 40; // SecuGen score 0–200
 
+    /** Match threshold (0–200). Overridable via config('biometric.threshold'). */
+    public function threshold(): int
+    {
+        return (int) config('biometric.threshold', self::MATCH_THRESHOLD);
+    }
+
     /**
      * Compare two ISO 19794-2 FMD templates.
      * Returns match result with score.

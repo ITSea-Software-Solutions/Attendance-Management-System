@@ -3,16 +3,28 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
+use App\Models\User;
 use App\Models\Worker;
 use App\Models\WorkerAssignment;
 use App\Services\AuditService;
+use App\Services\BiometricService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 
 class AttendanceController extends Controller
 {
-    public function __construct(private AuditService $audit) {}
+    public function __construct(
+        private AuditService $audit,
+        private BiometricService $biometric,
+    ) {}
+
+    /** Demo deployments run with BIOMETRIC_SIM=true so the fingerprint flow is
+     *  usable without a SecuGen device. MUST be false in production. */
+    private function simulationEnabled(): bool
+    {
+        return (bool) config('biometric.simulation', false);
+    }
 
     // ─── Daily summary (one row per worker per day) ───────────────────────────
 
@@ -112,7 +124,10 @@ class AttendanceController extends Controller
         return response()->json($query->paginate(50));
     }
 
-    // ─── Worker templates for frontend 1:N SGIBIOSRV matching ────────────────
+    // ─── Deployed workers for the fingerprint screen ─────────────────────────
+    // NOTE: fingerprint templates are NEVER returned to the client. Matching is
+    // performed server-side via the identify() endpoint. This list only carries
+    // display metadata + whether each worker is enrolled.
 
     public function workerTemplates(Request $request): JsonResponse
     {
@@ -166,7 +181,7 @@ class AttendanceController extends Controller
                 'vendor'                => $worker->vendor?->name,
                 'assignment_id'         => null,
                 'pending_type'          => $pendingType,
-                'template'              => decrypt($worker->fingerprint_template),
+                'enrolled'              => true,
             ];
         });
 
@@ -225,6 +240,84 @@ class AttendanceController extends Controller
         return response()->json($result);
     }
 
+    // ─── Identify worker by fingerprint (server-side 1:N match) ──────────────
+    // The probe template is matched against stored templates ON THE SERVER so
+    // raw templates never reach the browser and the match cannot be forged
+    // client-side. Returns the matched worker (no template) or 404.
+
+    public function identify(Request $request): JsonResponse
+    {
+        $request->validate([
+            'company_id'     => 'required|integer|exists:companies,id',
+            'probe_template' => 'required|string',
+        ]);
+
+        $user      = $request->user();
+        $companyId = (int) $request->input('company_id');
+
+        abort_unless($user->isSuperAdmin() || $user->isCompanyUser(), 403, 'Not permitted.');
+        if ($user->isCompanyUser() && $user->company_id !== $companyId) {
+            return response()->json(['message' => 'Unauthorized company.'], 403);
+        }
+
+        $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('start_date', '<=', today())
+            ->where('end_date', '>=', today())
+            ->pluck('worker_id');
+
+        $workers = Worker::with('vendor')
+            ->whereIn('id', $activeWorkerIds)
+            ->whereNotNull('fingerprint_template')
+            ->where('status', Worker::STATUS_ACTIVE)
+            ->get();
+
+        if ($workers->isEmpty()) {
+            return response()->json(['message' => 'No enrolled workers deployed today.'], 404);
+        }
+
+        $best = ['worker' => null, 'score' => 0];
+
+        if ($this->simulationEnabled()) {
+            // Demo only: no real finger, so synthesise an identification.
+            $worker = $workers->random();
+            $best = ['worker' => $worker, 'score' => 150 + random_int(0, 49)];
+        } else {
+            $probe = $request->input('probe_template');
+            foreach ($workers as $worker) {
+                $result = $this->biometric->matchTemplates($probe, decrypt($worker->fingerprint_template));
+                if (($result['score'] ?? 0) > $best['score']) {
+                    $best = ['worker' => $worker, 'score' => $result['score']];
+                }
+            }
+        }
+
+        if (! $best['worker'] || $best['score'] < $this->biometric->threshold()) {
+            return response()->json(['message' => 'No fingerprint match found.'], 404);
+        }
+
+        $worker       = $best['worker'];
+        $gateLocation = ($user->isGateUser() && $user->location_name)
+            ? $user->location_name
+            : AttendanceLog::DEFAULT_LOCATION_NAME;
+
+        $lastLog = AttendanceLog::where('worker_id', $worker->id)
+            ->where('company_id', $companyId)
+            ->where('location_name', $gateLocation)
+            ->today()->valid()
+            ->orderByDesc('marked_at')
+            ->first();
+
+        return response()->json([
+            'worker_id'    => $worker->id,
+            'name'         => $worker->name,
+            'photo_url'    => $worker->photo_url,
+            'vendor'       => $worker->vendor?->name,
+            'pending_type' => ($lastLog?->type === AttendanceLog::TYPE_IN) ? 'OUT' : 'IN',
+            'score'        => $best['score'],
+        ]);
+    }
+
     // ─── Mark attendance ──────────────────────────────────────────────────────
 
     public function mark(Request $request): JsonResponse
@@ -236,6 +329,7 @@ class AttendanceController extends Controller
             'type'              => 'required|in:IN,OUT',
             'method'            => 'required|in:fingerprint,photo,manual,id_card',
             'fingerprint_score' => 'nullable|integer|min:0|max:200',
+            'probe_template'    => 'nullable|string',
             'override_reason'   => 'nullable|string',
             'gate'              => 'nullable|string',
             'device_id'         => 'nullable|string',
@@ -245,6 +339,44 @@ class AttendanceController extends Controller
         ]);
 
         $user = $request->user();
+
+        // Only super-admins and company-side users may mark attendance.
+        abort_unless($user->isSuperAdmin() || $user->isCompanyUser(), 403, 'Not permitted to mark attendance.');
+
+        // Company users may only mark for their own company.
+        if ($user->isCompanyUser() && (int) $data['company_id'] !== (int) $user->company_id) {
+            return response()->json(['message' => 'Unauthorized company.'], 403);
+        }
+
+        // The worker must be actively deployed at this company today.
+        $deployed = WorkerAssignment::where('worker_id', $data['worker_id'])
+            ->where('company_id', $data['company_id'])
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('start_date', '<=', today())
+            ->where('end_date', '>=', today())
+            ->exists();
+        if (! $deployed) {
+            return response()->json(['message' => 'Worker is not deployed at this company today.'], 422);
+        }
+
+        // For fingerprint marks, the score is established SERVER-SIDE — never
+        // trust a client-asserted score. In simulation we accept without a real
+        // match; otherwise we re-verify the probe against the worker's template.
+        $serverScore = null;
+        if ($data['method'] === 'fingerprint') {
+            if ($this->simulationEnabled()) {
+                $serverScore = 150 + random_int(0, 49);
+            } else {
+                $worker = Worker::findOrFail($data['worker_id']);
+                abort_unless($worker->fingerprint_template, 422, 'Worker has no enrolled fingerprint.');
+                abort_unless(! empty($data['probe_template']), 422, 'Fingerprint probe required.');
+                $result = $this->biometric->matchTemplates($data['probe_template'], decrypt($worker->fingerprint_template));
+                if (! ($result['matched'] ?? false)) {
+                    return response()->json(['message' => 'Fingerprint did not match this worker.'], 422);
+                }
+                $serverScore = $result['score'];
+            }
+        }
 
         // Gate users always stamp their configured location — ignore frontend values
         if ($user->isGateUser() && $user->location_name) {
@@ -276,7 +408,7 @@ class AttendanceController extends Controller
             'marked_at'         => now(),
             'marked_by'         => $user->id,
             'method'            => $data['method'],
-            'fingerprint_score' => $data['fingerprint_score'] ?? null,
+            'fingerprint_score' => $serverScore,
             'auth_proof_path'   => $authProofPath,
             'override_reason'   => $data['override_reason'] ?? null,
             'gate'              => $data['gate'] ?? null,
@@ -307,8 +439,11 @@ class AttendanceController extends Controller
     public function proofPhoto(Request $request, AttendanceLog $log)
     {
         abort_unless($log->auth_proof_path, 404);
+        $user = $request->user();
         abort_unless(
-            $request->user()->isSuperAdmin() || $request->user()->company_id === $log->company_id,
+            $user->isSuperAdmin()
+            || ($user->isCompanyUser() && $user->company_id === $log->company_id)
+            || ($user->isVendorUser() && $log->worker?->vendor_id === $user->vendor_id),
             403
         );
 
@@ -332,8 +467,12 @@ class AttendanceController extends Controller
 
     public function workerHistory(Request $request, Worker $worker): JsonResponse
     {
+        $user = $request->user();
+        $this->assertWorkerVisible($user, $worker);
+
         $logs = AttendanceLog::with(['company:id,name', 'markedBy:id,name'])
             ->where('worker_id', $worker->id)
+            ->when($user->isCompanyUser(), fn($q) => $q->where('company_id', $user->company_id))
             ->when($request->from, fn($q, $d) => $q->whereDate('marked_at', '>=', $d))
             ->when($request->to,   fn($q, $d) => $q->whereDate('marked_at', '<=', $d))
             ->orderByDesc('marked_at')
@@ -391,6 +530,8 @@ class AttendanceController extends Controller
             ->whereDate('marked_at', '<=', $request->to)
             ->where('is_valid', true)
             ->when($user->isCompanyUser(), fn($q) => $q->where('company_id', $user->company_id))
+            ->when($user->isVendorUser(), fn($q) =>
+                $q->whereHas('worker', fn($wq) => $wq->where('vendor_id', $user->vendor_id)))
             ->when($request->company_id && $user->isSuperAdmin(), fn($q) => $q->where('company_id', $request->company_id))
             ->when($request->worker_id, fn($q) => $q->where('worker_id', $request->worker_id))
             ->orderBy('marked_at');
@@ -419,6 +560,25 @@ class AttendanceController extends Controller
         }
 
         return null;
+    }
+
+    /** Ensure the actor may see this worker (tenant scoping). Aborts 403 otherwise. */
+    private function assertWorkerVisible(User $user, Worker $worker): void
+    {
+        if ($user->isSuperAdmin()) {
+            return;
+        }
+        if ($user->isVendorUser()) {
+            abort_unless($worker->vendor_id === $user->vendor_id, 403, 'Access denied.');
+            return;
+        }
+        if ($user->isCompanyUser()) {
+            $related = AttendanceLog::where('worker_id', $worker->id)->where('company_id', $user->company_id)->exists()
+                || WorkerAssignment::where('worker_id', $worker->id)->where('company_id', $user->company_id)->exists();
+            abort_unless($related, 403, 'Worker not associated with your company.');
+            return;
+        }
+        abort(403, 'Access denied.');
     }
 
     private function lockActiveDeployment(int $workerId, int $companyId): void

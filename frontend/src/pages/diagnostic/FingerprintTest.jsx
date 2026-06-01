@@ -8,19 +8,10 @@ import {
   Fingerprint, RefreshCw, Play, Square,
   CheckCircle, AlertTriangle, Info, Activity, Cpu, Zap, ExternalLink,
 } from "lucide-react";
-
-const SGIBIOSRV = "https://localhost:8443";
-
-const SGI_ERRORS = {
-  51: "Capture failed",
-  52: "Memory failure",
-  53: "Device not found — check USB connection",
-  54: "Timeout — no finger detected",
-  55: "Device busy",
-  56: "Poor image quality",
-  57: "Capture failed",
-  63: "SecuGen service not running",
-};
+import {
+  captureFingerprint, matchScore as sgiMatchScore,
+  SGI_ERRORS, BIOMETRIC_URL,
+} from "@/lib/biometric";
 
 const SCAN = { IDLE: "idle", SCANNING: "scanning", DONE: "done", ERROR: "error" };
 
@@ -88,14 +79,7 @@ export default function FingerprintTest() {
     abortRef.current = new AbortController();
 
     try {
-      const res = await fetch(`${SGIBIOSRV}/SGIFPCapture`, {
-        method: "POST",
-        headers: { "Content-Type": "text/plain;charset=UTF-8" },
-        body: `Timeout=10000&Quality=${minQuality}&licstr=&templateFormat=ISO&imageWSQRate=0.75`,
-        signal: abortRef.current.signal,
-      });
-
-      const data = await res.json();
+      const data = await captureFingerprint({ quality: minQuality, signal: abortRef.current.signal });
       addLog(`← ErrorCode=${data.ErrorCode}  Quality=${data.ImageQuality ?? "—"}  NFIQ=${data.NFIQ ?? "—"}  ${data.ImageWidth ?? "?"}×${data.ImageHeight ?? "?"}px  ${data.ImageDPI ?? "?"}dpi`);
 
       if (data.ErrorCode === 0) {
@@ -330,13 +314,7 @@ export default function FingerprintTest() {
               onClick={async () => {
                 addLog(`→ SGIMatchScore  comparing 2 templates`);
                 try {
-                  const body = `template1=${encodeURIComponent(templates[0])}&template2=${encodeURIComponent(templates[1])}&licstr=&templateFormat=ISO`;
-                  const res = await fetch(`${SGIBIOSRV}/SGIMatchScore`, {
-                    method: "POST",
-                    headers: { "Content-Type": "text/plain;charset=UTF-8" },
-                    body,
-                  });
-                  const d = await res.json();
+                  const d = await sgiMatchScore(templates[0], templates[1]);
                   addLog(`← ErrorCode=${d.ErrorCode}  MatchingScore=${d.MatchingScore ?? "—"}`);
                   setMatchScore(d.ErrorCode === 0 ? (d.MatchingScore ?? 0) : null);
                 } catch (e) {
