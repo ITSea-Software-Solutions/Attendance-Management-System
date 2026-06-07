@@ -11,6 +11,13 @@ RUN php -r "copy('https://getcomposer.org/installer','/tmp/composer-setup.php');
     && php /tmp/composer-setup.php --install-dir=/usr/local/bin --filename=composer \
     && rm -f /tmp/composer-setup.php
 
+# Composer 2.8+ blocks installing packages flagged by security advisories by
+# default. Every laravel/framework in the skeleton's ^11.31 range is currently
+# flagged, so create-project/require fail to resolve. Disable the block so the
+# build completes. NOTE: acceptable for the test/demo deployment only — before a
+# real production build, bump laravel/framework to a patched version and remove this.
+RUN composer config --global policy.advisories.block false
+
 WORKDIR /app
 
 # Create fresh Laravel 11 project (downloads from Packagist)
