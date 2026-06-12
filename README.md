@@ -302,3 +302,10 @@ DELETE /api/workers/assign/{id}                          Cancel assignment
 - [ ] Restrict DB port (3306) — do not expose publicly
 - [ ] Set up automated MySQL backups
 - [ ] Test fingerprint enrollment and matching end-to-end before go-live
+
+
+Role	Email	Password
+Super Admin	superadmin@ams.local	Admin@12345
+Company Admin	company@ams.local	Admin@12345
+Gate User	gate@ams.local	Admin@12345
+Vendor Admin	vendor@ams.local	Admin@12345
