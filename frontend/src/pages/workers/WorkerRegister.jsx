@@ -184,6 +184,9 @@ export default function WorkerRegister() {
   const [aadhaarData, setAadhaar]   = useState(null);
   const [aadhaarPdf, setAadhaarPdf] = useState(null);
   const [changeDoc, setChangeDoc]   = useState(false); // edit: toggle to re-upload
+  // Aadhaar is MANDATORY: manual 12-digit entry when there is no PDF to extract
+  const [manualEntry, setManualEntry]     = useState(false);
+  const [manualAadhaar, setManualAadhaar] = useState("");
 
   // Step 2
   const [reEnrollFP, setReEnrollFP] = useState(false); // edit: toggle to re-enroll
@@ -291,8 +294,24 @@ export default function WorkerRegister() {
     toast.success("Aadhaar data auto-filled. Please review before saving.");
   };
 
+  // Worker already has Aadhaar on file (edit mode) → no need to re-enter
+  const hasExistingAadhaar = isEdit && !!existingWorker?.aadhaar_number_masked;
+
+  const validManualAadhaar = /^\d{12}$/.test(manualAadhaar.trim());
+
+  // Aadhaar path, no PDF: manual 12-digit entry
+  const handleManualAadhaarNext = () => {
+    if (!validManualAadhaar) { toast.error("Enter the 12-digit Aadhaar number."); return; }
+    setStep(1);
+  };
+
   const handleIdDocNext = () => {
     if (!idNumber.trim()) { toast.error("Please enter the ID number."); return; }
+    // Aadhaar stays mandatory even when the primary document is another ID type
+    if (!hasExistingAadhaar && !aadhaarData && !validManualAadhaar) {
+      toast.error("Aadhaar is mandatory — enter the worker's 12-digit Aadhaar number.");
+      return;
+    }
     setStep(1);
   };
 
@@ -304,6 +323,8 @@ export default function WorkerRegister() {
         ...data,
         vendor_id:              data.vendor_id ? Number(data.vendor_id) : undefined,
         aadhaar_number_masked:  aadhaarData?.aadhaar_number_masked,
+        aadhaar_hash:           aadhaarData?.aadhaar_hash,          // extract path
+        aadhaar_number:         manualAadhaar.trim() || undefined,  // manual path (hashed server-side)
         aadhaar_data_extracted: aadhaarData ?? undefined,
       };
       if (isEdit) return api.put(`/workers/${workerId}`, payload).then(r => r.data);
@@ -554,6 +575,8 @@ export default function WorkerRegister() {
                         setAadhaarPhoto(null);
                         setPhotoFile(null);
                         setPhotoPreview(null);
+                        setManualEntry(false);
+                        setManualAadhaar("");
                       }}
                       className={`px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
                         idType === t.value
@@ -567,8 +590,35 @@ export default function WorkerRegister() {
                 </div>
               </div>
 
-              {idType === "aadhaar" && (
-                <AadhaarFlow onExtracted={handleAadhaarExtracted} onSkip={() => setStep(1)} />
+              {idType === "aadhaar" && !manualEntry && (
+                <AadhaarFlow onExtracted={handleAadhaarExtracted} onSkip={() => setManualEntry(true)} />
+              )}
+
+              {idType === "aadhaar" && manualEntry && (
+                <div className="space-y-4">
+                  <div>
+                    <label className="label">Aadhaar Number * <span className="text-gray-400 font-normal">(12 digits — required)</span></label>
+                    <input
+                      value={manualAadhaar}
+                      onChange={(e) => setManualAadhaar(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                      className="input font-mono tracking-widest"
+                      placeholder="XXXXXXXXXXXX"
+                      inputMode="numeric"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Only the last 4 digits are stored; the full number is used once to
+                      prevent duplicate registrations, then discarded.
+                    </p>
+                  </div>
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setManualEntry(false)} className="btn-secondary">
+                      Back to PDF upload
+                    </button>
+                    <button type="button" onClick={handleManualAadhaarNext} className="btn-primary" disabled={!validManualAadhaar}>
+                      Continue to Details
+                    </button>
+                  </div>
+                </div>
               )}
 
               {idType !== "aadhaar" && (
@@ -582,6 +632,23 @@ export default function WorkerRegister() {
                       placeholder={idType === "pan" ? "ABCDE1234F" : "Enter ID number"}
                     />
                   </div>
+
+                  {!hasExistingAadhaar && !aadhaarData && (
+                    <div>
+                      <label className="label">Aadhaar Number * <span className="text-gray-400 font-normal">(mandatory for every worker)</span></label>
+                      <input
+                        value={manualAadhaar}
+                        onChange={(e) => setManualAadhaar(e.target.value.replace(/\D/g, "").slice(0, 12))}
+                        className="input font-mono tracking-widest"
+                        placeholder="XXXXXXXXXXXX"
+                        inputMode="numeric"
+                      />
+                      <p className="text-xs text-gray-400 mt-1">
+                        Aadhaar is required even when the primary document is a different ID.
+                        Only the last 4 digits are stored.
+                      </p>
+                    </div>
+                  )}
 
                   <div>
                     <label className="label">

@@ -13,7 +13,8 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\UserController;
 
 // ─── Public ───────────────────────────────────────────────────────────────────
-Route::post('/auth/login', [AuthController::class, 'login']);
+// Throttled: max 5 attempts per minute per IP (brute-force protection)
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {

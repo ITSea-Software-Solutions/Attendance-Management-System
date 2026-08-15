@@ -72,14 +72,14 @@ class AadhaarController extends Controller
             'aadhaar_' . $worker->id . '_' . now()->timestamp . '.pdf'
         );
 
-        $worker->update([
+        $worker->forceFill([
             'aadhaar_pdf_path'      => $path,
             'aadhaar_number_masked' => $request->input('aadhaar_number_masked'),
-        ]);
+        ])->save();
 
         // Activate worker if fingerprint is also done
         if ($worker->hasFingerprint()) {
-            $worker->update(['status' => Worker::STATUS_ACTIVE]);
+            $worker->forceFill(['status' => Worker::STATUS_ACTIVE])->save();
         }
 
         $this->audit->log($request->user()->id, 'aadhaar_uploaded', Worker::class, $worker->id, [

@@ -163,7 +163,12 @@ class WorkerController extends Controller
             'pin'                    => 'nullable|string|size:6',
             'phone'                  => 'nullable|string|max:15',
             'mobile'                 => 'nullable|string|max:15',
-            'aadhaar_number_masked'  => 'nullable|string',
+            // Aadhaar is MANDATORY — via one of two paths:
+            //   extract path: masked + hash returned by /aadhaar/extract
+            //   manual path : full 12-digit number (hashed & masked here, then discarded)
+            'aadhaar_number'         => 'nullable|string|regex:/^\d{12}$/',
+            'aadhaar_number_masked'  => 'nullable|string|max:20',
+            'aadhaar_hash'           => 'nullable|string|size:64',
             'aadhaar_data_extracted' => 'nullable|array',
             'notes'                  => 'nullable|string',
             'vendor_id'              => [
@@ -172,6 +177,8 @@ class WorkerController extends Controller
                 'integer',
                 'exists:vendors,id',
             ],
+        ], [
+            'aadhaar_number.regex' => 'Aadhaar number must be exactly 12 digits.',
         ]);
 
         if ($user->isVendorUser()) {
@@ -182,16 +189,64 @@ class WorkerController extends Controller
             return response()->json(['message' => 'vendor_id is required.'], 422);
         }
 
-        $data['registered_by'] = $user->id;
-        $data['status']        = Worker::STATUS_PENDING;
+        // ── Aadhaar mandatory + dedup ─────────────────────────────────────────
+        $resolved = $this->resolveAadhaar($data);
+        if ($resolved instanceof JsonResponse) {
+            return $resolved; // validation / duplicate error
+        }
+        [$aadhaarMasked, $aadhaarHash] = $resolved;
+        unset($data['aadhaar_number'], $data['aadhaar_hash']); // never persist the raw number; hash set via forceFill
+        $data['aadhaar_number_masked'] = $aadhaarMasked;
 
-        $worker = Worker::create($data);
+        $worker = new Worker($data);
+        $worker->forceFill([
+            'aadhaar_hash'  => $aadhaarHash,
+            'status'        => Worker::STATUS_PENDING,
+            'registered_by' => $user->id,
+        ])->save();
 
         $this->audit->log($user->id, 'worker_created', Worker::class, $worker->id, [
             'worker_name' => $worker->name,
         ]);
 
         return response()->json($worker->load('vendor'), 201);
+    }
+
+    /**
+     * Resolve the mandatory Aadhaar input into [masked, hash].
+     * Accepts either the extract-path pair (masked + hash) or a manual full
+     * 12-digit number (hashed + masked here; the raw number is discarded).
+     * Returns a 422 JsonResponse when missing or already registered.
+     */
+    private function resolveAadhaar(array $data, ?int $ignoreWorkerId = null): array|JsonResponse
+    {
+        if (! empty($data['aadhaar_number'])) {
+            $num    = preg_replace('/\D+/', '', $data['aadhaar_number']);
+            $masked = 'XXXX-XXXX-' . substr($num, -4);
+            $hash   = \App\Services\AadhaarService::hashNumber($num);
+        } elseif (! empty($data['aadhaar_number_masked']) && ! empty($data['aadhaar_hash'])) {
+            $masked = $data['aadhaar_number_masked'];
+            $hash   = $data['aadhaar_hash'];
+        } else {
+            return response()->json([
+                'message' => 'Aadhaar is mandatory.',
+                'errors'  => ['aadhaar_number' => ['Aadhaar is mandatory — upload the Aadhaar PDF or enter the 12-digit number.']],
+            ], 422);
+        }
+
+        $dupe = Worker::withTrashed()
+            ->where('aadhaar_hash', $hash)
+            ->when($ignoreWorkerId, fn ($q) => $q->where('id', '!=', $ignoreWorkerId))
+            ->first();
+
+        if ($dupe) {
+            return response()->json([
+                'message' => 'Duplicate Aadhaar.',
+                'errors'  => ['aadhaar_number' => ['A worker with this Aadhaar number is already registered.']],
+            ], 422);
+        }
+
+        return [$masked, $hash];
     }
 
     public function show(Request $request, Worker $worker): JsonResponse
@@ -215,9 +270,27 @@ class WorkerController extends Controller
             'pin'     => 'nullable|string|size:6',
             'phone'   => 'nullable|string|max:15',
             'notes'   => 'nullable|string',
+            // Optional on edit: add/replace Aadhaar (legacy workers may lack it)
+            'aadhaar_number'        => 'nullable|string|regex:/^\d{12}$/',
+            'aadhaar_number_masked' => 'nullable|string|max:20',
+            'aadhaar_hash'          => 'nullable|string|size:64',
+        ], [
+            'aadhaar_number.regex' => 'Aadhaar number must be exactly 12 digits.',
         ]);
 
-        $worker->update($data);
+        // If any Aadhaar input was supplied, resolve + dedup (ignoring this worker)
+        if (! empty($data['aadhaar_number']) || (! empty($data['aadhaar_number_masked']) && ! empty($data['aadhaar_hash']))) {
+            $resolved = $this->resolveAadhaar($data, $worker->id);
+            if ($resolved instanceof JsonResponse) {
+                return $resolved;
+            }
+            [$masked, $hash] = $resolved;
+            $worker->forceFill(['aadhaar_hash' => $hash]);
+            $data['aadhaar_number_masked'] = $masked;
+        }
+        unset($data['aadhaar_number'], $data['aadhaar_hash']);
+
+        $worker->fill($data)->save();
         $this->audit->log($request->user()->id, 'worker_updated', Worker::class, $worker->id);
 
         return response()->json($worker->fresh());
@@ -244,12 +317,12 @@ class WorkerController extends Controller
             'quality'  => 'required|integer|min:0|max:100',
         ]);
 
-        $worker->update([
+        $worker->forceFill([
             'fingerprint_template'    => encrypt($data['template']),
             'fingerprint_quality'     => $data['quality'],
             'fingerprint_enrolled_at' => now(),
             'status'                  => Worker::STATUS_ACTIVE, // active once fingerprint is enrolled
-        ]);
+        ])->save();
 
         $this->audit->log($request->user()->id, 'fingerprint_enrolled', Worker::class, $worker->id, [
             'quality' => $data['quality'],
@@ -267,12 +340,12 @@ class WorkerController extends Controller
     {
         $this->authorizeWorkerAccess($request->user(), $worker);
 
-        $worker->update([
+        $worker->forceFill([
             'fingerprint_template'    => null,
             'fingerprint_quality'     => null,
             'fingerprint_enrolled_at' => null,
             'status'                  => Worker::STATUS_PENDING,
-        ]);
+        ])->save();
 
         $this->audit->log($request->user()->id, 'fingerprint_deleted', Worker::class, $worker->id);
 
@@ -306,14 +379,14 @@ class WorkerController extends Controller
         }
 
         $path = $request->file('photo')->store('workers/photos', 'private');
-        $worker->update(['photo_path' => $path]);
+        $worker->forceFill(['photo_path' => $path])->save();
 
         return response()->json(['message' => 'Photo uploaded.', 'photo_path' => $path]);
     }
 
     public function activate(Request $request, Worker $worker): JsonResponse
     {
-        $worker->update(['status' => Worker::STATUS_ACTIVE]);
+        $worker->forceFill(['status' => Worker::STATUS_ACTIVE])->save();
         $this->audit->log($request->user()->id, 'worker_activated', Worker::class, $worker->id);
 
         return response()->json(['message' => 'Worker activated.']);
@@ -321,7 +394,7 @@ class WorkerController extends Controller
 
     public function deactivate(Request $request, Worker $worker): JsonResponse
     {
-        $worker->update(['status' => Worker::STATUS_INACTIVE]);
+        $worker->forceFill(['status' => Worker::STATUS_INACTIVE])->save();
         $this->audit->log($request->user()->id, 'worker_deactivated', Worker::class, $worker->id);
 
         return response()->json(['message' => 'Worker deactivated.']);

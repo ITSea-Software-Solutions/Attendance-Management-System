@@ -15,6 +15,13 @@ class Worker extends Model
     public const STATUS_INACTIVE = 'inactive';
     public const STATUS_BLOCKED  = 'blocked';
 
+    /**
+     * Mass-assignable = user-supplied profile fields ONLY.
+     * Sensitive/system fields (status, registered_by, aadhaar_hash,
+     * aadhaar_pdf_path, photo_path, fingerprint_*, face_*) are deliberately
+     * NOT fillable — they are written via forceFill() at explicit,
+     * authorized call sites so request payloads can never mass-assign them.
+     */
     protected $fillable = [
         'vendor_id',
         'name',
@@ -27,21 +34,13 @@ class Worker extends Model
         'phone',
         'mobile',
         'aadhaar_number_masked',
-        'aadhaar_pdf_path',
         'aadhaar_data_extracted',
-        'photo_path',
-        'fingerprint_template',
-        'fingerprint_enrolled_at',
-        'fingerprint_quality',
-        'face_descriptor',
-        'face_enrolled_at',
-        'status',
         'notes',
-        'registered_by',
     ];
 
     protected $hidden = [
         'aadhaar_pdf_path',
+        'aadhaar_hash',
         'fingerprint_template',
     ];
 

@@ -68,7 +68,8 @@ class AadhaarParser:
         logger.debug(f"Extracted text length: {len(text)}")
 
         data = self._parse_fields(text)
-        data["raw_text"]    = text[:500]  # first 500 chars for debug
+        # SECURITY: raw_text intentionally NOT returned — it contained the full
+        # Aadhaar number and risked landing in downstream logs (H1).
         data["photo_base64"] = photo
 
         return {"success": True, "data": data}

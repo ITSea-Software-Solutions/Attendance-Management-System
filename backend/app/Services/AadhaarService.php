@@ -61,10 +61,14 @@ class AadhaarService
      */
     private function sanitizeExtractedData(array $data): array
     {
-        // Mask the full Aadhaar number — only keep last 4 digits
+        // Mask the full Aadhaar number — only keep last 4 digits.
+        // Also derive a keyed hash (HMAC-SHA256 with APP_KEY) used ONLY for
+        // duplicate detection; the full number is discarded right here and is
+        // never persisted, logged, or sent to the frontend.
         if (! empty($data['aadhaar_number'])) {
-            $num = preg_replace('/\s+/', '', $data['aadhaar_number']);
+            $num = preg_replace('/\D+/', '', $data['aadhaar_number']);
             $data['aadhaar_number_masked'] = 'XXXX-XXXX-' . substr($num, -4);
+            $data['aadhaar_hash']          = self::hashNumber($num);
             unset($data['aadhaar_number']); // never send raw Aadhaar number to frontend
         }
 
@@ -77,8 +81,19 @@ class AadhaarService
             'state'                 => $data['state'] ?? null,
             'pin'                   => $data['pin'] ?? null,
             'aadhaar_number_masked' => $data['aadhaar_number_masked'] ?? null,
+            'aadhaar_hash'          => $data['aadhaar_hash'] ?? null,
             'photo_base64'          => $data['photo_base64'] ?? null,
             'raw_text_available'    => ! empty($data['raw_text']),
         ];
+    }
+
+    /**
+     * Keyed hash of a full 12-digit Aadhaar number for dedup lookups.
+     * HMAC (not plain SHA) so the 10^12 number space can't be brute-forced
+     * offline from a leaked hash without also having APP_KEY.
+     */
+    public static function hashNumber(string $fullNumber): string
+    {
+        return hash_hmac('sha256', preg_replace('/\D+/', '', $fullNumber), config('app.key'));
     }
 }
