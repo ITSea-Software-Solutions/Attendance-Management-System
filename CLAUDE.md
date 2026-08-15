@@ -290,7 +290,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 
 ---
 
-## Feature Status (as of 2026-04-27)
+## Feature Status (as of 2026-08-15 — v1.0.0)
 
 ### Implemented & Working
 - [x] Multi-company, multi-vendor architecture with pivot approval flow
@@ -313,6 +313,12 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] Vendor list: company users see approval-status tabs (Approved/Pending/Suspended/Rejected/All)
 - [x] Role-scoped data: each role sees only their relevant data
 - [x] Full audit logging for sensitive actions
+- [x] **Aadhaar MANDATORY at registration** — PDF extract (masked + HMAC hash) or manual 12-digit entry; raw number never persisted
+- [x] **Aadhaar dedup across vendors** — unique `workers.aadhaar_hash` (HMAC-SHA256, keyed by APP_KEY); duplicate → 422
+- [x] Login rate-limiting (throttle 5/min per IP on /auth/login)
+- [x] Worker `$fillable` hardened — system/biometric fields writable only via forceFill()
+- [x] Downloads page (`/downloads`, all roles) — docs served from frontend/public/docs; app builds land here later
+- [x] Flutter client app design agreed → see `CLIENT_APP_DESIGN.md` (app lives under `client/`, built on Windows)
 - [x] AuditService used in every write operation
 
 ### Not Yet Implemented / Future
