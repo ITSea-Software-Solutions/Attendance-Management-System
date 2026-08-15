@@ -1,0 +1,1505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>AMS — Developer Guide</title>
+<style>
+:root{
+  --bg:#0f172a; --bg2:#1e293b; --bg3:#334155;
+  --accent:#6366f1; --accent2:#818cf8;
+  --green:#22c55e; --yellow:#f59e0b; --red:#ef4444; --cyan:#06b6d4;
+  --orange:#f97316; --purple:#a855f7;
+  --text:#f1f5f9; --muted:#94a3b8; --border:#334155;
+  --radius:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  background:#f8fafc;color:#1e293b;line-height:1.7;font-size:15px}
+
+/* NAV */
+.topnav{position:sticky;top:0;z-index:100;background:var(--bg);
+  display:flex;align-items:center;overflow-x:auto;white-space:nowrap;
+  border-bottom:2px solid var(--accent)}
+.topnav .brand{background:var(--accent);color:#fff;font-weight:700;
+  font-size:14px;padding:12px 20px;flex-shrink:0;letter-spacing:.5px}
+.topnav a{color:#94a3b8;text-decoration:none;padding:12px 14px;
+  font-size:12px;flex-shrink:0;transition:color .15s}
+.topnav a:hover{color:#fff}
+
+/* HERO */
+.hero{background:var(--bg);color:#fff;padding:56px 20px 48px;text-align:center}
+.hero h1{font-size:2.2rem;font-weight:800;letter-spacing:-.5px}
+.hero h1 span{color:var(--accent2)}
+.hero p{margin-top:10px;color:#94a3b8;font-size:1rem}
+.tags{margin-top:20px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.tag{padding:4px 12px;border-radius:999px;font-size:11px;font-weight:600;
+  background:var(--bg2);color:var(--accent2);border:1px solid var(--accent)}
+
+/* PAGE */
+.page{max-width:1040px;margin:0 auto;padding:0 20px 80px}
+
+/* SECTIONS */
+section{margin-top:44px}
+.sec-title{font-size:1.3rem;font-weight:700;color:var(--bg);
+  border-left:4px solid var(--accent);padding-left:12px;
+  margin-bottom:22px;display:flex;align-items:center;gap:10px}
+.sec-title .num{background:var(--accent);color:#fff;width:28px;height:28px;
+  border-radius:50%;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;flex-shrink:0}
+
+/* CARDS */
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:var(--radius);
+  box-shadow:0 1px 4px rgba(0,0,0,.06);padding:22px;margin-bottom:18px}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:12px;color:#1e293b}
+
+/* TWO COL */
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:18px}
+
+/* CODE BLOCKS */
+.code{background:var(--bg);color:#e2e8f0;border-radius:var(--radius);
+  padding:16px 18px;font-family:'Courier New',Courier,monospace;font-size:12.5px;
+  line-height:1.7;overflow-x:auto;margin:10px 0;position:relative}
+.code .c{color:#64748b} /* comment */
+.code .s{color:#86efac} /* string */
+.code .k{color:#93c5fd} /* keyword */
+.code .f{color:#fde68a} /* function */
+.code .p{color:#f9a8d4} /* path */
+.code .n{color:#fdba74} /* number */
+.code .t{color:#67e8f9} /* type/class */
+
+/* FILEPATH CHIP */
+.fp{display:inline-block;background:#e0e7ff;color:#3730a3;border-radius:4px;
+  padding:2px 8px;font-size:11px;font-family:monospace;margin-bottom:8px}
+
+/* TABLE */
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{background:#f1f5f9;text-align:left;padding:9px 13px;font-weight:600;
+  border-bottom:2px solid #e2e8f0;color:#374151}
+td{padding:9px 13px;border-bottom:1px solid #e2e8f0;vertical-align:top}
+tr:last-child td{border-bottom:none}
+
+/* DIAGRAM */
+.diagram{background:#fff;border:1px solid #e2e8f0;border-radius:var(--radius);
+  box-shadow:0 1px 4px rgba(0,0,0,.06);padding:16px;margin:20px 0;overflow-x:auto}
+.diagram svg{display:block;margin:0 auto;max-width:100%}
+
+/* CALLOUT */
+.callout{padding:12px 16px;border-radius:8px;border-left:4px solid;
+  margin:14px 0;font-size:.88rem;line-height:1.65}
+.callout.warn{background:#fffbeb;border-color:#f59e0b;color:#92400e}
+.callout.info{background:#eff6ff;border-color:#3b82f6;color:#1e40af}
+.callout.tip {background:#f0fdf4;border-color:#22c55e;color:#166534}
+.callout.red {background:#fef2f2;border-color:#ef4444;color:#991b1b}
+.callout strong{font-weight:700}
+
+/* STEPS */
+.steps{display:flex;flex-direction:column;gap:12px}
+.step{display:flex;gap:14px;align-items:flex-start;padding:14px;
+  background:#f8fafc;border-radius:8px;border-left:3px solid var(--accent)}
+.step .sn{width:26px;height:26px;border-radius:50%;background:var(--accent);
+  color:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:12px;font-weight:700;flex-shrink:0}
+.step h4{font-size:.9rem;font-weight:700;margin-bottom:3px}
+.step p,.step .code{font-size:.88rem}
+
+/* FEATURE BADGE */
+.badge{display:inline-block;padding:2px 9px;border-radius:999px;
+  font-size:11px;font-weight:600;margin-right:4px}
+.bg-purple{background:#ede9fe;color:#6d28d9}
+.bg-blue{background:#dbeafe;color:#1d4ed8}
+.bg-cyan{background:#cffafe;color:#0e7490}
+.bg-orange{background:#ffedd5;color:#c2410c}
+.bg-green{background:#dcfce7;color:#15803d}
+
+@media print{.topnav{display:none}.hero{background:var(--bg)!important;-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@media(max-width:600px){.hero h1{font-size:1.5rem}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="topnav">
+  <span class="brand">AMS — Dev Guide</span>
+  <a href="#arch">Architecture</a>
+  <a href="#auth">Auth Flow</a>
+  <a href="#roles">Roles</a>
+  <a href="#schema">DB Schema</a>
+  <a href="#backend">Backend</a>
+  <a href="#frontend">Frontend</a>
+  <a href="#fingerprint">Fingerprint</a>
+  <a href="#vendor-flow">Vendor Flow</a>
+  <a href="#backend-changes">Push Changes</a>
+  <a href="#new-feature">New Feature</a>
+  <a href="#debug">Debug</a>
+  <a href="#hosting">Hosting</a>
+  <a href="#commands">Commands</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>AMS <span>Developer Guide</span></h1>
+  <p>Architecture · Code flow · Debugging · Adding features · Deployment</p>
+  <div class="tags">
+    <span class="tag">Laravel 11</span><span class="tag">React 18</span>
+    <span class="tag">MySQL 8</span><span class="tag">Redis</span>
+    <span class="tag">Docker Compose</span><span class="tag">Vite</span>
+    <span class="tag">TanStack Query</span><span class="tag">Sanctum</span>
+    <span class="tag">SecuGen SGIBIOSRV</span><span class="tag">Python FastAPI</span>
+  </div>
+</div>
+
+<div class="page">
+
+<!-- ══════════════════════════════════════════════════
+     1. ARCHITECTURE
+══════════════════════════════════════════════════ -->
+<section id="arch">
+  <div class="sec-title"><span class="num">1</span>Architecture &amp; Docker Services</div>
+
+  <!-- Docker Architecture SVG -->
+  <div class="diagram">
+    <svg viewBox="0 0 860 310" width="860" height="310" xmlns="http://www.w3.org/2000/svg"
+         font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+
+      <!-- Docker network background -->
+      <rect x="140" y="10" width="710" height="290" rx="12" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5" stroke-dasharray="6,3"/>
+      <text x="495" y="28" text-anchor="middle" fill="#94a3b8" font-size="11" font-weight="600">Docker Network (ams_network)</text>
+
+      <!-- Browser (outside Docker) -->
+      <rect x="10" y="120" width="110" height="60" rx="8" fill="#1e293b"/>
+      <text x="65" y="146" text-anchor="middle" fill="#f1f5f9" font-size="12" font-weight="700">Browser</text>
+      <text x="65" y="163" text-anchor="middle" fill="#64748b" font-size="10">HTTP :80</text>
+      <!-- browser → nginx arrow -->
+      <line x1="120" y1="150" x2="158" y2="150" stroke="#6366f1" stroke-width="2"/>
+      <polygon points="160,150 153,146 153,154" fill="#6366f1"/>
+      <text x="139" y="144" text-anchor="middle" fill="#6366f1" font-size="10">:80</text>
+
+      <!-- NGINX (center) -->
+      <rect x="160" y="90" width="140" height="110" rx="8" fill="#312e81"/>
+      <text x="230" y="117" text-anchor="middle" fill="#a5b4fc" font-size="11" font-weight="600">ams_nginx</text>
+      <text x="230" y="135" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">Nginx</text>
+      <text x="230" y="153" text-anchor="middle" fill="#a5b4fc" font-size="10">/ → frontend</text>
+      <text x="230" y="169" text-anchor="middle" fill="#a5b4fc" font-size="10">/api → backend</text>
+      <text x="230" y="185" text-anchor="middle" fill="#64748b" font-size="9">conf.d/default.conf</text>
+
+      <!-- nginx → frontend arrow -->
+      <line x1="300" y1="120" x2="358" y2="95" stroke="#22c55e" stroke-width="1.5"/>
+      <polygon points="360,94 352,96 355,104" fill="#22c55e"/>
+      <text x="330" y="98" fill="#22c55e" font-size="9">:5173</text>
+
+      <!-- nginx → backend arrow -->
+      <line x1="300" y1="170" x2="358" y2="188" stroke="#f97316" stroke-width="1.5"/>
+      <polygon points="360,189 352,183 354,191" fill="#f97316"/>
+      <text x="325" y="188" fill="#f97316" font-size="9">:9000</text>
+
+      <!-- FRONTEND -->
+      <rect x="360" y="50" width="175" height="70" rx="8" fill="#14532d"/>
+      <text x="448" y="73" text-anchor="middle" fill="#86efac" font-size="11" font-weight="600">ams_frontend</text>
+      <text x="448" y="91" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">React + Vite</text>
+      <text x="448" y="109" text-anchor="middle" fill="#86efac" font-size="10">Volume: ./frontend:/app</text>
+
+      <!-- BACKEND -->
+      <rect x="360" y="155" width="175" height="70" rx="8" fill="#7c2d12"/>
+      <text x="448" y="178" text-anchor="middle" fill="#fdba74" font-size="11" font-weight="600">ams_backend</text>
+      <text x="448" y="196" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">Laravel PHP-FPM</text>
+      <text x="448" y="214" text-anchor="middle" fill="#fdba74" font-size="10">Image baked (no volume)</text>
+
+      <!-- QUEUE WORKER -->
+      <rect x="360" y="252" width="175" height="42" rx="8" fill="#1e3a5f"/>
+      <text x="448" y="270" text-anchor="middle" fill="#93c5fd" font-size="11" font-weight="600">ams_queue</text>
+      <text x="448" y="286" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Queue Worker</text>
+
+      <!-- backend → mysql -->
+      <line x1="535" y1="175" x2="598" y2="130" stroke="#a855f7" stroke-width="1.5"/>
+      <polygon points="600,129 593,131 596,139" fill="#a855f7"/>
+
+      <!-- backend → redis -->
+      <line x1="535" y1="195" x2="598" y2="195" stroke="#06b6d4" stroke-width="1.5"/>
+      <polygon points="600,195 593,191 593,199" fill="#06b6d4"/>
+
+      <!-- backend → pdf -->
+      <line x1="535" y1="210" x2="598" y2="258" stroke="#f59e0b" stroke-width="1.5"/>
+      <polygon points="600,259 592,254 594,262" fill="#f59e0b"/>
+
+      <!-- queue → redis (reads jobs) -->
+      <line x1="448" y1="252" x2="448" y2="230" stroke="#06b6d4" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="448" y1="230" x2="598" y2="210" stroke="#06b6d4" stroke-width="1" stroke-dasharray="4,3"/>
+
+      <!-- MYSQL -->
+      <rect x="600" y="95" width="150" height="52" rx="8" fill="#581c87"/>
+      <text x="675" y="118" text-anchor="middle" fill="#d8b4fe" font-size="11" font-weight="600">ams_mysql</text>
+      <text x="675" y="136" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">MySQL 8 :3306</text>
+
+      <!-- REDIS -->
+      <rect x="600" y="170" width="150" height="52" rx="8" fill="#0c4a6e"/>
+      <text x="675" y="193" text-anchor="middle" fill="#7dd3fc" font-size="11" font-weight="600">ams_redis</text>
+      <text x="675" y="211" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">Redis :6379</text>
+
+      <!-- PDF SERVICE -->
+      <rect x="600" y="245" width="150" height="50" rx="8" fill="#713f12"/>
+      <text x="675" y="267" text-anchor="middle" fill="#fde68a" font-size="11" font-weight="600">ams_pdf_service</text>
+      <text x="675" y="283" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Python :8001</text>
+
+      <!-- legend -->
+      <text x="162" y="295" fill="#94a3b8" font-size="10">Volumes: frontend ✓ (live reload) · backend ✗ (baked image — use docker cp)</text>
+    </svg>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Service Responsibilities</h3>
+      <table>
+        <thead><tr><th>Container</th><th>Role</th><th>Port</th></tr></thead>
+        <tbody>
+          <tr><td><code>ams_nginx</code></td><td>HTTP gateway, routes / → Vite, /api → PHP-FPM</td><td>80</td></tr>
+          <tr><td><code>ams_frontend</code></td><td>React 18 + Vite dev server (HMR live reload)</td><td>5173</td></tr>
+          <tr><td><code>ams_backend</code></td><td>Laravel 11 PHP-FPM (API only, no HTTP server)</td><td>9000</td></tr>
+          <tr><td><code>ams_mysql</code></td><td>MySQL 8 — primary database</td><td>3306</td></tr>
+          <tr><td><code>ams_redis</code></td><td>Cache + queue broker</td><td>6379</td></tr>
+          <tr><td><code>ams_pdf_service</code></td><td>Python FastAPI — Aadhaar PDF extraction</td><td>8001</td></tr>
+          <tr><td><code>ams_queue</code></td><td>Laravel queue:work — processes background jobs</td><td>—</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Key Volume Mounts (docker-compose.yml)</h3>
+      <div class="code">
+<span class="c"># frontend — live volume mount (changes sync instantly)</span>
+frontend:
+  volumes:
+    - ./frontend:/app
+    - /app/node_modules  <span class="c"># anonymous — keeps container modules</span>
+
+<span class="c"># backend — NO volume mount!</span>
+<span class="c"># PHP source is BAKED into the image at build time.</span>
+<span class="c"># To push backend changes → use docker cp (see §9)</span>
+backend:
+  build: ./backend
+  <span class="c"># no volumes listed for /var/www/html</span>
+      </div>
+      <div class="callout warn" style="margin-top:10px">
+        <strong>⚠ Critical:</strong> Backend PHP changes are NOT reflected by saving the file. You must <code>docker cp</code> changed files into the container and run <code>php artisan optimize:clear</code>.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     2. AUTH FLOW
+══════════════════════════════════════════════════ -->
+<section id="auth">
+  <div class="sec-title"><span class="num">2</span>Authentication Flow (Sanctum)</div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 860 230" width="860" height="230" xmlns="http://www.w3.org/2000/svg"
+         font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+
+      <!-- actors -->
+      <rect x="10" y="30" width="130" height="46" rx="8" fill="#1e293b"/>
+      <text x="75" y="50" text-anchor="middle" fill="#94a3b8" font-size="11">Browser</text>
+      <text x="75" y="66" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">AuthContext.jsx</text>
+
+      <rect x="210" y="30" width="130" height="46" rx="8" fill="#312e81"/>
+      <text x="275" y="50" text-anchor="middle" fill="#a5b4fc" font-size="11">nginx → Laravel</text>
+      <text x="275" y="66" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">AuthController</text>
+
+      <rect x="410" y="30" width="130" height="46" rx="8" fill="#581c87"/>
+      <text x="475" y="50" text-anchor="middle" fill="#d8b4fe" font-size="11">Laravel</text>
+      <text x="475" y="66" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">Sanctum</text>
+
+      <rect x="610" y="30" width="130" height="46" rx="8" fill="#14532d"/>
+      <text x="675" y="50" text-anchor="middle" fill="#86efac" font-size="11">Browser</text>
+      <text x="675" y="66" text-anchor="middle" fill="#fff" font-size="13" font-weight="700">localStorage</text>
+
+      <!-- step 1: POST login -->
+      <line x1="140" y1="100" x2="208" y2="100" stroke="#6366f1" stroke-width="1.5"/>
+      <polygon points="210,100 203,96 203,104" fill="#6366f1"/>
+      <text x="175" y="95" text-anchor="middle" fill="#6366f1" font-size="10" font-weight="600">POST /api/auth/login</text>
+      <text x="175" y="114" text-anchor="middle" fill="#94a3b8" font-size="9">{email, password}</text>
+
+      <!-- step 2: validate + create token -->
+      <line x1="340" y1="110" x2="408" y2="110" stroke="#a855f7" stroke-width="1.5"/>
+      <polygon points="410,110 403,106 403,114" fill="#a855f7"/>
+      <text x="375" y="104" text-anchor="middle" fill="#a855f7" font-size="10">hash check</text>
+      <text x="375" y="118" text-anchor="middle" fill="#a855f7" font-size="10">createToken()</text>
+
+      <!-- step 3: token returned -->
+      <line x1="408" y1="130" x2="342" y2="130" stroke="#22c55e" stroke-width="1.5"/>
+      <polygon points="340,130 347,126 347,134" fill="#22c55e"/>
+      <line x1="208" y1="130" x2="142" y2="130" stroke="#22c55e" stroke-width="1.5"/>
+      <polygon points="140,130 147,126 147,134" fill="#22c55e"/>
+      <text x="275" y="124" text-anchor="middle" fill="#22c55e" font-size="10">{token, user}</text>
+
+      <!-- step 4: save to localStorage -->
+      <line x1="140" y1="155" x2="608" y2="155" stroke="#f59e0b" stroke-width="1.5"/>
+      <polygon points="610,155 603,151 603,159" fill="#f59e0b"/>
+      <text x="375" y="149" text-anchor="middle" fill="#f59e0b" font-size="10">localStorage.setItem('ams_token', token)</text>
+
+      <!-- step 5: subsequent requests -->
+      <line x1="140" y1="185" x2="208" y2="185" stroke="#06b6d4" stroke-width="1.5"/>
+      <polygon points="210,185 203,181 203,189" fill="#06b6d4"/>
+      <text x="175" y="179" text-anchor="middle" fill="#06b6d4" font-size="10">All API calls</text>
+      <text x="175" y="197" text-anchor="middle" fill="#94a3b8" font-size="9">Authorization: Bearer {token}</text>
+
+      <!-- auth:sanctum middleware -->
+      <rect x="245" y="175" width="120" height="24" rx="4" fill="#312e81"/>
+      <text x="305" y="191" text-anchor="middle" fill="#a5b4fc" font-size="10">auth:sanctum middleware</text>
+      <text x="375" y="215" text-anchor="middle" fill="#94a3b8" font-size="10">→ validates token from personal_access_tokens table → injects $request-&gt;user()</text>
+    </svg>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="fp">frontend/src/contexts/AuthContext.jsx</div>
+      <div class="code">
+<span class="c">// On app load — restore session from localStorage</span>
+<span class="k">const</span> token = localStorage.<span class="f">getItem</span>(<span class="s">'ams_token'</span>);
+<span class="k">if</span> (token) {
+  api.<span class="f">get</span>(<span class="s">'/auth/me'</span>)
+    .<span class="f">then</span>(res => <span class="f">setUser</span>(res.data))
+    .<span class="f">catch</span>(() => localStorage.<span class="f">removeItem</span>(<span class="s">'ams_token'</span>));
+}
+
+<span class="c">// login() — called from Login.jsx on form submit</span>
+<span class="k">const</span> <span class="f">login</span> = <span class="k">async</span> (email, password) => {
+  <span class="k">const</span> res = <span class="k">await</span> api.<span class="f">post</span>(<span class="s">'/auth/login'</span>, { email, password });
+  localStorage.<span class="f">setItem</span>(<span class="s">'ams_token'</span>, res.data.token);
+  <span class="f">setUser</span>(res.data.user);
+};
+      </div>
+    </div>
+    <div class="card">
+      <div class="fp">frontend/src/lib/axios.js</div>
+      <div class="code">
+<span class="c">// Every request auto-attaches token via interceptor</span>
+api.interceptors.request.<span class="f">use</span>(config => {
+  <span class="k">const</span> token = localStorage.<span class="f">getItem</span>(<span class="s">'ams_token'</span>);
+  <span class="k">if</span> (token)
+    config.headers.Authorization = <span class="s">`Bearer <span class="k">${token}</span>`</span>;
+  <span class="k">return</span> config;
+});
+
+<span class="c">// 401 → auto-logout + redirect to /login</span>
+<span class="c">// 403 → toast "Access denied"</span>
+<span class="c">// 500 → toast "Server error"</span>
+<span class="c">// No network → toast "Network error"</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     3. ROLE SYSTEM
+══════════════════════════════════════════════════ -->
+<section id="roles">
+  <div class="sec-title"><span class="num">3</span>Role System — Backend &amp; Frontend</div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Backend — 3-layer Role Enforcement</h3>
+      <div class="fp">backend/routes/api.php → Middleware → Controller</div>
+      <div class="code">
+<span class="c">// Layer 1: Route middleware (coarse gate)</span>
+Route::<span class="f">middleware</span>(<span class="s">'role:super_admin,company_admin'</span>)
+  -><span class="f">group</span>(<span class="k">function</span>() {
+    Route::<span class="f">apiResource</span>(<span class="s">'users'</span>, UserController::class);
+  });
+
+<span class="c">// Layer 2: Middleware class</span>
+<span class="c">// app/Http/Middleware/RoleMiddleware.php</span>
+<span class="k">public function</span> <span class="f">handle</span>(Request $req, Closure $next, <span class="k">string</span> ...$roles)
+{
+  <span class="k">if</span> (!<span class="f">in_array</span>($req-><span class="f">user</span>()->role, $roles))
+    <span class="k">return</span> response()-><span class="f">json</span>([<span class="s">'message'</span> => <span class="s">'Insufficient permissions'</span>], <span class="n">403</span>);
+  <span class="k">return</span> $next($req);
+}
+
+<span class="c">// Layer 3: Controller scoping (data-level)</span>
+<span class="k">public function</span> <span class="f">index</span>(Request $req) {
+  $auth = $req-><span class="f">user</span>();
+  <span class="k">return</span> Worker::<span class="f">query</span>()
+    -><span class="f">when</span>($auth-><span class="f">isVendorUser</span>(), <span class="k">fn</span>($q) =>
+      $q-><span class="f">where</span>(<span class="s">'vendor_id'</span>, $auth->vendor_id))
+    -><span class="f">when</span>($auth-><span class="f">isCompanyUser</span>(), <span class="k">fn</span>($q) =>
+      $q-><span class="f">whereIn</span>(<span class="s">'vendor_id'</span>, $approvedVendorIds))
+    -><span class="f">paginate</span>(<span class="n">20</span>);
+}
+      </div>
+    </div>
+    <div class="card">
+      <h3>User Model Helper Methods</h3>
+      <div class="fp">backend/app/Models/User.php</div>
+      <div class="code">
+<span class="c">// Role constants</span>
+<span class="k">const</span> ROLE_SUPER_ADMIN   = <span class="s">'super_admin'</span>;
+<span class="k">const</span> ROLE_COMPANY_ADMIN = <span class="s">'company_admin'</span>;
+<span class="k">const</span> ROLE_COMPANY_GATE  = <span class="s">'company_gate'</span>;
+<span class="k">const</span> ROLE_VENDOR_ADMIN  = <span class="s">'vendor_admin'</span>;
+<span class="k">const</span> ROLE_VENDOR_OP     = <span class="s">'vendor_operator'</span>;
+
+<span class="c">// Helper methods used in every controller</span>
+<span class="k">public function</span> <span class="f">isSuperAdmin</span>(): bool
+  => $this->role === self::ROLE_SUPER_ADMIN;
+
+<span class="k">public function</span> <span class="f">isCompanyUser</span>(): bool
+  => <span class="f">in_array</span>($this->role, [COMPANY_ADMIN, COMPANY_GATE]);
+
+<span class="k">public function</span> <span class="f">isVendorUser</span>(): bool
+  => <span class="f">in_array</span>($this->role, [VENDOR_ADMIN, VENDOR_OP]);
+      </div>
+      <h3 style="margin-top:14px">Frontend — PrivateRoute + Sidebar canSee()</h3>
+      <div class="fp">frontend/src/App.jsx + Sidebar.jsx</div>
+      <div class="code">
+<span class="c">// Route guard (App.jsx)</span>
+<span class="k">function</span> <span class="f">PrivateRoute</span>({ children, roles }) {
+  <span class="k">const</span> { user } = <span class="f">useAuth</span>();
+  <span class="k">if</span> (roles && !roles.<span class="f">includes</span>(user.role))
+    <span class="k">return</span> &lt;Navigate to=<span class="s">"/dashboard"</span> /&gt;;
+  <span class="k">return</span> children;
+}
+
+<span class="c">// Sidebar nav filter (Sidebar.jsx)</span>
+<span class="k">const</span> <span class="f">canSee</span> = (roles) =>
+  roles.<span class="f">includes</span>(<span class="s">"all"</span>) || roles.<span class="f">includes</span>(user?.role);
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     4. DATABASE SCHEMA
+══════════════════════════════════════════════════ -->
+<section id="schema">
+  <div class="sec-title"><span class="num">4</span>Database Schema &amp; Relationships</div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 860 400" width="860" height="400" xmlns="http://www.w3.org/2000/svg"
+         font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif" font-size="11">
+
+      <!-- COMPANIES -->
+      <rect x="10" y="60" width="170" height="145" rx="8" fill="#1e1b4b" stroke="#6366f1" stroke-width="1.5"/>
+      <rect x="10" y="60" width="170" height="28" rx="8" fill="#4338ca"/>
+      <rect x="10" y="76" width="170" height="12" rx="0" fill="#4338ca"/>
+      <text x="95" y="79" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">companies</text>
+      <text x="20" y="104" fill="#a5b4fc">id, name, code</text>
+      <text x="20" y="120" fill="#a5b4fc">address, city, state, pin</text>
+      <text x="20" y="136" fill="#a5b4fc">contact_person, email, phone</text>
+      <text x="20" y="152" fill="#a5b4fc">gst_number</text>
+      <text x="20" y="168" fill="#f59e0b">status (active|inactive)</text>
+      <text x="20" y="184" fill="#64748b">softDeletes</text>
+
+      <!-- COMPANY_VENDORS pivot -->
+      <rect x="230" y="95" width="185" height="155" rx="8" fill="#1a0533" stroke="#a855f7" stroke-width="1.5"/>
+      <rect x="230" y="95" width="185" height="28" rx="8" fill="#7e22ce"/>
+      <rect x="230" y="111" width="185" height="12" rx="0" fill="#7e22ce"/>
+      <text x="323" y="114" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">company_vendors (pivot)</text>
+      <text x="240" y="138" fill="#d8b4fe">company_id → companies</text>
+      <text x="240" y="154" fill="#d8b4fe">vendor_id  → vendors</text>
+      <text x="240" y="172" fill="#f59e0b">status (pending|approved</text>
+      <text x="240" y="188" fill="#f59e0b">  |rejected|suspended)</text>
+      <text x="240" y="204" fill="#d8b4fe">approved_at, approved_by</text>
+      <text x="240" y="220" fill="#d8b4fe">rejection_reason</text>
+      <text x="240" y="238" fill="#64748b">UNIQUE(company_id,vendor_id)</text>
+
+      <!-- VENDORS -->
+      <rect x="465" y="60" width="170" height="145" rx="8" fill="#1c0f00" stroke="#f97316" stroke-width="1.5"/>
+      <rect x="465" y="60" width="170" height="28" rx="8" fill="#c2410c"/>
+      <rect x="465" y="76" width="170" height="12" rx="0" fill="#c2410c"/>
+      <text x="550" y="79" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">vendors</text>
+      <text x="475" y="104" fill="#fdba74">id, name, code</text>
+      <text x="475" y="120" fill="#fdba74">address, city, state, pin</text>
+      <text x="475" y="136" fill="#fdba74">contact_person, email, phone</text>
+      <text x="475" y="152" fill="#fdba74">gst_number, pan_number</text>
+      <text x="475" y="168" fill="#f59e0b">status (active|inactive)</text>
+      <text x="475" y="184" fill="#64748b">softDeletes</text>
+
+      <!-- WORKERS -->
+      <rect x="465" y="240" width="185" height="150" rx="8" fill="#1c1003" stroke="#eab308" stroke-width="1.5"/>
+      <rect x="465" y="240" width="185" height="28" rx="8" fill="#a16207"/>
+      <rect x="465" y="256" width="185" height="12" rx="0" fill="#a16207"/>
+      <text x="557" y="259" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">workers</text>
+      <text x="475" y="283" fill="#fde68a">id, vendor_id → vendors</text>
+      <text x="475" y="299" fill="#fde68a">name, dob, gender</text>
+      <text x="475" y="315" fill="#fde68a">aadhaar_number_masked</text>
+      <text x="475" y="331" fill="#ef4444">fingerprint_template (encrypted)</text>
+      <text x="475" y="347" fill="#fde68a">fingerprint_quality, _enrolled_at</text>
+      <text x="475" y="363" fill="#f59e0b">status (pending|active|inactive)</text>
+      <text x="475" y="379" fill="#64748b">registered_by → users</text>
+
+      <!-- USERS -->
+      <rect x="10" y="240" width="185" height="150" rx="8" fill="#0f1a0f" stroke="#22c55e" stroke-width="1.5"/>
+      <rect x="10" y="240" width="185" height="28" rx="8" fill="#15803d"/>
+      <rect x="10" y="256" width="185" height="12" rx="0" fill="#15803d"/>
+      <text x="103" y="259" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">users</text>
+      <text x="20" y="283" fill="#86efac">id, name, email, password</text>
+      <text x="20" y="299" fill="#f59e0b">role (super_admin|company_admin</text>
+      <text x="20" y="315" fill="#f59e0b">  |company_gate|vendor_admin</text>
+      <text x="20" y="331" fill="#f59e0b">  |vendor_operator)</text>
+      <text x="20" y="347" fill="#86efac">company_id → companies (nullable)</text>
+      <text x="20" y="363" fill="#86efac">vendor_id  → vendors (nullable)</text>
+      <text x="20" y="379" fill="#86efac">is_active</text>
+
+      <!-- ATTENDANCE LOGS -->
+      <rect x="690" y="155" width="165" height="185" rx="8" fill="#0c1a1a" stroke="#06b6d4" stroke-width="1.5"/>
+      <rect x="690" y="155" width="165" height="28" rx="8" fill="#0e7490"/>
+      <rect x="690" y="171" width="165" height="12" rx="0" fill="#0e7490"/>
+      <text x="773" y="174" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">attendance_logs</text>
+      <text x="700" y="198" fill="#67e8f9">id</text>
+      <text x="700" y="214" fill="#67e8f9">worker_id → workers</text>
+      <text x="700" y="230" fill="#67e8f9">company_id → companies</text>
+      <text x="700" y="246" fill="#f59e0b">type (IN | OUT)</text>
+      <text x="700" y="262" fill="#67e8f9">marked_at (timestamp)</text>
+      <text x="700" y="278" fill="#67e8f9">marked_by → users</text>
+      <text x="700" y="294" fill="#f59e0b">method (fingerprint|manual)</text>
+      <text x="700" y="310" fill="#67e8f9">fingerprint_score (0–200)</text>
+      <text x="700" y="326" fill="#67e8f9">gate, device_id, ip_address</text>
+      <text x="700" y="342" fill="#22c55e">is_valid (bool)</text>
+
+      <!-- Relationship lines -->
+      <!-- companies ← company_vendors -->
+      <line x1="180" y1="135" x2="230" y2="175" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <!-- vendors → company_vendors -->
+      <line x1="465" y1="165" x2="415" y2="175" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>
+      <!-- vendors → workers -->
+      <line x1="550" y1="205" x2="550" y2="240" stroke="#eab308" stroke-width="1.5"/>
+      <polygon points="550,242 546,234 554,234" fill="#eab308"/>
+      <!-- workers → attendance_logs -->
+      <line x1="650" y1="310" x2="690" y2="290" stroke="#06b6d4" stroke-width="1.5"/>
+      <!-- companies → attendance_logs -->
+      <line x1="180" y1="175" x2="690" y2="215" stroke="#6366f1" stroke-width="1" stroke-dasharray="4,3"/>
+    </svg>
+  </div>
+
+  <div class="callout info">
+    <strong>Key design decisions:</strong>
+    Vendors link to Companies through the <code>company_vendors</code> pivot — status drives whether workers appear in attendance. Workers have <code>fingerprint_template</code> stored AES-encrypted via Laravel's <code>encrypt()</code>/<code>decrypt()</code>. Aadhaar number is never stored in full — only the masked last-4-digits string. Aadhaar PDFs are stored in <code>workers.aadhaar_pdf_path</code> (private disk) via <code>AadhaarController</code> — separate from other ID documents which live in <code>worker_id_documents.document_path</code>. The <code>Worker</code> model keeps <code>aadhaar_pdf_path</code> in <code>$hidden</code> but appends <code>has_aadhaar_pdf</code> (computed accessor) so the frontend knows a PDF exists without exposing the path. Worker assignments (<code>worker_assignments</code> table) track deployments with <code>is_locked</code> set on first attendance; cancellation checks latest log type to allow cancel when the worker is checked OUT.
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     5. BACKEND STRUCTURE
+══════════════════════════════════════════════════ -->
+<section id="backend">
+  <div class="sec-title"><span class="num">5</span>Backend Code Structure (Laravel 11)</div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Directory Layout</h3>
+      <div class="code">
+backend/app/
+├── <span class="p">Http/Controllers/</span>
+│   ├── Auth/AuthController.php         <span class="c"># login, logout, me</span>
+│   ├── CompanyController.php           <span class="c"># CRUD + vendor approval actions</span>
+│   ├── VendorController.php            <span class="c"># CRUD + company access request</span>
+│   ├── WorkerController.php            <span class="c"># CRUD + fingerprint + stats() + servePhoto()</span>
+│   ├── WorkerAssignmentController.php  <span class="c"># deploy; cancel even when locked if worker not IN</span>
+│   ├── WorkerIdDocumentController.php  <span class="c"># store/download docs (images + PDF)</span>
+│   ├── AttendanceController.php        <span class="c"># mark, templates, dailySummary(), exceptions</span>
+│   ├── UserController.php              <span class="c"># role-scoped user mgmt</span>
+│   ├── AadhaarController.php           <span class="c"># PDF extract + upload + download (role-scoped)</span>
+│   └── DashboardController.php         <span class="c"># stats, today, activity</span>
+│
+├── <span class="p">Http/Middleware/</span>
+│   └── RoleMiddleware.php         <span class="c"># role:super_admin,company_admin</span>
+│
+├── <span class="p">Models/</span>
+│   ├── User.php      <span class="c"># isSuperAdmin(), isCompanyUser(), etc.</span>
+│   ├── Worker.php    <span class="c"># STATUS_* constants, softDeletes</span>
+│   ├── Company.php   <span class="c"># approvedVendors() relationship</span>
+│   ├── Vendor.php    <span class="c"># companies() BelongsToMany</span>
+│   └── AttendanceLog.php <span class="c"># TYPE_IN/OUT, today() scope</span>
+│
+└── <span class="p">Services/</span>
+    ├── AuditService.php     <span class="c"># logs every sensitive action</span>
+    └── BiometricService.php <span class="c"># template match (server-side)</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Typical Controller Pattern</h3>
+      <div class="fp">Adding a new endpoint — example pattern</div>
+      <div class="code">
+<span class="c">// 1. Controller method (always returns JsonResponse)</span>
+<span class="k">public function</span> <span class="f">index</span>(Request $request): JsonResponse
+{
+  $auth = $request-><span class="f">user</span>();  <span class="c">// injected by auth:sanctum</span>
+
+  $query = SomeModel::<span class="f">query</span>()
+    <span class="c">// scope data based on role</span>
+    -><span class="f">when</span>($auth-><span class="f">isVendorUser</span>(), <span class="k">fn</span>($q) =>
+        $q-><span class="f">where</span>(<span class="s">'vendor_id'</span>, $auth->vendor_id))
+    <span class="c">// apply request filters</span>
+    -><span class="f">when</span>($request->search, <span class="k">fn</span>($q, $s) =>
+        $q-><span class="f">where</span>(<span class="s">'name'</span>, <span class="s">'like'</span>, <span class="s">"%{$s}%"</span>));
+
+  <span class="k">return</span> response()-><span class="f">json</span>($query-><span class="f">paginate</span>(<span class="n">20</span>));
+}
+
+<span class="c">// 2. Register in routes/api.php</span>
+Route::<span class="f">middleware</span>(<span class="s">'auth:sanctum'</span>)-><span class="f">group</span>(<span class="k">function</span>() {
+  Route::<span class="f">get</span>(<span class="s">'something'</span>, [SomeController::class, <span class="s">'index'</span>]);
+});
+
+<span class="c">// 3. docker cp to push change (backend not volume-mounted)</span>
+<span class="c">// docker cp file.php ams_backend:/var/www/html/...</span>
+<span class="c">// docker exec ams_backend php artisan optimize:clear</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>AuditService — Used in Every Write Operation</h3>
+    <div class="code">
+<span class="c">// Call after every sensitive action — creates audit_logs record</span>
+$this->audit-><span class="f">log</span>(
+  $user->id,            <span class="c">// who</span>
+  <span class="s">'worker_created'</span>,    <span class="c">// action string</span>
+  Worker::class,        <span class="c">// model class (nullable)</span>
+  $worker->id,          <span class="c">// model ID (nullable)</span>
+  [<span class="s">'extra'</span> => <span class="s">'data'</span>]  <span class="c">// JSON metadata (nullable)</span>
+);
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     6. FRONTEND STRUCTURE
+══════════════════════════════════════════════════ -->
+<section id="frontend">
+  <div class="sec-title"><span class="num">6</span>Frontend Code Structure (React 18 + Vite)</div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Directory Layout</h3>
+      <div class="code">
+frontend/src/
+├── <span class="p">lib/axios.js</span>          <span class="c"># axios instance, interceptors</span>
+├── <span class="p">contexts/</span>
+│   └── AuthContext.jsx    <span class="c"># user state, login(), logout()</span>
+│
+├── <span class="p">components/</span>
+│   ├── layout/
+│   │   ├── MainLayout.jsx  <span class="c"># sidebar + outlet wrapper</span>
+│   │   └── Sidebar.jsx     <span class="c"># NAV array + canSee() filter</span>
+│   └── FingerprintCapture.jsx
+│
+└── <span class="p">pages/</span>
+    ├── Login.jsx
+    ├── Dashboard.jsx
+    ├── companies/CompanyList.jsx
+    ├── vendors/
+    │   ├── VendorList.jsx        <span class="c"># role-aware: super_admin global, company users get approval tabs</span>
+    │   ├── VendorApproval.jsx    <span class="c"># Pending/Approved/Rejected/Suspended/All tabs</span>
+    │   └── VendorCompanyAccess.jsx <span class="c"># vendor admin requests access</span>
+    ├── workers/
+    │   ├── WorkerList.jsx        <span class="c"># All/Current/Previous tabs; row click → detail</span>
+    │   ├── WorkerDetail.jsx      <span class="c"># analytics: stats, monthly breakdown, history (role-scoped)</span>
+    │   ├── WorkerRegister.jsx    <span class="c"># 4-step wizard; edit mode shows existing doc downloads</span>
+    │   └── WorkerAssign.jsx      <span class="c"># Current/Previous/All tabs; cancel even when locked if worker OUT</span>
+    ├── users/UserList.jsx        <span class="c"># role-scoped user mgmt</span>
+    ├── attendance/
+    │   ├── AttendanceMark.jsx    <span class="c"># fingerprint IN/OUT</span>
+    │   ├── AttendanceList.jsx    <span class="c"># daily summary: per-worker per-day, tabs, row click → detail</span>
+    │   └── AttendanceExceptions.jsx
+    └── diagnostic/FingerprintTest.jsx
+      </div>
+    </div>
+    <div class="card">
+      <h3>State Management Pattern</h3>
+      <div class="code">
+<span class="c">// No Redux or Zustand. Three state layers:</span>
+
+<span class="c">// 1. Global auth state — React Context</span>
+<span class="k">const</span> { user, login, logout } = <span class="f">useAuth</span>();
+<span class="c">// user.role, user.company_id, user.vendor_id</span>
+
+<span class="c">// 2. Server state — TanStack Query (React Query)</span>
+<span class="k">const</span> { data, isLoading } = <span class="f">useQuery</span>({
+  queryKey: [<span class="s">'workers'</span>, search],   <span class="c">// cache key</span>
+  queryFn:  () => api.<span class="f">get</span>(<span class="s">'/workers'</span>).<span class="f">then</span>(r => r.data),
+});
+
+<span class="k">const</span> mutation = <span class="f">useMutation</span>({
+  mutationFn: (data) => api.<span class="f">post</span>(<span class="s">'/workers'</span>, data),
+  onSuccess: () => {
+    queryClient.<span class="f">invalidateQueries</span>([<span class="s">'workers'</span>]); <span class="c">// refetch</span>
+    toast.<span class="f">success</span>(<span class="s">'Worker created!'</span>);
+  },
+  onError: (e) => toast.<span class="f">error</span>(e.response?.data?.message),
+});
+
+<span class="c">// 3. Local UI state — useState (forms, modals, etc.)</span>
+<span class="k">const</span> [showModal, setShowModal] = <span class="f">useState</span>(<span class="k">false</span>);
+      </div>
+      <h3 style="margin-top:14px">Adding a Nav Item</h3>
+      <div class="fp">frontend/src/components/layout/Sidebar.jsx</div>
+      <div class="code">
+<span class="c">// Add to NAV array — roles controls visibility</span>
+{ to: <span class="s">"/your-page"</span>, icon: SomeIcon, label: <span class="s">"Label"</span>,
+  roles: [<span class="s">"super_admin"</span>, <span class="s">"company_admin"</span>] }
+<span class="c">// Use "all" to show for every role</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     7. FINGERPRINT ATTENDANCE (TECHNICAL FLOW)
+══════════════════════════════════════════════════ -->
+<section id="fingerprint">
+  <div class="sec-title"><span class="num">7</span>Fingerprint Attendance — Technical Flow</div>
+
+  <div class="diagram">
+    <svg viewBox="0 0 860 360" width="860" height="360" xmlns="http://www.w3.org/2000/svg"
+         font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+
+      <!-- actors header -->
+      <rect x="10"  y="10" width="180" height="36" rx="6" fill="#1e293b"/>
+      <text x="100" y="33" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Gate Browser</text>
+
+      <rect x="230" y="10" width="180" height="36" rx="6" fill="#312e81"/>
+      <text x="320" y="33" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">SGIBIOSRV :8443</text>
+
+      <rect x="450" y="10" width="180" height="36" rx="6" fill="#7c2d12"/>
+      <text x="540" y="33" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">Laravel Backend</text>
+
+      <rect x="670" y="10" width="180" height="36" rx="6" fill="#581c87"/>
+      <text x="760" y="33" text-anchor="middle" fill="#fff" font-size="12" font-weight="700">MySQL</text>
+
+      <!-- vertical lines -->
+      <line x1="100" y1="46" x2="100" y2="350" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="320" y1="46" x2="320" y2="350" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="540" y1="46" x2="540" y2="350" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
+      <line x1="760" y1="46" x2="760" y2="350" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="4,3"/>
+
+      <!-- Step 1: capture -->
+      <line x1="100" y1="80" x2="318" y2="80" stroke="#6366f1" stroke-width="1.5"/>
+      <polygon points="320,80 313,76 313,84" fill="#6366f1"/>
+      <rect x="105" y="66" width="210" height="20" rx="4" fill="#e0e7ff"/>
+      <text x="210" y="80" text-anchor="middle" fill="#3730a3" font-size="10" font-weight="600">1. POST /SGIFPCapture (Timeout=10000)</text>
+
+      <!-- Step 1 response -->
+      <line x1="318" y1="100" x2="102" y2="100" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="100,100 107,96 107,104" fill="#22c55e"/>
+      <text x="210" y="95" text-anchor="middle" fill="#15803d" font-size="10">{ErrorCode:0, TemplateBase64:"..."}</text>
+
+      <!-- Step 2: worker templates -->
+      <line x1="100" y1="135" x2="538" y2="135" stroke="#f97316" stroke-width="1.5"/>
+      <polygon points="540,135 533,131 533,139" fill="#f97316"/>
+      <rect x="105" y="120" width="430" height="20" rx="4" fill="#fff7ed"/>
+      <text x="320" y="134" text-anchor="middle" fill="#c2410c" font-size="10" font-weight="600">2. GET /api/attendance/worker-templates?company_id=X</text>
+
+      <!-- backend queries DB for approved vendors -->
+      <line x1="540" y1="155" x2="758" y2="155" stroke="#a855f7" stroke-width="1.5"/>
+      <polygon points="760,155 753,151 753,159" fill="#a855f7"/>
+      <text x="650" y="149" text-anchor="middle" fill="#7e22ce" font-size="9">SELECT vendor_id FROM company_vendors</text>
+      <text x="650" y="162" text-anchor="middle" fill="#7e22ce" font-size="9">WHERE company_id=X AND status='approved'</text>
+
+      <line x1="758" y1="178" x2="542" y2="178" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="540,178 547,174 547,182" fill="#a855f7"/>
+      <text x="650" y="193" text-anchor="middle" fill="#7e22ce" font-size="9">→ Workers with encrypted fingerprint_template</text>
+
+      <!-- templates response to browser -->
+      <line x1="538" y1="205" x2="102" y2="205" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="100,205 107,201 107,209" fill="#22c55e"/>
+      <text x="320" y="199" text-anchor="middle" fill="#15803d" font-size="10">[{worker_id, name, template (decrypted), pending_type}, ...]</text>
+
+      <!-- Step 3: match parallel -->
+      <line x1="100" y1="235" x2="318" y2="235" stroke="#06b6d4" stroke-width="1.5"/>
+      <polygon points="320,235 313,231 313,239" fill="#06b6d4"/>
+      <rect x="105" y="220" width="210" height="20" rx="4" fill="#cffafe"/>
+      <text x="210" y="234" text-anchor="middle" fill="#155e75" font-size="10" font-weight="600">3. POST /SGIMatchScore (×N parallel)</text>
+      <text x="210" y="252" text-anchor="middle" fill="#64748b" font-size="9">template1=probe&amp;template2=enrolled</text>
+
+      <line x1="318" y1="262" x2="102" y2="262" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="5,3"/>
+      <polygon points="100,262 107,258 107,266" fill="#22c55e"/>
+      <text x="210" y="276" text-anchor="middle" fill="#15803d" font-size="9">→ best score ≥ 40/200 wins</text>
+
+      <!-- Step 4: mark attendance -->
+      <line x1="100" y1="300" x2="538" y2="300" stroke="#ef4444" stroke-width="2"/>
+      <polygon points="540,300 533,296 533,304" fill="#ef4444"/>
+      <rect x="105" y="285" width="430" height="20" rx="4" fill="#fef2f2"/>
+      <text x="320" y="299" text-anchor="middle" fill="#991b1b" font-size="10" font-weight="600">4. POST /api/attendance/mark → creates attendance_logs row</text>
+
+      <line x1="540" y1="320" x2="758" y2="320" stroke="#a855f7" stroke-width="1.5"/>
+      <polygon points="760,320 753,316 753,324" fill="#a855f7"/>
+      <text x="650" y="314" text-anchor="middle" fill="#7e22ce" font-size="9">INSERT INTO attendance_logs</text>
+      <text x="650" y="337" text-anchor="middle" fill="#7e22ce" font-size="9">(worker_id, company_id, type, fingerprint_score...)</text>
+    </svg>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <div class="fp">frontend/src/pages/attendance/AttendanceMark.jsx</div>
+      <div class="code">
+<span class="k">const</span> SGIBIOSRV = <span class="s">"https://localhost:8443"</span>;
+
+<span class="c">// Step 1: capture from local SGIBIOSRV (bypass CORS via text/plain)</span>
+<span class="k">async function</span> <span class="f">sgiCapture</span>() {
+  <span class="k">const</span> res = <span class="k">await</span> <span class="f">fetch</span>(<span class="s">`${SGIBIOSRV}/SGIFPCapture`</span>, {
+    method: <span class="s">"POST"</span>,
+    headers: { <span class="s">"Content-Type"</span>: <span class="s">"text/plain;charset=UTF-8"</span> },
+    body: <span class="s">"Timeout=10000&amp;Quality=50&amp;templateFormat=ISO"</span>,
+  });
+  <span class="k">return</span> res.<span class="f">json</span>();
+}
+
+<span class="c">// Step 3: 1:N match via SGIBIOSRV (score 0–200)</span>
+<span class="k">async function</span> <span class="f">sgiMatchScore</span>(t1, t2) {
+  <span class="k">const</span> body = <span class="s">`template1=${<span class="f">encodeURIComponent</span>(t1)}&amp;template2=${<span class="f">encodeURIComponent</span>(t2)}&amp;templateFormat=ISO`</span>;
+  <span class="k">const</span> res = <span class="k">await</span> <span class="f">fetch</span>(<span class="s">`${SGIBIOSRV}/SGIMatchScore`</span>, {
+    method: <span class="s">"POST"</span>,
+    headers: { <span class="s">"Content-Type"</span>: <span class="s">"text/plain;charset=UTF-8"</span> },
+    body,
+  });
+  <span class="k">return</span> res.<span class="f">json</span>();
+}
+
+<span class="c">// All workers matched in parallel — best score wins</span>
+<span class="k">const</span> results = <span class="k">await</span> Promise.<span class="f">all</span>(
+  workers.<span class="f">map</span>(<span class="k">async</span> w => {
+    <span class="k">const</span> v = <span class="k">await</span> <span class="f">sgiMatchScore</span>(probeTemplate, w.template);
+    <span class="k">return</span> { worker: w, score: v.ErrorCode === <span class="n">0</span> ? v.MatchingScore : <span class="n">0</span> };
+  })
+);
+<span class="k">const</span> best = results.<span class="f">reduce</span>((a, b) => a.score > b.score ? a : b);
+<span class="c">// MATCH_THRESHOLD = 40 (out of 200)</span>
+      </div>
+    </div>
+    <div class="card">
+      <div class="fp">backend/app/Http/Controllers/AttendanceController.php — workerTemplates()</div>
+      <div class="code">
+<span class="k">public function</span> <span class="f">workerTemplates</span>(Request $request): JsonResponse
+{
+  <span class="c">// Resolve company — gate user implicit, super_admin must pass param</span>
+  $companyId = $request-><span class="f">input</span>(<span class="s">'company_id'</span>) ?? $user->company_id;
+
+  <span class="c">// Get approved vendor IDs for this company from pivot</span>
+  $approvedVendorIds = DB::<span class="f">table</span>(<span class="s">'company_vendors'</span>)
+    -><span class="f">where</span>(<span class="s">'company_id'</span>, $companyId)
+    -><span class="f">where</span>(<span class="s">'status'</span>, <span class="s">'approved'</span>)
+    -><span class="f">pluck</span>(<span class="s">'vendor_id'</span>);
+
+  <span class="c">// Get active workers with enrolled fingerprints</span>
+  $workers = Worker::<span class="f">with</span>(<span class="s">'vendor'</span>)
+    -><span class="f">whereIn</span>(<span class="s">'vendor_id'</span>, $approvedVendorIds)
+    -><span class="f">whereNotNull</span>(<span class="s">'fingerprint_template'</span>)
+    -><span class="f">where</span>(<span class="s">'status'</span>, Worker::STATUS_ACTIVE)
+    -><span class="f">get</span>();
+
+  <span class="c">// Decrypt each template before sending to browser</span>
+  <span class="k">return</span> response()-><span class="f">json</span>($workers-><span class="f">map</span>(<span class="k">fn</span>($w) => [
+    <span class="s">'worker_id'</span> => $w->id,
+    <span class="s">'template'</span>  => <span class="f">decrypt</span>($w->fingerprint_template),
+    <span class="s">'pending_type'</span> => $this-><span class="f">getPendingType</span>($w->id, $companyId),
+    <span class="c">// ...other fields</span>
+  ]));
+}
+      </div>
+      <div class="callout warn" style="margin-top:10px">
+        <strong>⚠ SGIBIOSRV cert:</strong> Browsers block direct HTTPS to localhost unless the user visits <code>https://localhost:8443</code> and accepts the self-signed cert. The <code>text/plain</code> Content-Type avoids CORS preflight — making it a "simple request" that bypasses the CORS check entirely.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     8. VENDOR-COMPANY APPROVAL FLOW
+══════════════════════════════════════════════════ -->
+<section id="vendor-flow">
+  <div class="sec-title"><span class="num">8</span>Vendor–Company Approval — Code Flow</div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Vendor sends request</h3>
+      <div class="fp">POST /api/vendors/{vendor}/request-company/{company}</div>
+      <div class="code">
+<span class="c">// VendorController::requestCompany()</span>
+$existing = $vendor->companies()
+  -><span class="f">where</span>(<span class="s">'company_id'</span>, $company->id)-><span class="f">first</span>();
+
+<span class="k">if</span> ($existing) <span class="c">// already pending/approved/etc</span>
+  <span class="k">return</span> <span class="n">422</span>;
+
+<span class="c">// Creates row in company_vendors pivot</span>
+$vendor->companies()-><span class="f">attach</span>($company->id, [
+  <span class="s">'status'</span> => <span class="s">'pending'</span>,
+]);
+      </div>
+      <h3 style="margin-top:14px">Company approves</h3>
+      <div class="fp">POST /api/companies/{company}/vendors/{vendor}/approve</div>
+      <div class="code">
+<span class="c">// CompanyController::approveVendor()</span>
+$company->vendors()-><span class="f">updateExistingPivot</span>($vendor->id, [
+  <span class="s">'status'</span>      => <span class="s">'approved'</span>,
+  <span class="s">'approved_at'</span> => <span class="f">now</span>(),
+  <span class="s">'approved_by'</span> => $user->id,
+]);
+<span class="c">// After this, workerTemplates() will include their workers</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Frontend — VendorCompanyAccess.jsx</h3>
+      <div class="code">
+<span class="c">// Fetches all companies + request status in one call</span>
+<span class="k">const</span> { data } = <span class="f">useQuery</span>({
+  queryKey: [<span class="s">'vendor-available-companies'</span>, vendorId],
+  queryFn: () =>
+    api.<span class="f">get</span>(<span class="s">`/vendors/${vendorId}/available-companies`</span>)
+       .<span class="f">then</span>(r => r.data),
+});
+
+<span class="c">// Send request button handler</span>
+<span class="k">const</span> <span class="f">sendRequest</span> = (companyId) =>
+  api.<span class="f">post</span>(<span class="s">`/vendors/${vendorId}/request-company/${companyId}`</span>)
+     .<span class="f">then</span>(() => queryClient.<span class="f">invalidateQueries</span>([...]));
+      </div>
+      <h3 style="margin-top:14px">Frontend — VendorApproval.jsx</h3>
+      <div class="code">
+<span class="c">// Company admin sees requests + acts on them</span>
+<span class="k">const</span> { data: vendors } = <span class="f">useQuery</span>({
+  queryKey: [<span class="s">'company-vendors'</span>, companyId],
+  queryFn: () =>
+    api.<span class="f">get</span>(<span class="s">`/companies/${companyId}/vendors`</span>).<span class="f">then</span>(r => r.data),
+});
+
+<span class="c">// Approve</span>
+api.<span class="f">post</span>(<span class="s">`/companies/${companyId}/vendors/${vendorId}/approve`</span>);
+<span class="c">// Reject (requires reason)</span>
+api.<span class="f">post</span>(<span class="s">`/companies/${companyId}/vendors/${vendorId}/reject`</span>,
+  { reason: <span class="s">"text"</span> });
+<span class="c">// Suspend</span>
+api.<span class="f">post</span>(<span class="s">`/companies/${companyId}/vendors/${vendorId}/suspend`</span>);
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     9. PUSHING BACKEND CHANGES
+══════════════════════════════════════════════════ -->
+<section id="backend-changes">
+  <div class="sec-title"><span class="num">9</span>Pushing Backend Changes (Critical)</div>
+
+  <div class="callout red">
+    <strong>The backend PHP source is baked into the Docker image — it is NOT volume-mounted.</strong>
+    Saving a .php file locally does NOT update the running container. You must use <code>docker cp</code>.
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <h3>Standard Workflow for Any Backend Change</h3>
+    <div class="steps">
+      <div class="step">
+        <span class="sn">1</span>
+        <div><h4>Edit the PHP file locally</h4>
+          <p>Make your changes in <code>backend/app/...</code> or <code>backend/routes/api.php</code> as normal.</p></div>
+      </div>
+      <div class="step">
+        <span class="sn">2</span>
+        <div><h4>Copy changed file into the running container</h4>
+          <div class="code">
+<span class="c"># Controller</span>
+docker cp backend/app/Http/Controllers/WorkerController.php \
+  ams_backend:/var/www/html/app/Http/Controllers/WorkerController.php
+
+<span class="c"># Model</span>
+docker cp backend/app/Models/Worker.php \
+  ams_backend:/var/www/html/app/Models/Worker.php
+
+<span class="c"># Routes</span>
+docker cp backend/routes/api.php \
+  ams_backend:/var/www/html/routes/api.php
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="sn">3</span>
+        <div><h4>Clear Laravel's route + config cache</h4>
+          <div class="code">docker exec ams_backend php artisan optimize:clear</div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="sn">4</span>
+        <div><h4>Only rebuild the image when you add packages (composer)</h4>
+          <div class="code">
+<span class="c"># Only needed when you run `composer require something-new`</span>
+docker compose build backend
+docker compose up -d
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="callout tip" style="margin-top:14px">
+      <strong>Frontend changes are instant</strong> — the <code>./frontend:/app</code> volume is live. If Vite HMR doesn't pick up a change, run <code>docker compose restart frontend</code> and hard-refresh the browser.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     10. KEY PATTERNS & RECENT ADDITIONS
+══════════════════════════════════════════════════ -->
+<section id="recent-patterns">
+  <div class="sec-title"><span class="num">10</span>Key Patterns &amp; Recent Feature Additions</div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Worker Detail Analytics — Role Scoping</h3>
+      <div class="fp">GET /api/workers/{id}/stats?company_id=X</div>
+      <div class="code">
+<span class="c">// WorkerController::stats()</span>
+<span class="c">// Company users always see their own company only.</span>
+<span class="c">// Vendor users may pass ?company_id=X to filter.</span>
+$companyId = $auth-><span class="f">isCompanyUser</span>()
+  ? $auth->company_id
+  : $request-><span class="f">input</span>(<span class="s">'company_id'</span>);
+
+$base = AttendanceLog::<span class="f">where</span>(<span class="s">'worker_id'</span>, $worker->id)
+  -><span class="f">when</span>($companyId, <span class="k">fn</span>($q) =>
+    $q-><span class="f">where</span>(<span class="s">'company_id'</span>, $companyId));
+
+<span class="c">// COUNT(DISTINCT DATE) — must use raw, not alias</span>
+$totalDays = (clone $base)
+  -><span class="f">selectRaw</span>(<span class="s">'COUNT(DISTINCT DATE(marked_at)) as cnt'</span>)
+  -><span class="f">value</span>(<span class="s">'cnt'</span>) ?? <span class="n">0</span>;
+      </div>
+    </div>
+    <div class="card">
+      <h3>Daily Attendance Summary (Grouped View)</h3>
+      <div class="fp">GET /api/attendance/daily-summary</div>
+      <div class="code">
+<span class="c">// AttendanceController::dailySummary()</span>
+<span class="c">// Groups raw IN/OUT logs into one row per worker per day</span>
+DB::<span class="f">table</span>(<span class="s">'attendance_logs as a'</span>)
+  -><span class="f">join</span>(<span class="s">'workers as w'</span>, <span class="s">'a.worker_id'</span>, <span class="s">'='</span>, <span class="s">'w.id'</span>)
+  -><span class="f">selectRaw</span>(<span class="s">'
+    w.id as worker_id, w.name,
+    DATE(a.marked_at) as date,
+    MIN(CASE WHEN a.type="IN"  THEN a.marked_at END) as first_in,
+    MAX(CASE WHEN a.type="OUT" THEN a.marked_at END) as last_out,
+    COUNT(CASE WHEN a.type="IN"  THEN 1 END) as in_count,
+    COUNT(CASE WHEN a.type="OUT" THEN 1 END) as out_count,
+    GROUP_CONCAT(DISTINCT a.gate SEPARATOR ", ") as locations
+  '</span>)
+  -><span class="f">groupBy</span>(<span class="s">'w.id'</span>, <span class="s">'a.company_id'</span>, DB::<span class="f">raw</span>(<span class="s">'DATE(a.marked_at)'</span>));
+      </div>
+    </div>
+    <div class="card">
+      <h3>Private File Downloads (Aadhaar + ID Docs)</h3>
+      <div class="fp">AadhaarController + WorkerIdDocumentController</div>
+      <div class="code">
+<span class="c">// Backend — serve file from private storage</span>
+<span class="k">return</span> Storage::<span class="f">disk</span>(<span class="s">'private'</span>)-><span class="f">download</span>(
+  $worker->aadhaar_pdf_path,
+  <span class="s">"aadhaar_{$worker->id}.pdf"</span>
+);
+
+<span class="c">// Frontend — fetch blob + trigger browser download</span>
+<span class="k">const</span> r = <span class="k">await</span> api.<span class="f">get</span>(url, { responseType: <span class="s">'blob'</span> });
+<span class="k">const</span> blob = URL.<span class="f">createObjectURL</span>(r.data);
+<span class="k">const</span> a = document.<span class="f">createElement</span>(<span class="s">'a'</span>);
+a.href = blob; a.download = filename;
+document.body.<span class="f">appendChild</span>(a); a.<span class="f">click</span>();
+URL.<span class="f">revokeObjectURL</span>(blob);
+
+<span class="c">// Worker model: aadhaar_pdf_path stays in $hidden,</span>
+<span class="c">// but has_aadhaar_pdf is in $appends (computed accessor).</span>
+<span class="c">// Company users allowed if worker attended their company.</span>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Deployment (Current / Previous) Tab Filtering</h3>
+      <div class="fp">WorkerController::index() — ?deployment=current|previous</div>
+      <div class="code">
+<span class="c">// Company users — previous = has attendance but no active deploy today</span>
+<span class="k">if</span> ($deployment === <span class="s">'previous'</span>) {
+  $query-><span class="f">whereHas</span>(<span class="s">'attendanceLogs'</span>, <span class="k">fn</span>($q) =>
+    $q-><span class="f">where</span>(<span class="s">'company_id'</span>, $auth->company_id));
+  $query-><span class="f">whereDoesntHave</span>(<span class="s">'assignments'</span>, <span class="k">fn</span>($q) =>
+    $q-><span class="f">where</span>(<span class="s">'company_id'</span>, $auth->company_id)
+       -><span class="f">where</span>(<span class="s">'status'</span>, <span class="s">'active'</span>)
+       -><span class="f">where</span>(<span class="s">'start_date'</span>, <span class="s">'&lt;='</span>, today())
+       -><span class="f">where</span>(<span class="s">'end_date'</span>,   <span class="s">'&gt;='</span>, today()));
+}
+
+<span class="c">// WorkerAssignmentController::destroy() — cancel even when locked</span>
+<span class="k">if</span> ($assignment->is_locked) {
+  $latest = AttendanceLog::<span class="f">where</span>(<span class="s">'worker_id'</span>, $assignment->worker_id)
+    -><span class="f">where</span>(<span class="s">'company_id'</span>, $assignment->company_id)
+    -><span class="f">latest</span>(<span class="s">'marked_at'</span>)-><span class="f">first</span>();
+  <span class="k">if</span> ($latest && $latest->type === AttendanceLog::TYPE_IN)
+    <span class="k">return</span> response()-><span class="f">json</span>([<span class="s">'message'</span> => <span class="s">'Worker is currently checked IN'</span>], <span class="n">422</span>);
+}
+      </div>
+    </div>
+    <div class="card">
+      <h3>Worker Photo Route (named route fix)</h3>
+      <div class="fp">routes/api.php + WorkerController::servePhoto()</div>
+      <div class="code">
+<span class="c">// Named route allows Worker model accessor to build URL:</span>
+<span class="c">// getPhotoUrlAttribute() calls route('worker.photo', ...)</span>
+Route::<span class="f">get</span>(<span class="s">'workers/{worker}/photo'</span>,
+  [WorkerController::class, <span class="s">'servePhoto'</span>])
+  -><span class="f">name</span>(<span class="s">'worker.photo'</span>);
+
+<span class="k">public function</span> <span class="f">servePhoto</span>(Request $request, Worker $worker)
+{
+  abort_unless($worker->photo_path &&
+    Storage::<span class="f">disk</span>(<span class="s">'private'</span>)-><span class="f">exists</span>($worker->photo_path), <span class="n">404</span>);
+  <span class="k">return</span> Storage::<span class="f">disk</span>(<span class="s">'private'</span>)
+    -><span class="f">response</span>($worker->photo_path);
+}
+      </div>
+    </div>
+    <div class="card">
+      <h3>VendorList — Role-Aware Data Source</h3>
+      <div class="fp">frontend/src/pages/vendors/VendorList.jsx</div>
+      <div class="code">
+<span class="c">// Super admin → global vendor list (search, create, edit)</span>
+<span class="k">const</span> { data } = <span class="f">useQuery</span>({
+  queryKey: [<span class="s">'vendors'</span>, search],
+  queryFn:  () => api.<span class="f">get</span>(<span class="s">'/vendors'</span>, { params: { search } }),
+  enabled:  !isCompanyUser,
+});
+
+<span class="c">// Company users → company-specific relationships with pivot status</span>
+<span class="k">const</span> { data: companyVendors } = <span class="f">useQuery</span>({
+  queryKey: [<span class="s">'company-vendors-list'</span>, user?.company_id],
+  queryFn:  () => api.<span class="f">get</span>(<span class="s">`/companies/${user.company_id}/vendors`</span>),
+  enabled:  isCompanyUser,
+});
+<span class="c">// Then filter by tab: v.pivot?.status === filter</span>
+<span class="c">// Cards show both vendor status + approval status badges</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     11. ADDING A NEW FEATURE
+══════════════════════════════════════════════════ -->
+<section id="new-feature">
+  <div class="sec-title"><span class="num">10</span>Adding a New Feature — Step by Step</div>
+
+  <div class="card">
+    <h3>Example: Add a "Notes" field to Attendance logs</h3>
+    <div class="steps">
+      <div class="step">
+        <span class="sn">1</span>
+        <div><h4>Create a migration</h4>
+          <div class="code">
+<span class="c"># In backend/database/migrations/</span>
+docker exec ams_backend php artisan make:migration \
+  add_notes_to_attendance_logs_table
+
+<span class="c"># Edit the migration file, then run it</span>
+docker exec ams_backend php artisan migrate
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="sn">2</span>
+        <div><h4>Add to Model $fillable</h4>
+          <div class="fp">backend/app/Models/AttendanceLog.php</div>
+          <div class="code">
+protected $fillable = [
+  <span class="c">// existing fields...</span>
+  <span class="s">'notes'</span>,  <span class="c">// ← add here</span>
+];
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="sn">3</span>
+        <div><h4>Add to Controller validation + create</h4>
+          <div class="fp">backend/app/Http/Controllers/AttendanceController.php → mark()</div>
+          <div class="code">
+$data = $request-><span class="f">validate</span>([
+  <span class="c">// existing...</span>
+  <span class="s">'notes'</span> => <span class="s">'nullable|string|max:500'</span>,
+]);
+
+AttendanceLog::<span class="f">create</span>([
+  <span class="c">// existing...</span>
+  <span class="s">'notes'</span> => $data[<span class="s">'notes'</span>] ?? <span class="k">null</span>,
+]);
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="sn">4</span>
+        <div><h4>docker cp the changed files + clear cache</h4>
+          <div class="code">
+docker cp backend/app/Models/AttendanceLog.php \
+  ams_backend:/var/www/html/app/Models/AttendanceLog.php
+docker cp backend/app/Http/Controllers/AttendanceController.php \
+  ams_backend:/var/www/html/app/Http/Controllers/AttendanceController.php
+docker exec ams_backend php artisan optimize:clear
+          </div>
+        </div>
+      </div>
+      <div class="step">
+        <span class="sn">5</span>
+        <div><h4>Update the frontend form to include the field</h4>
+          <div class="fp">frontend/src/pages/attendance/AttendanceMark.jsx</div>
+          <div class="code">
+<span class="c">// Add state</span>
+<span class="k">const</span> [notes, setNotes] = <span class="f">useState</span>(<span class="s">""</span>);
+
+<span class="c">// Add input in JSX</span>
+&lt;input placeholder=<span class="s">"Notes (optional)"</span>
+  value={notes} onChange={e => <span class="f">setNotes</span>(e.target.value)} /&gt;
+
+<span class="c">// Add to mark payload</span>
+markMutation.<span class="f">mutate</span>({ ...existingPayload, notes });
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     11. DEBUGGING GUIDE
+══════════════════════════════════════════════════ -->
+<section id="debug">
+  <div class="sec-title"><span class="num">11</span>Debugging Guide</div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Common Errors &amp; Root Causes</h3>
+      <table>
+        <thead><tr><th>Error</th><th>Cause &amp; Fix</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><code>401 Unauthenticated</code></td>
+            <td>Token expired or missing. Check localStorage has <code>ams_token</code>. Token expires after 7 days.</td>
+          </tr>
+          <tr>
+            <td><code>403 Insufficient permissions</code></td>
+            <td>Role middleware blocking route. Check <code>routes/api.php</code> middleware group for the endpoint.</td>
+          </tr>
+          <tr>
+            <td><code>422 Unprocessable</code></td>
+            <td>Laravel validation failed. Response body has <code>errors</code> object with field details.</td>
+          </tr>
+          <tr>
+            <td><code>500 Server Error</code></td>
+            <td>PHP exception. Check: <code>docker logs ams_backend --tail=50</code></td>
+          </tr>
+          <tr>
+            <td>Frontend change not showing</td>
+            <td>Vite HMR missed it. Run <code>docker compose restart frontend</code>, then hard-refresh (Ctrl+Shift+R).</td>
+          </tr>
+          <tr>
+            <td>Backend change not reflecting</td>
+            <td>Forgot <code>docker cp</code>. PHP is baked in image. Always cp + <code>optimize:clear</code>.</td>
+          </tr>
+          <tr>
+            <td><code>SQLSTATE Column not found</code></td>
+            <td>Used <code>wherePivot()</code> inside <code>whereHas()</code> — use <code>where('table.column', value)</code> instead.</td>
+          </tr>
+          <tr>
+            <td>Fingerprint ErrorCode 10004</td>
+            <td>SGIBIOSRV timeout — user didn't place finger within 10 seconds. Not a code bug.</td>
+          </tr>
+          <tr>
+            <td>Fingerprint ErrorCode 53</td>
+            <td>Device not found. Check USB. Try different port. Restart SGIBIOSRV service.</td>
+          </tr>
+          <tr>
+            <td>CORS error on fingerprint</td>
+            <td>Browser hasn't accepted the self-signed cert. Visit <code>https://localhost:8443</code> and click Proceed.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="card">
+      <h3>Useful Debug Commands</h3>
+      <div class="code">
+<span class="c"># View Laravel logs (real-time)</span>
+docker exec ams_backend tail -f /var/www/html/storage/logs/laravel.log
+
+<span class="c"># View nginx access/error logs</span>
+docker logs ams_nginx --tail=50 -f
+
+<span class="c"># View backend PHP errors</span>
+docker logs ams_backend --tail=50
+
+<span class="c"># MySQL — connect and run queries</span>
+docker exec -it ams_mysql mysql -u root -p ams_db
+
+<span class="c"># Check what's in a container</span>
+docker exec ams_backend sh -c "cat /var/www/html/routes/api.php"
+
+<span class="c"># Verify a file was docker cp'd correctly</span>
+docker exec ams_backend sh -c \
+  "grep -n 'keyword' /var/www/html/app/Http/Controllers/File.php"
+
+<span class="c"># Run artisan commands</span>
+docker exec ams_backend php artisan route:list
+docker exec ams_backend php artisan tinker
+docker exec ams_backend php artisan migrate:status
+
+<span class="c"># Clear all caches</span>
+docker exec ams_backend php artisan optimize:clear
+
+<span class="c"># Redis — check queue</span>
+docker exec ams_redis redis-cli LLEN queues:default
+
+<span class="c"># Check all container statuses</span>
+docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+      </div>
+
+      <h3 style="margin-top:14px">Test an API Endpoint with curl</h3>
+      <div class="code">
+<span class="c"># 1. Get auth token</span>
+TOKEN=$(curl -s -X POST http://localhost/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"superadmin@ams.local","password":"Admin@12345"}' \
+  | grep -o '"token":"[^"]*"' | cut -d'"' -f4)
+
+<span class="c"># 2. Use token in subsequent calls</span>
+curl -H "Authorization: Bearer $TOKEN" \
+  http://localhost/api/attendance/worker-templates?company_id=1
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     12. HOSTING & DEPLOYMENT
+══════════════════════════════════════════════════ -->
+<section id="hosting">
+  <div class="sec-title"><span class="num">12</span>Hosting &amp; Deployment</div>
+
+  <div class="callout info">
+    <strong>Shared hosting won't work.</strong> The app requires Docker, Redis, Python, and PHP-FPM with custom nginx config — none of which are available on shared hosting (cPanel/Hostgator etc.). You need a VPS.
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>Recommended VPS Providers</h3>
+      <table>
+        <thead><tr><th>Provider</th><th>Plan</th><th>RAM</th><th>Cost/mo</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Hetzner</strong> ⭐ best value</td><td>CX22</td><td>4 GB</td><td>~$6</td></tr>
+          <tr><td><strong>DigitalOcean</strong></td><td>Basic Droplet</td><td>2 GB</td><td>$12</td></tr>
+          <tr><td><strong>Vultr</strong></td><td>Regular Cloud</td><td>2 GB</td><td>$12</td></tr>
+          <tr><td><strong>AWS EC2</strong></td><td>t3.small</td><td>2 GB</td><td>~$15</td></tr>
+        </tbody>
+      </table>
+      <p style="margin-top:10px;font-size:13px;color:#64748b">
+        Hetzner CX22 (4 GB) comfortably runs the full stack. The biometric agent runs on the <strong>gate PC locally</strong> — not on the server.
+      </p>
+    </div>
+    <div class="card">
+      <h3>Server Setup (One Time)</h3>
+      <div class="code">
+<span class="c"># SSH into your VPS (Ubuntu 22.04 recommended)</span>
+ssh root@your-server-ip
+
+<span class="c"># Install Docker</span>
+curl -fsSL https://get.docker.com | sh
+
+<span class="c"># Clone project</span>
+git clone https://github.com/yourrepo/attendance_system.git
+cd attendance_system
+
+<span class="c"># Configure environment</span>
+cp .env.example .env
+nano .env  <span class="c"># set APP_KEY, DB_PASSWORD, etc.</span>
+
+<span class="c"># Generate app key</span>
+docker compose run --rm backend php artisan key:generate
+
+<span class="c"># Start all services</span>
+docker compose up -d
+
+<span class="c"># Run migrations + seed</span>
+docker exec ams_backend php artisan migrate --seed
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Add HTTPS (Free SSL via Let's Encrypt)</h3>
+    <div class="code">
+<span class="c"># Install certbot on the host (Ubuntu)</span>
+apt install certbot python3-certbot-nginx
+
+<span class="c"># Stop nginx container temporarily (needs port 80 free)</span>
+docker compose stop nginx
+
+<span class="c"># Issue certificate</span>
+certbot certonly --standalone -d yourdomain.com
+
+<span class="c"># Update nginx/conf.d/default.conf to add SSL listener</span>
+<span class="c"># Then restart</span>
+docker compose start nginx
+    </div>
+    <div class="callout tip" style="margin-top:10px">
+      <strong>Production checklist:</strong> Set <code>APP_ENV=production</code>, <code>APP_DEBUG=false</code>, use strong DB/Redis passwords, restrict port 3306 from public access, set up automated MySQL backups.
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════
+     13. QUICK REFERENCE COMMANDS
+══════════════════════════════════════════════════ -->
+<section id="commands">
+  <div class="sec-title"><span class="num">13</span>Quick Reference — Commands</div>
+  <div class="grid2">
+    <div class="card">
+      <h3>Docker</h3>
+      <div class="code">
+docker compose up -d           <span class="c"># start all</span>
+docker compose down            <span class="c"># stop all</span>
+docker compose restart frontend <span class="c"># restart one service</span>
+docker compose build backend   <span class="c"># rebuild image (after composer install)</span>
+docker ps                      <span class="c"># list running containers</span>
+docker logs ams_backend -f     <span class="c"># live logs</span>
+docker exec -it ams_backend sh <span class="c"># open shell in container</span>
+
+<span class="c"># Push a backend file change</span>
+docker cp backend/app/Http/Controllers/SomeController.php \
+  ams_backend:/var/www/html/app/Http/Controllers/SomeController.php
+docker exec ams_backend php artisan optimize:clear
+      </div>
+    </div>
+    <div class="card">
+      <h3>Laravel Artisan (inside container)</h3>
+      <div class="code">
+<span class="c"># prefix all with: docker exec ams_backend</span>
+php artisan migrate             <span class="c"># run pending migrations</span>
+php artisan migrate:rollback    <span class="c"># undo last migration</span>
+php artisan migrate:fresh --seed <span class="c"># reset DB completely</span>
+php artisan route:list          <span class="c"># show all API routes</span>
+php artisan optimize:clear      <span class="c"># clear all caches</span>
+php artisan tinker              <span class="c"># REPL — test model queries</span>
+php artisan make:controller Foo <span class="c"># scaffold new controller</span>
+php artisan make:model Foo -m   <span class="c"># model + migration</span>
+php artisan queue:work          <span class="c"># process queue jobs</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>Default Credentials (Dev)</h3>
+    <table>
+      <thead><tr><th>Role</th><th>Email</th><th>Password</th></tr></thead>
+      <tbody>
+        <tr><td><span class="badge bg-purple">super_admin</span></td><td>superadmin@ams.local</td><td>Admin@12345</td></tr>
+        <tr><td><span class="badge bg-blue">company_admin</span></td><td>company@ams.local</td><td>Admin@12345</td></tr>
+        <tr><td><span class="badge bg-cyan">company_gate</span></td><td>gate@ams.local</td><td>Admin@12345</td></tr>
+        <tr><td><span class="badge bg-orange">vendor_admin</span></td><td>vendor@ams.local</td><td>Admin@12345</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<div style="margin-top:60px;padding:24px;text-align:center;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:13px">
+  AMS Developer Guide &nbsp;·&nbsp; Laravel 11 + React 18 + Docker &nbsp;·&nbsp; For questions see README.md
+</div>
+
+</div>
+</body>
+</html>

@@ -17,6 +17,7 @@ import AttendanceList from "@/pages/attendance/AttendanceList";
 import AttendanceExceptions from "@/pages/attendance/AttendanceExceptions";
 import FingerprintTest from "@/pages/diagnostic/FingerprintTest";
 import UserList from "@/pages/users/UserList";
+import Downloads from "@/pages/Downloads";
 
 function PrivateRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -36,6 +37,7 @@ export default function App() {
       <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={<Dashboard />} />
+        <Route path="downloads" element={<Downloads />} />
 
         {/* Companies — super admin only */}
         <Route path="companies" element={

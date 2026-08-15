@@ -4,6 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Building2, Users, UserCheck, ClipboardList,
   Fingerprint, BarChart2, AlertTriangle, ShieldCheck, X, FlaskConical, UserCog, Settings,
+  Download as DownloadIcon,
 } from "lucide-react";
 
 const NAV = [
@@ -46,6 +47,12 @@ const NAV = [
     label: "Diagnostics",
     items: [
       { to: "/diagnostic/fingerprint", icon: FlaskConical, label: "Fingerprint Test", roles: ["super_admin", "company_admin", "vendor_admin"] },
+    ],
+  },
+  {
+    label: "Resources",
+    items: [
+      { to: "/downloads", icon: DownloadIcon, label: "Downloads", roles: ["all"] },
     ],
   },
 ];
