@@ -3,6 +3,10 @@
 Paste this whole file as your first message to Claude Code on the Windows machine.
 It carries the full state of work done on the Mac so you can continue seamlessly.
 
+> **NEXT BIG WORKSTREAM:** the cross-platform client app (Flutter, Windows+Android,
+> offline-first, SecuGen thumb + camera). Agreed scope and architecture live in
+> **`CLIENT_APP_DESIGN.md`** — read that file before starting any client-app work.
+
 ---
 
 ## 0. WHY THIS HANDOFF EXISTS
