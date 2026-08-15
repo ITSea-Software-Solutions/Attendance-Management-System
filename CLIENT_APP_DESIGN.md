@@ -130,11 +130,23 @@ server records both `marked_at` (device) and `synced_at`.
 | 4 | Pilot at one site (1 gate kiosk + 1 vendor device), then hardening | 1–2 wk |
 | 5 (v2) | Face attendance (liveness), offline deployments, exports | later |
 
-## 8. Repo & Workflow
+## 8. Repo & Workflow (DECIDED: two repos)
 
-- App lives in this repo under **`client/`** (monorepo) — keeps Claude sessions,
-  HANDOFF context, and server changes in one place. Split later only if CI demands.
-- Design changes: update THIS file first, then implement.
+Two repos under the `ITSea-Software-Solutions` org:
+
+- **Attendance-Management-System** (this repo) — server (Laravel API), web portal
+  (React), infra. The web portal keeps running and being used by all roles
+  throughout app development; the only changes here for the client app are the
+  new device/sync endpoints (§6).
+- **Attendance-Management-System-Client** (new) — the Flutter app (Windows +
+  Android). Own CI (APK / Windows builds), own release tags/versioning, clean
+  clone for the Windows dev machine.
+
+The **HTTP API is the contract** between the repos: API changes land in the server
+repo first (§6), the app consumes them by version. A copy of this design doc lives
+in the client repo and is authoritative for client-side decisions; §6 (server
+work) stays authoritative here. Design changes: update the doc in the owning repo
+first, then implement.
 
 ## 9. Open Questions (decide before/at Phase 1)
 
