@@ -45,11 +45,17 @@ const DOCS = [
 export default function Downloads() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Downloads</h1>
-        <p className="text-sm text-gray-500 mt-1">
-          Apps and documentation for the Attendance Management System.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Downloads</h1>
+          <p className="text-sm text-gray-500 mt-1">
+            Apps and documentation for the Attendance Management System.
+          </p>
+        </div>
+        {/* Public page — same content, no login needed; safe to share with clients */}
+        <a href="/download.html" target="_blank" rel="noreferrer" className="btn-secondary">
+          <Download size={15} /> Public download page
+        </a>
       </div>
 
       {/* ── Apps ─────────────────────────────────────────────────────────── */}

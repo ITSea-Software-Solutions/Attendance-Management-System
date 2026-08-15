@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AMS Downloads</title>
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1D2833; --muted:#5A6470; --line:#DAD6CC;
+    --teal:#10685A; --teal-soft:#E3EFEC; --amber:#B07310; --amber-soft:#F7EEDD;
+    --card:#FFFFFF; --code-bg:#F1EFE9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#171D24; --ink:#E8E6E1; --muted:#9AA3AD; --line:#333B45;
+      --teal:#4FB3A1; --teal-soft:#1D3330; --amber:#D9A04C; --amber-soft:#332A1B;
+      --card:#1F2731; --code-bg:#252D37;
+    }
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0}
+  .wrap{max-width:44rem; margin:0 auto; padding:2.5rem 1.25rem 4rem}
+  .eyebrow{font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); font-weight:700; margin:0 0 .5rem}
+  h1{font-size:1.9rem; margin:0 0 .4rem; letter-spacing:-.015em; text-wrap:balance}
+  .sub{color:var(--muted); margin:0 0 2rem; max-width:36rem}
+  h2{font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:2.2rem 0 .8rem}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1.2rem 1.35rem; margin:.8rem 0; display:flex; gap:1rem; align-items:flex-start}
+  .icon{font-size:1.6rem; line-height:1; padding-top:.15rem}
+  .card h3{margin:0 0 .2rem; font-size:1.05rem}
+  .card p{margin:0 0 .7rem; color:var(--muted); font-size:.92rem}
+  .badge{display:inline-flex; align-items:center; gap:.4em; font-size:.78rem; font-weight:700; padding:.3em .8em; border-radius:999px; background:var(--amber-soft); color:var(--amber); border:1px solid var(--amber)}
+  .btn{display:inline-block; font-weight:650; font-size:.9rem; padding:.5em 1.1em; border-radius:8px; background:var(--teal); color:var(--paper); text-decoration:none}
+  .btn.secondary{background:transparent; color:var(--teal); border:1.5px solid var(--teal)}
+  .btn:focus-visible,.badge:focus-visible{outline:2px solid var(--amber); outline-offset:2px}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.87em; background:var(--code-bg); padding:.1em .35em; border-radius:4px}
+  .req{font-size:.83rem; color:var(--muted); margin-top:.5rem}
+  footer{margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.83rem}
+  a{color:var(--teal)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">Attendance Management System</p>
+  <h1>AMS Downloads</h1>
+  <p class="sub">Apps and documentation for gate stations, vendor teams, and administrators. New releases appear on this page — bookmark it.</p>
+
+  <h2>Apps</h2>
+  <div class="card">
+    <div class="icon" aria-hidden="true">📱</div>
+    <div>
+      <h3>AMS for Android</h3>
+      <p>Vendor worker registration and gate attendance. Works offline and syncs automatically; supports USB-OTG SecuGen fingerprint scanners.</p>
+      <span class="badge">⏳ In development — v1.0 release will appear here</span>
+      <p class="req">Will require: Android 8.0+, camera; USB-OTG for fingerprint gates.</p>
+    </div>
+  </div>
+  <div class="card">
+    <div class="icon" aria-hidden="true">🖥️</div>
+    <div>
+      <h3>AMS Gate Station for Windows</h3>
+      <p>Desktop attendance station with SecuGen fingerprint scanner support and offline queueing.</p>
+      <span class="badge">⏳ In development — v1.0 release will appear here</span>
+      <p class="req">Will require: Windows 10/11 64-bit, SecuGen Hamster Pro 20 + driver.</p>
+    </div>
+  </div>
+
+  <h2>Documentation</h2>
+  <div class="card">
+    <div class="icon" aria-hidden="true">🪪</div>
+    <div>
+      <h3>Client Guide</h3>
+      <p>Start here — what the system does, the end-to-end flow, and how-tos for every role.</p>
+      <a class="btn" href="/docs/client-guide.html">Open guide</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="icon" aria-hidden="true">📖</div>
+    <div>
+      <h3>User Manual</h3>
+      <p>Detailed step-by-step manual for all roles and screens.</p>
+      <a class="btn secondary" href="/docs/user-manual.html">Open manual</a>
+    </div>
+  </div>
+
+  <h2>Web portal</h2>
+  <p style="max-width:65ch">No install needed for administration — the full portal runs in your browser at <a href="/"><code>this server's address</code></a>. Ask your administrator for login credentials.</p>
+
+  <footer>AMS v1.0.0 · Android &amp; Windows apps are the next release milestone (design finalized; see the project roadmap).</footer>
+</div>
+</body>
+</html>
