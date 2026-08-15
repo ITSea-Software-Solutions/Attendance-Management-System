@@ -24,6 +24,12 @@ const APPS = [
 const DOCS = [
   {
     icon: BookOpen,
+    title: "Client Guide",
+    desc: "Start here — features, the end-to-end flow, and how-tos for every role. Shareable with client teams.",
+    href: "/docs/client-guide.html",
+  },
+  {
+    icon: BookOpen,
     title: "User Manual",
     desc: "Step-by-step guide for every role — super admin, company, gate and vendor users.",
     href: "/docs/user-manual.html",

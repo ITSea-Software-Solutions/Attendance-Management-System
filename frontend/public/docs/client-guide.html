@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AMS Client Guide</title>
+</head>
+<body>
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1D2833; --muted:#5A6470; --line:#DAD6CC;
+    --teal:#10685A; --teal-soft:#E3EFEC; --amber:#B07310; --amber-soft:#F7EEDD;
+    --card:#FFFFFF; --code-bg:#F1EFE9;
+  }
+  :root:not([data-theme="light"]){ }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#171D24; --ink:#E8E6E1; --muted:#9AA3AD; --line:#333B45;
+      --teal:#4FB3A1; --teal-soft:#1D3330; --amber:#D9A04C; --amber-soft:#332A1B;
+      --card:#1F2731; --code-bg:#252D37;
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#171D24; --ink:#E8E6E1; --muted:#9AA3AD; --line:#333B45;
+    --teal:#4FB3A1; --teal-soft:#1D3330; --amber:#D9A04C; --amber-soft:#332A1B;
+    --card:#1F2731; --code-bg:#252D37;
+  }
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper); color:var(--ink);
+    font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    margin:0; padding:0;
+  }
+  .wrap{max-width:46rem; margin:0 auto; padding:2.5rem 1.25rem 5rem}
+  header.hero{border-bottom:3px solid var(--teal); padding-bottom:1.75rem; margin-bottom:2.5rem}
+  .eyebrow{font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); font-weight:700; margin:0 0 .6rem}
+  h1{font-size:2.1rem; line-height:1.15; margin:0 0 .5rem; font-weight:750; letter-spacing:-.015em; text-wrap:balance}
+  .sub{color:var(--muted); font-size:1.05rem; max-width:38rem; margin:0}
+  h2{font-size:1.35rem; margin:3rem 0 .9rem; letter-spacing:-.01em; text-wrap:balance}
+  h3{font-size:1.02rem; margin:1.6rem 0 .5rem}
+  p{margin:.55rem 0; max-width:65ch}
+  ul,ol{max-width:65ch; padding-left:1.3rem; margin:.55rem 0}
+  li{margin:.3rem 0}
+  code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:.88em; background:var(--code-bg); padding:.1em .35em; border-radius:4px}
+  a{color:var(--teal)}
+  table{border-collapse:collapse; width:100%; font-size:.92rem; font-variant-numeric:tabular-nums}
+  .tablewrap{overflow-x:auto; margin:1rem 0}
+  th{ text-align:left; font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); border-bottom:2px solid var(--line); padding:.45rem .7rem .45rem 0}
+  td{border-bottom:1px solid var(--line); padding:.55rem .7rem .55rem 0; vertical-align:top}
+  .demo{ background:var(--teal-soft); border:1px solid var(--teal); border-radius:10px; padding:1.1rem 1.25rem; margin:1.5rem 0}
+  .demo p{margin:.3rem 0}
+  .flow{counter-reset:step; list-style:none; padding:0; margin:1.2rem 0}
+  .flow li{ counter-increment:step; position:relative; padding:0 0 1.15rem 3rem; margin:0}
+  .flow li::before{ content:counter(step); position:absolute; left:0; top:.05rem; width:2rem; height:2rem; border-radius:50%; background:var(--teal); color:var(--paper); font-weight:700; font-size:.9rem; display:flex; align-items:center; justify-content:center}
+  .flow li:not(:last-child)::after{ content:""; position:absolute; left:calc(1rem - 1px); top:2.3rem; bottom:.1rem; width:2px; background:var(--line)}
+  .flow b{display:block}
+  .flow .who{font-size:.72rem; letter-spacing:.1em; text-transform:uppercase; color:var(--amber); font-weight:700}
+  .rolecard{ background:var(--card); border:1px solid var(--line); border-left:4px solid var(--teal); border-radius:10px; padding:1.15rem 1.35rem; margin:1.1rem 0}
+  .rolecard h3{margin:.1rem 0 .2rem; font-size:1.08rem}
+  .rolecard .login{font-size:.85rem; color:var(--muted); margin:0 0 .6rem}
+  .note{ background:var(--amber-soft); border-left:4px solid var(--amber); border-radius:0 8px 8px 0; padding:.7rem 1rem; margin:1rem 0; font-size:.95rem}
+  details{border:1px solid var(--line); border-radius:8px; padding:.7rem 1rem; margin:.6rem 0; background:var(--card)}
+  summary{cursor:pointer; font-weight:650}
+  summary:focus-visible{outline:2px solid var(--teal); outline-offset:2px}
+  details p{margin:.6rem 0 .2rem}
+  footer{margin-top:4rem; padding-top:1.2rem; border-top:1px solid var(--line); color:var(--muted); font-size:.85rem}
+  @media (prefers-reduced-motion:no-preference){ details{transition:background .15s ease} }
+</style>
+
+<div class="wrap">
+<header class="hero">
+  <p class="eyebrow">Attendance Management System</p>
+  <h1>AMS Client Guide</h1>
+  <p class="sub">Register contract workers with verified Aadhaar identity, deploy them to company sites, and record fingerprint attendance at every gate — with live reports for everyone involved.</p>
+</header>
+
+<div class="demo">
+  <p><b>Try it now — demo environment</b></p>
+  <p>Web portal: <a href="http://142.93.88.143" class="mono">http://142.93.88.143</a> &nbsp;·&nbsp; password for all demo accounts: <code>Admin@12345</code></p>
+  <div class="tablewrap"><table>
+    <tr><th>Role</th><th>Login email</th></tr>
+    <tr><td>Super Admin</td><td><code>superadmin@ams.local</code></td></tr>
+    <tr><td>Company Admin</td><td><code>company@ams.local</code></td></tr>
+    <tr><td>Gate User</td><td><code>gate@ams.local</code></td></tr>
+    <tr><td>Vendor Admin</td><td><code>vendor@ams.local</code></td></tr>
+  </table></div>
+  <p style="font-size:.85rem; color:var(--muted)">The demo runs fingerprint <em>simulation</em> so every flow works without a scanner attached. On production gates, a SecuGen USB fingerprint scanner does the real matching.</p>
+</div>
+
+<h2>What the system does</h2>
+<ul>
+  <li><b>Verified worker identity.</b> Every worker is registered against their Aadhaar — upload the e-Aadhaar PDF and the form fills itself (name, DOB, gender, address, photo), or type the 12-digit number. Duplicate registrations are blocked automatically, even across different vendors.</li>
+  <li><b>Fingerprint attendance.</b> Workers clock IN and OUT at site gates with a fingerprint scan — no cards to lose, no buddy-punching.</li>
+  <li><b>Multi-company, multi-vendor.</b> Vendors register and manage their workforce; companies approve which vendors may deploy to their sites. Each side sees exactly their own data.</li>
+  <li><b>Deployments with date ranges.</b> A worker is deployed to a company for a defined period; attendance is only accepted while the deployment is active.</li>
+  <li><b>Live reporting.</b> Daily attendance summaries, per-worker analytics with monthly breakdowns, and an “exceptions” view showing everyone currently inside.</li>
+  <li><b>Document vault.</b> Aadhaar PDFs and other ID documents are stored encrypted and privately — downloadable only by authorized roles, with every access logged.</li>
+  <li><b>Full audit trail.</b> Every sensitive action (registrations, approvals, attendance, document downloads) is recorded with who, what, and when.</li>
+</ul>
+
+<h2>Who does what</h2>
+<div class="tablewrap"><table>
+  <tr><th>Role</th><th>Belongs to</th><th>Can do</th></tr>
+  <tr><td><b>Super Admin</b></td><td>Platform</td><td>Creates companies and vendors, manages all users, sees everything</td></tr>
+  <tr><td><b>Company Admin</b></td><td>A client company</td><td>Approves vendors, creates gate users, views company attendance &amp; workers</td></tr>
+  <tr><td><b>Gate User</b></td><td>A company gate/department</td><td>Marks fingerprint IN / OUT attendance only</td></tr>
+  <tr><td><b>Vendor Admin</b></td><td>A contractor / vendor</td><td>Registers workers, requests company access, deploys workers, views their attendance</td></tr>
+  <tr><td><b>Vendor Operator</b></td><td>A contractor / vendor</td><td>Registers workers only</td></tr>
+</table></div>
+
+<h2>The flow, end to end</h2>
+<ol class="flow">
+  <li><span class="who">Super admin</span><b>Create the company and the vendor</b>Both get admin login credentials at creation.</li>
+  <li><span class="who">Vendor admin</span><b>Request access to the company</b><em>Company Access</em> page → send request.</li>
+  <li><span class="who">Company admin</span><b>Approve the vendor</b><em>Vendor Approvals</em> page → Approve (or reject with a reason).</li>
+  <li><span class="who">Vendor</span><b>Register workers</b>Aadhaar PDF auto-fill or manual 12-digit entry, then fingerprint enrollment. Aadhaar is mandatory; duplicates are refused.</li>
+  <li><span class="who">Vendor admin</span><b>Deploy workers to the company</b><em>Deploy Workers</em> → pick workers, company, and a date range.</li>
+  <li><span class="who">Company admin</span><b>Create gate users</b>One login per entry point (main gate, departments, checkpoints).</li>
+  <li><span class="who">Gate user</span><b>Mark attendance</b><em>Mark Attendance</em> → worker places finger → IN or OUT is recorded with score, time, and gate.</li>
+  <li><span class="who">Everyone</span><b>Watch the numbers</b>Daily summaries, worker analytics, exceptions — each role sees its own slice.</li>
+</ol>
+
+<h2>How-to, role by role</h2>
+
+<div class="rolecard">
+  <h3>Super Admin</h3>
+  <p class="login">Demo login: <code>superadmin@ams.local</code></p>
+  <ul>
+    <li><b>Create a company:</b> Companies → Add Company → fill details → save. Then “Create Admin” to issue the company admin login.</li>
+    <li><b>Create a vendor:</b> Vendors → Add Vendor → fill details and set the vendor admin’s email + password.</li>
+    <li><b>Manage users:</b> Users → create or edit any account, any role.</li>
+    <li>Super admin also sees every list (workers, attendance, approvals) across all companies and vendors.</li>
+  </ul>
+</div>
+
+<div class="rolecard">
+  <h3>Company Admin</h3>
+  <p class="login">Demo login: <code>company@ams.local</code></p>
+  <ul>
+    <li><b>Approve a vendor:</b> Vendor Approvals → <em>Pending</em> tab → Approve. Reject requires a reason; you can also Suspend later.</li>
+    <li><b>Create gate users:</b> Users → Add User → role <em>Gate User</em> → assign the gate / department name. Create one per entry point.</li>
+    <li><b>See who’s on site:</b> Attendance → Exceptions shows every worker currently IN without an OUT.</li>
+    <li><b>Reports:</b> Attendance shows one row per worker per day (first IN, last OUT, hours). Click any row for that worker’s full analytics.</li>
+  </ul>
+</div>
+
+<div class="rolecard">
+  <h3>Vendor Admin &amp; Operator</h3>
+  <p class="login">Demo login: <code>vendor@ams.local</code></p>
+  <ul>
+    <li><b>Get access to a company:</b> Company Access → Request. Wait for the company to approve (status shows on the same page).</li>
+    <li><b>Register a worker:</b> Workers → Register Worker.
+      <ol>
+        <li><b>Aadhaar</b> — upload the e-Aadhaar PDF (password: first 4 letters of the name in CAPITALS + birth year, e.g. <code>RAME1985</code>) and the form auto-fills. No PDF? Choose “Enter Manually” and type the 12-digit number. <em>Aadhaar is mandatory for every worker.</em></li>
+        <li><b>Details</b> — review the auto-filled data, add phone etc.</li>
+        <li><b>Fingerprint</b> — worker places a finger on the scanner (2 scans). The worker becomes <em>Active</em>.</li>
+        <li><b>Photo</b> — capture a live photo, then confirm.</li>
+      </ol>
+    </li>
+    <li><b>Deploy:</b> Deploy Workers → select workers → company → start / end dates. Cancel is possible until the worker is currently inside a site.</li>
+    <li><b>Track:</b> Workers and Attendance pages have <em>Current / Previous / All</em> tabs; click a row for per-worker analytics and monthly totals.</li>
+  </ul>
+</div>
+
+<div class="rolecard">
+  <h3>Gate User</h3>
+  <p class="login">Demo login: <code>gate@ams.local</code></p>
+  <ul>
+    <li><b>Mark attendance:</b> Mark Attendance → worker places finger → the system identifies them and shows name + photo → confirm IN or OUT.</li>
+    <li>The same screen warns if the worker isn’t deployed to your company today.</li>
+    <li><b>Exceptions:</b> see everyone currently inside your site at any moment.</li>
+  </ul>
+</div>
+
+<div class="note"><b>Attendance rules worth knowing:</b> a worker must be <em>Active</em> (fingerprint enrolled) and on an <em>active deployment</em> for today at your company; IN and OUT must alternate; every record stores the score, gate, and operator for the audit trail.</div>
+
+<h2>Downloads &amp; documentation</h2>
+<p>The portal’s <b>Downloads</b> page (sidebar → Resources) carries the full <em>User Manual</em>, the <em>Developer Guide</em>, and — as they release — the Android and Windows gate apps for offline attendance.</p>
+
+<h2>FAQ &amp; troubleshooting</h2>
+<details><summary>“Too many attempts” at login</summary><p>Five wrong passwords in a minute locks the login for that minute (brute-force protection). Wait 60 seconds and try again.</p></details>
+<details><summary>“A worker with this Aadhaar number is already registered”</summary><p>Someone — possibly another vendor — has already registered this person. Each Aadhaar can exist once in the system. If you believe this is an error, contact your administrator.</p></details>
+<details><summary>Worker stuck on “Pending”</summary><p>Pending means no fingerprint yet. Open the worker → Edit → Fingerprint step → enroll. The worker turns Active automatically.</p></details>
+<details><summary>Fingerprint scanner not detected</summary><p>On gate PCs the SecuGen scanner must be plugged in and its local service running (your IT team installs this once). The demo server needs no scanner — it simulates captures.</p></details>
+<details><summary>Can’t cancel a deployment</summary><p>Deployments lock after first attendance, and can only be cancelled while the worker is clocked OUT — never while they’re inside a site.</p></details>
+<details><summary>Forgot password</summary><p>Password reset is done by your administrator (company admin or super admin) — self-service reset is coming in a later release.</p></details>
+
+<footer>
+  AMS v1.0.0 · This guide covers the web portal. Android &amp; Windows gate apps are in development — see the Downloads page for availability.
+</footer>
+</div>
+
+</body>
+</html>
