@@ -189,6 +189,11 @@ class WorkerController extends Controller
             return response()->json(['message' => 'vendor_id is required.'], 422);
         }
 
+        // ── SaaS plan limit: workers per vendor org ───────────────────────────
+        if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $data['vendor_id']), 'workers')) {
+            return response()->json($deny, 403);
+        }
+
         // ── Aadhaar mandatory + dedup ─────────────────────────────────────────
         $resolved = $this->resolveAadhaar($data);
         if ($resolved instanceof JsonResponse) {

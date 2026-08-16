@@ -69,6 +69,7 @@ COPY routes/web.php          routes/web.php
 COPY routes/console.php      routes/console.php
 COPY config/services.php     config/services.php
 COPY config/biometric.php    config/biometric.php
+COPY config/plans.php        config/plans.php
 
 # ── Regenerate autoload so our new classes are discovered ─────────────────────
 RUN composer dump-autoload --optimize --quiet

@@ -91,6 +91,14 @@ export default function Login() {
             </button>
           </form>
 
+          <p className="text-sm text-gray-500 text-center mt-4">
+            New here?{" "}
+            <a href="/signup" className="text-brand-600 font-semibold">
+              Create your company or vendor account
+            </a>{" "}
+            — free trial, no card needed.
+          </p>
+
           <div className="mt-6 pt-4 border-t border-gray-100">
             <p className="text-xs text-gray-400 text-center">
               Workforce & Labor Attendance — Enterprise Edition

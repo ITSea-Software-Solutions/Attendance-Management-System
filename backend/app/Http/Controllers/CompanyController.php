@@ -111,6 +111,17 @@ class CompanyController extends Controller
             return response()->json(['message' => 'Vendor has not requested access to this company.'], 422);
         }
 
+        // SaaS: an approved link consumes quota on BOTH orgs (skip when re-approving).
+        if ($existing->pivot->status !== 'approved') {
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('company', $company->id), 'links')) {
+                return response()->json($deny, 403);
+            }
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $vendor->id), 'links')) {
+                $deny['message'] = "The vendor's " . $deny['message'];
+                return response()->json($deny, 403);
+            }
+        }
+
         $company->vendors()->updateExistingPivot($vendor->id, [
             'status'      => 'approved',
             'approved_at' => now(),

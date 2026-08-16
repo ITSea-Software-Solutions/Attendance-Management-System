@@ -34,6 +34,12 @@ class VendorController extends Controller
         if (! $request->user()->isSuperAdmin() && $request->user()->role !== 'company_admin') {
             abort(403, 'Only Super Admin or a Company Admin can create vendors.');
         }
+        // SaaS: creating an auto-approved vendor consumes one of the company's links.
+        if ($request->user()->role === 'company_admin') {
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('company', $request->user()->company_id), 'links')) {
+                return response()->json($deny, 403);
+            }
+        }
 
         $data = $request->validate([
             'name'           => 'required|string|max:120|unique:vendors',
@@ -62,6 +68,10 @@ class VendorController extends Controller
                     'approved_by' => $request->user()->id,
                 ],
             ]);
+            // A vendor created BY a company works under that company's umbrella —
+            // inherit the company's plan instead of starting on a fresh trial.
+            $creatorPlan = \App\Models\Company::find($request->user()->company_id)?->plan ?? 'trial';
+            $vendor->forceFill(['plan' => $creatorPlan, 'plan_started_at' => now()])->save();
         }
 
         $this->audit->log($request->user()->id, 'vendor_created', Vendor::class, $vendor->id);
@@ -124,6 +134,11 @@ class VendorController extends Controller
             return response()->json([
                 'message' => 'Already ' . $existing->pivot->status . ' for this company.',
             ], 422);
+        }
+
+        // SaaS: block new requests once the vendor's approved-link quota is full.
+        if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $vendor->id), 'links')) {
+            return response()->json($deny, 403);
         }
 
         $vendor->companies()->attach($company->id, [

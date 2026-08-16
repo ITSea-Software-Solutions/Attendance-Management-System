@@ -60,6 +60,9 @@ class UserController extends Controller
                         'message' => 'That vendor is not approved for your company.',
                     ], 403);
                 }
+                if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $data['vendor_id']), 'users')) {
+                    return response()->json($deny, 403);
+                }
                 $data['role']      = 'vendor_admin';
                 $data['is_active'] = true;
                 $user = User::create($data);
@@ -75,6 +78,9 @@ class UserController extends Controller
                 'location_type' => 'nullable|in:main_gate,department,checkpoint',
                 'location_name' => 'nullable|string|max:100',
             ]);
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('company', $auth->company_id), 'users')) {
+                return response()->json($deny, 403);
+            }
             $data['role']       = 'company_gate';
             $data['company_id'] = $auth->company_id;
             $data['is_active']  = true;
@@ -90,6 +96,9 @@ class UserController extends Controller
                 'password' => ['required', Password::min(8)->letters()->numbers()],
                 'phone'    => 'nullable|string|max:15',
             ]);
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $auth->vendor_id), 'users')) {
+                return response()->json($deny, 403);
+            }
             $data['role']      = 'vendor_operator';
             $data['vendor_id'] = $auth->vendor_id;
             $data['is_active'] = true;
@@ -109,6 +118,18 @@ class UserController extends Controller
             'location_type' => 'nullable|in:main_gate,department,checkpoint',
             'location_name' => 'nullable|string|max:100',
         ]);
+
+        // Super admin path: still respect the target org's plan (super admin
+        // can always bump the org's plan on the Subscriptions page first).
+        if (! empty($data['company_id'])) {
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('company', $data['company_id']), 'users')) {
+                return response()->json($deny, 403);
+            }
+        } elseif (! empty($data['vendor_id'])) {
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $data['vendor_id']), 'users')) {
+                return response()->json($deny, 403);
+            }
+        }
 
         $data['is_active'] = true;
         $user = User::create($data);

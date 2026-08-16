@@ -16,6 +16,8 @@ use App\Http\Controllers\UserController;
 // ─── Public ───────────────────────────────────────────────────────────────────
 // Throttled: max 5 attempts per minute per IP (brute-force protection)
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+// SaaS self-service signup (company or vendor; starts on Trial)
+Route::post('/signup', [\App\Http\Controllers\SignupController::class, 'store'])->middleware('throttle:5,1');
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
@@ -23,6 +25,13 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── Offline-first client app sync (Flutter Windows/Android) ─────────────
     Route::get('sync/pull',  [SyncController::class, 'pull']);
     Route::post('sync/push', [SyncController::class, 'push']);
+
+    // ── SaaS plans & subscriptions ───────────────────────────────────────────
+    Route::get('plan',                  [\App\Http\Controllers\PlanController::class, 'show']);
+    Route::post('plan/upgrade-request', [\App\Http\Controllers\PlanController::class, 'requestUpgrade']);
+    Route::get('admin/subscriptions',   [\App\Http\Controllers\PlanController::class, 'index']);
+    Route::post('admin/subscriptions/set-plan', [\App\Http\Controllers\PlanController::class, 'setPlan']);
+    Route::post('admin/plan-requests/{planRequest}/decide', [\App\Http\Controllers\PlanController::class, 'decide']);
 
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);

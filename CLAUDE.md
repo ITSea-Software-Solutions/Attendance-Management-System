@@ -326,6 +326,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] **Flutter app v0.9.0-preview BUILT** (`client/`) — login, role modes (vendor/gate/admin-view), offline SQLite store, idempotent sync (pull/push by client UUID), SIM fingerprint + SGIBIOSRV capture on Windows. APK at `frontend/public/downloads/` (NOT in git — build via `flutter build apk`; Windows: `flutter build windows` on a Windows machine)
 - [x] Server sync API: `GET /api/sync/pull`, `POST /api/sync/push` (`SyncController`), `client_uuid` unique columns on workers + attendance_logs
 - [x] **Company admins create their own vendors** (auto-approved for their company) + can create that vendor's `vendor_admin` login (only for approved vendors)
+- [x] **SaaS self-service**: public `/signup` (company OR vendor, minimal fields, GST/PAN optional), plans Trial(3u/10w/3links)/Professional(25/500/25)/Enterprise(100/5000/100) in `config/plans.php`, enforced server-side by `PlanService` at user/worker/link creation (+ sync push). Org admins: `/billing` (usage meters + upgrade request). Super admin: `/subscriptions` (approve/reject requests, set any plan). Payment OFFLINE. Existing orgs grandfathered to enterprise. Company-created vendors inherit the company's plan.
 - [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation
 

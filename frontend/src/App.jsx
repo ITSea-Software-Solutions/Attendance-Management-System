@@ -18,6 +18,9 @@ import AttendanceExceptions from "@/pages/attendance/AttendanceExceptions";
 import FingerprintTest from "@/pages/diagnostic/FingerprintTest";
 import UserList from "@/pages/users/UserList";
 import Downloads from "@/pages/Downloads";
+import Signup from "@/pages/Signup";
+import PlanBilling from "@/pages/PlanBilling";
+import Subscriptions from "@/pages/Subscriptions";
 
 function PrivateRoute({ children, roles }) {
   const { user, loading } = useAuth();
@@ -33,11 +36,18 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
+      <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
 
       <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="downloads" element={<Downloads />} />
+        <Route path="billing" element={
+          <PrivateRoute roles={["company_admin", "vendor_admin"]}><PlanBilling /></PrivateRoute>
+        } />
+        <Route path="subscriptions" element={
+          <PrivateRoute roles={["super_admin"]}><Subscriptions /></PrivateRoute>
+        } />
 
         {/* Companies — super admin only */}
         <Route path="companies" element={

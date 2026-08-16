@@ -164,6 +164,10 @@ class SyncController extends Controller
             return ['uuid' => $uuid, 'status' => 'error', 'message' => 'No vendor for this account.'];
         }
 
+        if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $vendorId), 'workers')) {
+            return ['uuid' => $uuid, 'status' => 'error', 'message' => $deny['message']];
+        }
+
         $num = preg_replace('/\D+/', '', (string) ($reg['aadhaar_number'] ?? ''));
         if (strlen($num) !== 12) {
             return ['uuid' => $uuid, 'status' => 'error', 'message' => 'Aadhaar is mandatory (12 digits).'];

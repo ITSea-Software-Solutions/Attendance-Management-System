@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Building2, Users, UserCheck, ClipboardList,
   Fingerprint, BarChart2, AlertTriangle, ShieldCheck, X, FlaskConical, UserCog, Settings,
-  Download as DownloadIcon,
+  Download as DownloadIcon, CreditCard,
 } from "lucide-react";
 
 const NAV = [
@@ -53,6 +53,8 @@ const NAV = [
     label: "Resources",
     items: [
       { to: "/downloads", icon: DownloadIcon, label: "Downloads", roles: ["all"] },
+      { to: "/billing", icon: CreditCard, label: "Plan & Billing", roles: ["company_admin", "vendor_admin"] },
+      { to: "/subscriptions", icon: CreditCard, label: "Subscriptions", roles: ["super_admin"] },
     ],
   },
 ];
