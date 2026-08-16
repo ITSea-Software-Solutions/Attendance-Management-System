@@ -266,6 +266,24 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Diagnostics: timed round-trip to the server (auth'd, tiny endpoint).
+  Future<Map<String, Object?>> serverProbe() async {
+    final server = await LocalDb.getMeta('server') ?? '(not set)';
+    final sw = Stopwatch()..start();
+    try {
+      final api = await Api.client();
+      await api.get('/plan');
+      sw.stop();
+      return {'ok': true, 'ms': sw.elapsedMilliseconds, 'server': server};
+    } catch (e) {
+      sw.stop();
+      final t = e.toString();
+      String why = 'Unreachable — check internet / server address.';
+      if (t.contains('401')) why = 'Reachable, but the session expired — sign in again.';
+      return {'ok': false, 'ms': sw.elapsedMilliseconds, 'server': server, 'error': why};
+    }
+  }
+
   Future<String> _deviceId() async {
     var id = await LocalDb.getMeta('device_id');
     if (id == null) {

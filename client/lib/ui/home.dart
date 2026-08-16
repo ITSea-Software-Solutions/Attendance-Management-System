@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/scope.dart';
+import 'diagnostics.dart';
 import 'gate_attendance.dart';
 import 'vendor_workers.dart';
 
@@ -69,6 +70,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+          ),
+          IconButton(
+            tooltip: 'Diagnostics — device & connection status',
+            icon: const Icon(Icons.troubleshoot),
+            onPressed: () => Navigator.push(context,
+                MaterialPageRoute(builder: (_) => const DiagnosticsScreen())),
           ),
           IconButton(
             tooltip: 'Sign out',

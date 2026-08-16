@@ -2,8 +2,17 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
+import 'package:dio/io.dart';
 
 import '../core/config.dart';
+
+/// Result of a device probe (diagnostics screen).
+class DeviceProbe {
+  final bool ok;
+  final int? latencyMs;
+  final String detail;
+  DeviceProbe(this.ok, this.detail, {this.latencyMs});
+}
 
 /// Result of an enrollment capture (registration flow).
 class EnrollCapture {
@@ -45,6 +54,34 @@ abstract class BiometricDriver {
     return SimDriver();
   }
 
+  /// Diagnostics: probe the fingerprint scanner service with timing + detail.
+  static Future<DeviceProbe> probeScanner() async {
+    if (!Platform.isWindows) {
+      return DeviceProbe(false,
+          'No USB scanner driver on this platform yet — fingerprint runs in SIMULATION. Real Android USB-OTG support arrives with the SecuGen FDx SDK.');
+    }
+    final sw = Stopwatch()..start();
+    try {
+      final sg = SgibiosrvDriver();
+      final up = await sg.available();
+      sw.stop();
+      if (up) {
+        return DeviceProbe(true,
+            'SGIBIOSRV responding at ${AppConfig.sgibiosrvUrl} — real captures enabled.',
+            latencyMs: sw.elapsedMilliseconds);
+      }
+      return DeviceProbe(false,
+          'SGIBIOSRV reachable but returned an unexpected response — reinstall/restart the SecuGen service.',
+          latencyMs: sw.elapsedMilliseconds);
+    } catch (_) {
+      sw.stop();
+      return DeviceProbe(false,
+          'Cannot reach the SecuGen WebAPI (SGIBIOSRV) at ${AppConfig.sgibiosrvUrl}.\n'
+          'If the SecuGen diagnostic utility captures fine but this fails, the driver is OK — the WEBAPI SERVICE is missing: '
+          'install "SecuGen WebAPI" from secugen.com/download, then check Windows Services for "SGIBIOSRV" and start it. Retry after.');
+    }
+  }
+
   /// Enrollment capture for worker registration.
   /// Windows + SGIBIOSRV → REAL template from the connected scanner.
   /// Anywhere else (or service missing) → simulated template, clearly marked.
@@ -81,10 +118,25 @@ class SimDriver implements BiometricDriver {
 }
 
 class SgibiosrvDriver implements BiometricDriver {
-  final _dio = Dio(BaseOptions(
-    connectTimeout: const Duration(seconds: 3),
-    receiveTimeout: const Duration(seconds: 15),
-  ));
+  // SGIBIOSRV serves a SELF-SIGNED cert on https://localhost:8443 — trust it
+  // for that exact host+port only (SecuGen's own utility does the same).
+  // Without this, every call fails with a TLS handshake error even when the
+  // service is running perfectly.
+  static Dio _makeDio() {
+    final dio = Dio(BaseOptions(
+      connectTimeout: const Duration(seconds: 3),
+      receiveTimeout: const Duration(seconds: 15),
+    ));
+    dio.httpClientAdapter = IOHttpClientAdapter(createHttpClient: () {
+      final c = HttpClient();
+      c.badCertificateCallback =
+          (cert, host, port) => (host == 'localhost' || host == '127.0.0.1') && port == 8443;
+      return c;
+    });
+    return dio;
+  }
+
+  final _dio = _makeDio();
 
   @override
   Future<bool> available() async {
