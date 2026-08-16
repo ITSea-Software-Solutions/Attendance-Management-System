@@ -1,4 +1,6 @@
 import 'dart:io';
+
+import 'package:flutter/services.dart';
 import 'dart:math';
 
 import 'package:dio/dio.dart';
@@ -69,13 +71,41 @@ abstract class BiometricDriver {
     return SimDriver();
   }
 
+  static const MethodChannel _android = MethodChannel('truecrew/sgfp');
+
   /// Diagnostics: probe the fingerprint scanner with timing + detail.
-  /// Windows order: 1) DIRECT SDK via sgfplib.dll (no service needed — same
-  /// path as SecuGen's own utility), 2) WebAPI service, 3) report both.
+  /// Windows: 1) DIRECT SDK via sgfplib.dll, 2) WebAPI, 3) report both.
+  /// Android: USB device presence + permission + SDK-AAR presence, precisely.
   static Future<DeviceProbe> probeScanner() async {
+    if (Platform.isAndroid) {
+      try {
+        final st = Map<String, dynamic>.from(
+            await _android.invokeMethod('status') as Map);
+        final attached = st['deviceAttached'] == true;
+        final perm = st['permission'] == true;
+        final sdk = st['sdkPresent'] == true;
+        if (!attached) {
+          return DeviceProbe(false,
+              'No SecuGen scanner on USB. Plug the scanner in via an OTG cable/adapter — the phone must supply power. (Fingerprint falls back to SIMULATION; camera Face attendance works without any scanner.)');
+        }
+        final name = st['deviceName'] ?? 'SecuGen device';
+        if (!sdk) {
+          return DeviceProbe(false,
+              'Scanner DETECTED on USB ($name) — but the SecuGen Android SDK (FDxSDKPro.aar) is not bundled in this build. Drop the AAR into client/android/app/libs/ and rebuild to enable REAL captures.');
+        }
+        if (!perm) {
+          return DeviceProbe(false,
+              '$name detected + SDK present — USB permission not granted yet. Tap Test Capture and accept the Android USB prompt.');
+        }
+        return DeviceProbe(true,
+            '$name ready via USB-OTG (SDK present, permission granted) — real captures enabled.');
+      } catch (e) {
+        return DeviceProbe(false, 'Native channel error: $e');
+      }
+    }
     if (!Platform.isWindows) {
       return DeviceProbe(false,
-          'No USB scanner driver on this platform yet — fingerprint runs in SIMULATION. Real Android USB-OTG support arrives with the SecuGen FDx SDK.');
+          'No USB scanner driver on this platform — fingerprint runs in SIMULATION.');
     }
     // 1) Direct SDK
     final swd = Stopwatch()..start();
@@ -124,6 +154,32 @@ abstract class BiometricDriver {
   static String? lastEnrollError;
   static Future<EnrollCapture?> enrollCapture() async {
     lastEnrollError = null;
+    if (Platform.isAndroid) {
+      try {
+        final st = Map<String, dynamic>.from(
+            await _android.invokeMethod('status') as Map);
+        if (st['deviceAttached'] == true && st['sdkPresent'] == true) {
+          if (st['permission'] != true) {
+            final granted =
+                await _android.invokeMethod('requestPermission') as bool? ?? false;
+            if (!granted) {
+              lastEnrollError = 'USB permission denied — accept the prompt to use the scanner.';
+              return null;
+            }
+          }
+          final r = Map<String, dynamic>.from(await _android
+              .invokeMethod('capture', {'timeoutMs': 10000}) as Map);
+          if (r['template'] != null) {
+            return EnrollCapture(r['template'] as String,
+                (r['quality'] as num?)?.toInt() ?? 0,
+                simulated: false);
+          }
+          lastEnrollError = (r['error'] as String?) ?? 'Capture failed.';
+          return null; // real hardware present — let the user retry
+        }
+        // No scanner / no AAR → clearly-marked simulation below.
+      } catch (_) {/* channel unavailable → simulate */}
+    }
     if (Platform.isWindows) {
       // 1) Direct SDK — no service required.
       if (SgfpDirect.instance.ensureReady() == null) {

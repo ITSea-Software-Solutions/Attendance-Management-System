@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -62,7 +63,20 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
       final dest = p.join(dir.path, 'photos', '${const Uuid().v4()}.jpg');
       await Directory(p.dirname(dest)).create(recursive: true);
       await File(x.path).copy(dest);
-      setState(() => _photoPath = dest);
+      // On-device precision: verify a real face is in the frame BEFORE
+      // accepting — a blurry/no-face photo would silently fail server-side
+      // face enrollment later.
+      final detector = FaceDetector(
+          options: FaceDetectorOptions(performanceMode: FaceDetectorMode.accurate));
+      final faces = await detector.processImage(InputImage.fromFilePath(dest));
+      await detector.close();
+      if (faces.isEmpty) {
+        await File(dest).delete();
+        setState(() => _error =
+            'No face detected in that photo — retake with the worker facing the camera in good light.');
+        return;
+      }
+      setState(() { _error = null; _photoPath = dest; });
     } catch (e) {
       setState(() => _error =
           'Camera unavailable — try "Pick from gallery/files" instead.');

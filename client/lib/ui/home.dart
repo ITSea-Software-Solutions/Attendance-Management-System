@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 
 import '../core/scope.dart';
+import 'dart:io' show Platform;
+
 import 'diagnostics.dart';
+import 'face_attendance.dart';
 import 'gate_attendance.dart';
 import 'vendor_workers.dart';
 
@@ -24,9 +27,15 @@ class _HomeScreenState extends State<HomeScreen> {
         (label: 'Workers', icon: Icons.groups, body: const VendorWorkersScreen()),
       if (app.canMark)
         (
-          label: 'Attendance',
+          label: 'Finger',
           icon: Icons.fingerprint,
           body: const GateAttendanceScreen()
+        ),
+      if (app.canMark && Platform.isAndroid)
+        (
+          label: 'Face',
+          icon: Icons.face_retouching_natural,
+          body: const FaceAttendanceScreen()
         ),
       (label: 'Inside', icon: Icons.meeting_room, body: const ExceptionsScreen()),
       (label: 'Activity', icon: Icons.receipt_long, body: const _ActivityScreen()),

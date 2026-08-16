@@ -266,6 +266,37 @@ class AppState extends ChangeNotifier {
     }
   }
 
+  /// Face attendance (online): identify a worker from a photo (server-side
+  /// ArcFace 1:N), returning the same shape the web gate uses.
+  Future<Map<String, dynamic>> identifyFace(String photoPath) async {
+    final api = await Api.client();
+    final fd = FormData.fromMap({
+      'company_id': user?['company_id'],
+      'photo': await MultipartFile.fromFile(photoPath, filename: 'face.jpg'),
+    });
+    final r = await api.post('/attendance/identify-face', data: fd);
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  /// Face attendance mark (online): the same photo is proof AND the server's
+  /// re-verification probe — the client can never assert a match.
+  Future<String> markFace(Map<String, dynamic> w, String type, String photoPath) async {
+    final api = await Api.client();
+    final fd = FormData.fromMap({
+      'worker_id': w['worker_id'],
+      'company_id': user?['company_id'],
+      if (w['assignment_id'] != null) 'assignment_id': w['assignment_id'],
+      'type': type,
+      'method': 'face',
+      'location_type': user?['location_type'] ?? 'main_gate',
+      'location_name': user?['location_name'] ?? 'Main Gate',
+      'photo': await MultipartFile.fromFile(photoPath, filename: 'face.jpg'),
+    });
+    final r = await api.post('/attendance/mark', data: fd);
+    await sync(); // pull the fresh mark into the local activity view
+    return (r.data is Map ? (r.data['message'] ?? 'Marked.') : 'Marked.').toString();
+  }
+
   /// Diagnostics: timed round-trip to the server (auth'd, tiny endpoint).
   Future<Map<String, Object?>> serverProbe() async {
     final server = await LocalDb.getMeta('server') ?? '(not set)';
