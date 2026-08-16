@@ -9,6 +9,7 @@
  * 5. Returns extracted data to parent for auto-fill
  */
 
+import PasswordInput from "@/components/PasswordInput";
 import { useState, useRef } from "react";
 import api from "@/lib/axios";
 import { ExternalLink, Upload, Lock, CheckCircle, AlertTriangle, FileText, ChevronRight } from "lucide-react";
@@ -175,8 +176,7 @@ export default function AadhaarFlow({ onExtracted, onSkip }) {
               </p>
             </div>
           </div>
-          <input
-            type="password"
+          <PasswordInput
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             className="input bg-white"

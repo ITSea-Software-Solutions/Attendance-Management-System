@@ -3,6 +3,7 @@ import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Building2, HardHat, Check, Fingerprint, ChevronLeft } from "lucide-react";
 import api from "@/lib/axios";
+import PasswordInput from "@/components/PasswordInput";
 import { useAuth } from "@/contexts/AuthContext";
 
 /**
@@ -106,7 +107,7 @@ export default function Signup() {
               <div><label className="label">Email * <span className="text-gray-400 font-normal">(your login)</span></label>
                 <input className="input" type="email" value={form.email} onChange={set("email")} /></div>
               <div><label className="label">Password * <span className="text-gray-400 font-normal">(8+, letters & numbers)</span></label>
-                <input className="input" type="password" value={form.password} onChange={set("password")} /></div>
+                <PasswordInput value={form.password} onChange={set("password")} /></div>
             </div>
             <div><label className="label">Address</label><input className="input" value={form.address} onChange={set("address")} /></div>
             <div className="grid grid-cols-3 gap-3">

@@ -24,6 +24,7 @@ class _SignupScreenState extends State<SignupScreen> {
   String _orgType = 'company';
   String _plan = 'trial';
   bool _busy = false;
+  bool _showPass = false;
   String? _error;
 
   Future<void> _submit() async {
@@ -110,7 +111,16 @@ class _SignupScreenState extends State<SignupScreen> {
               const SizedBox(height: 10),
               TextField(controller: _email, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email * (your login)')),
               const SizedBox(height: 10),
-              TextField(controller: _password, obscureText: true, decoration: const InputDecoration(labelText: 'Password * (8+, letters & numbers)')),
+              TextField(
+                controller: _password,
+                obscureText: !_showPass,
+                decoration: InputDecoration(
+                    labelText: 'Password * (8+, letters & numbers)',
+                    suffixIcon: IconButton(
+                      icon: Icon(_showPass ? Icons.visibility_off : Icons.visibility),
+                      onPressed: () => setState(() => _showPass = !_showPass),
+                    )),
+              ),
               const SizedBox(height: 10),
               TextField(controller: _phone, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone')),
               const SizedBox(height: 10),
