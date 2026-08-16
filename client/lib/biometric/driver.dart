@@ -6,6 +6,20 @@ import 'package:dio/io.dart';
 
 import '../core/config.dart';
 
+/// SecuGen device error codes → human messages (mirror of the web map).
+const Map<int, String> kSgiErrors = {
+  51: 'Capture failed — try again',
+  52: 'Memory failure',
+  53: 'Device not found — check USB connection',
+  54: 'No finger detected — place finger and try again',
+  55: 'Device busy — wait and retry',
+  56: 'Poor image quality — clean the sensor',
+  57: 'Capture failed — try again',
+  63: 'Service not responding',
+  10001: 'License error (licstr) — service rejected the request',
+  10004: 'No finger detected — click Scan then place your finger immediately',
+};
+
 /// Result of a device probe (diagnostics screen).
 class DeviceProbe {
   final bool ok;
@@ -61,24 +75,36 @@ abstract class BiometricDriver {
           'No USB scanner driver on this platform yet — fingerprint runs in SIMULATION. Real Android USB-OTG support arrives with the SecuGen FDx SDK.');
     }
     final sw = Stopwatch()..start();
+    final sg = SgibiosrvDriver();
     try {
-      final sg = SgibiosrvDriver();
-      final up = await sg.available();
+      final r = await sg.rawCapturePing();
       sw.stop();
-      if (up) {
+      final code = r.$1;
+      final body = r.$2;
+      // The service is ALIVE if it answers with SecuGen's JSON shape —
+      // regardless of HTTP status (some builds use non-200 for device errors).
+      final hasErrorCode = body.contains('ErrorCode');
+      if (code == 200 || hasErrorCode) {
+        String extra = '';
+        final m = RegExp(r'"ErrorCode"\s*:\s*(\d+)').firstMatch(body);
+        if (m != null) {
+          final ec = int.parse(m.group(1)!);
+          if (ec != 0) extra = '\nDevice says: ${kSgiErrors[ec] ?? "ErrorCode $ec"}';
+        }
         return DeviceProbe(true,
-            'SGIBIOSRV responding at ${AppConfig.sgibiosrvUrl} — real captures enabled.',
+            'SGIBIOSRV responding at ${AppConfig.sgibiosrvUrl} (HTTP $code) — real captures enabled.$extra',
             latencyMs: sw.elapsedMilliseconds);
       }
       return DeviceProbe(false,
-          'SGIBIOSRV reachable but returned an unexpected response — reinstall/restart the SecuGen service.',
+          'Port 8443 answered but not like SGIBIOSRV.\nHTTP $code — response starts: "${body.replaceAll("\n", " ").substring(0, body.length > 180 ? 180 : body.length)}"\n'
+          'Send this text to support — it identifies exactly what is listening there.',
           latencyMs: sw.elapsedMilliseconds);
-    } catch (_) {
+    } catch (e) {
       sw.stop();
       return DeviceProbe(false,
           'Cannot reach the SecuGen WebAPI (SGIBIOSRV) at ${AppConfig.sgibiosrvUrl}.\n'
-          'If the SecuGen diagnostic utility captures fine but this fails, the driver is OK — the WEBAPI SERVICE is missing: '
-          'install "SecuGen WebAPI" from secugen.com/download, then check Windows Services for "SGIBIOSRV" and start it. Retry after.');
+          'If the SecuGen diagnostic utility captures fine but this fails, the driver is OK — the WEBAPI SERVICE is missing or stopped: '
+          'install "SecuGen WebAPI" from secugen.com/download, start SGIBIOSRV in services.msc, then Retry.\n(${e.runtimeType})');
     }
   }
 
@@ -141,16 +167,22 @@ class SgibiosrvDriver implements BiometricDriver {
   @override
   Future<bool> available() async {
     try {
-      // SGIBIOSRV answers on POST /SGIFPCapture; a quick reachability probe.
-      final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIFPCapture',
-          data: 'Timeout=1&Quality=50&licstr=&templateFormat=ISO',
-          options: Options(
-              contentType: 'text/plain;charset=UTF-8',
-              validateStatus: (_) => true));
-      return r.statusCode == 200;
+      final r = await rawCapturePing();
+      return r.$1 == 200 || r.$2.contains('ErrorCode');
     } catch (_) {
       return false;
     }
+  }
+
+  /// Diagnostics: one quick capture ping, returning (httpStatus, rawBody).
+  Future<(int, String)> rawCapturePing() async {
+    final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIFPCapture',
+        data: 'Timeout=100&Quality=50&licstr=&templateFormat=ISO',
+        options: Options(
+            contentType: 'text/plain;charset=UTF-8',
+            responseType: ResponseType.plain,
+            validateStatus: (_) => true));
+    return (r.statusCode ?? 0, (r.data ?? '').toString());
   }
 
   /// Captures a REAL template. v0.9 has no on-device matcher yet, so this
@@ -166,16 +198,23 @@ class SgibiosrvDriver implements BiometricDriver {
   }
 
   /// Real enrollment capture with quality (registration flow).
+  /// Sets [lastError] with the device's own message when it fails.
+  String? lastError;
   Future<EnrollCapture?> captureForEnroll() async {
+    lastError = null;
     final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIFPCapture',
         data: 'Timeout=10000&Quality=60&licstr=&templateFormat=ISO',
-        options: Options(contentType: 'text/plain;charset=UTF-8'));
+        options: Options(validateStatus: (_) => true, contentType: 'text/plain;charset=UTF-8'));
     final data = r.data is Map ? r.data as Map : {};
     if (data['ErrorCode'] == 0 && data['TemplateBase64'] != null) {
       return EnrollCapture(data['TemplateBase64'] as String,
           (data['ImageQuality'] as num?)?.toInt() ?? 0,
           simulated: false);
     }
+    final ec = (data['ErrorCode'] as num?)?.toInt();
+    lastError = ec != null
+        ? (kSgiErrors[ec] ?? 'Device ErrorCode $ec')
+        : 'Unexpected reply (HTTP ${r.statusCode}) — see Diagnostics.';
     return null;
   }
 

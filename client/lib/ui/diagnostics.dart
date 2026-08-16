@@ -40,12 +40,24 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
 
   Future<void> _testCapture() async {
     setState(() { _capBusy = true; _capError = null; _testCap = null; });
-    final r = await BiometricDriver.enrollCapture();
+    EnrollCapture? r;
+    String? err;
+    if (Theme.of(context).platform == TargetPlatform.windows) {
+      final sg = SgibiosrvDriver();
+      if (await sg.available()) {
+        r = await sg.captureForEnroll();
+        err = sg.lastError;
+      } else {
+        r = await BiometricDriver.enrollCapture();
+      }
+    } else {
+      r = await BiometricDriver.enrollCapture();
+    }
     if (mounted) {
       setState(() {
         _testCap = r;
         _capBusy = false;
-        if (r == null) _capError = 'Capture failed — check the scanner and retry.';
+        if (r == null) _capError = err ?? 'Capture failed — check the scanner and retry.';
       });
     }
   }
