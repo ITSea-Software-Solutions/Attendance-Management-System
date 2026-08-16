@@ -91,7 +91,7 @@ abstract class BiometricDriver {
         final name = st['deviceName'] ?? 'SecuGen device';
         if (!sdk) {
           return DeviceProbe(false,
-              'Scanner DETECTED on USB ($name) — but the SecuGen Android SDK (FDxSDKPro.aar) is not bundled in this build. Drop the AAR into client/android/app/libs/ and rebuild to enable REAL captures.');
+              'Scanner DETECTED on USB ($name) — but the SecuGen SDK library (FDxSDKProFDAndroid.jar) is missing from this build. Use the official TrueCrew APK from the download page (the SDK ships inside it).');
         }
         if (!perm) {
           return DeviceProbe(false,

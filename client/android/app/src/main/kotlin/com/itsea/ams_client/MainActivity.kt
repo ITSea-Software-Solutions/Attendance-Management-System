@@ -16,7 +16,7 @@ import io.flutter.plugin.common.MethodChannel
 /**
  * TrueCrew native channel: SecuGen USB-OTG fingerprint capture.
  *
- * SecuGen distributes their Android SDK as a LICENSED AAR (FDxSDKPro.aar).
+ * SecuGen's Android SDK (FDxSDKProFDAndroid.jar + jniLibs) is bundled in app/libs.
  * We integrate it via reflection so this app compiles and ships without the
  * AAR; drop the file into android/app/libs/ and rebuild to enable REAL
  * captures. Until then the channel reports precise status:
@@ -99,7 +99,13 @@ class MainActivity : FlutterActivity() {
         if (!sdkPresent()) return fail("no-sdk")
         try {
             val libCls = Class.forName("SecuGen.FDxSDKPro.JSGFPLib")
-            val lib = libCls.getConstructor(UsbManager::class.java).newInstance(usbManager())
+            // SDK v4.2x: JSGFPLib(Context, UsbManager); older: JSGFPLib(UsbManager)
+            val lib = try {
+                libCls.getConstructor(android.content.Context::class.java, UsbManager::class.java)
+                    .newInstance(this, usbManager())
+            } catch (_: NoSuchMethodException) {
+                libCls.getConstructor(UsbManager::class.java).newInstance(usbManager())
+            }
             val longT = java.lang.Long.TYPE
             fun call(name: String, vararg pairs: Pair<Class<*>, Any?>): Long {
                 val m = libCls.getMethod(name, *pairs.map { it.first }.toTypedArray())
@@ -151,7 +157,7 @@ class MainActivity : FlutterActivity() {
             val b64 = Base64.encodeToString(tpl.copyOf(size), Base64.NO_WRAP)
             runOnUiThread { result.success(mapOf("template" to b64, "quality" to q[0])) }
         } catch (e: Throwable) {
-            fail("SDK reflection error: ${e.javaClass.simpleName} ${e.message ?: ""} — check FDxSDKPro.aar version")
+            fail("SDK reflection error: ${e.javaClass.simpleName} ${e.message ?: ""} — check bundled SecuGen SDK version")
         }
     }
 }
