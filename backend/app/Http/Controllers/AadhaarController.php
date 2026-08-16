@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Worker;
 use App\Services\AadhaarService;
 use App\Services\AuditService;
+use App\Services\FaceService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -133,5 +134,41 @@ class AadhaarController extends Controller
         if ($user->isCompanyUser()) {
             abort(403, 'Company users cannot upload Aadhaar documents.');
         }
+    }
+
+    /**
+     * Enrollment-time identity check: compare the photo INSIDE the Aadhaar
+     * PDF (from /aadhaar/extract) with the live camera photo. Advisory —
+     * Aadhaar photos are often years old, so a low score warns, not blocks.
+     */
+    public function verifyFace(Request $request, FaceService $faces): JsonResponse
+    {
+        $request->validate([
+            'aadhaar_photo_base64' => 'required|string',
+            'live_photo'           => 'required|file|mimes:jpeg,png,jpg|max:8192',
+        ]);
+        $aadhaarBytes = base64_decode($request->input('aadhaar_photo_base64'), true);
+        if ($aadhaarBytes === false || strlen($aadhaarBytes) < 100) {
+            return response()->json(['message' => 'Invalid Aadhaar photo data.'], 422);
+        }
+        $ea = $faces->embed($aadhaarBytes, 'aadhaar.png');
+        $el = $faces->embed(
+            (string) file_get_contents($request->file('live_photo')->getRealPath()), 'live.jpg');
+        if (! $ea || ! $el) {
+            return response()->json([
+                'similarity' => null,
+                'match'      => null,
+                'message'    => ! $ea
+                    ? 'No face detected in the Aadhaar photo.'
+                    : 'No face detected in the live photo.',
+            ]);
+        }
+        $sim = FaceService::cosine($ea, $el);
+
+        return response()->json([
+            'similarity' => round($sim, 3),
+            'match'      => $sim >= $faces->threshold(),
+            'threshold'  => $faces->threshold(),
+        ]);
     }
 }

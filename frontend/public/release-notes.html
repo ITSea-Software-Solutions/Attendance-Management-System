@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TrueCrew Release Notes</title>
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1D2833; --muted:#5A6470; --line:#DAD6CC;
+    --teal:#10685A; --teal-soft:#E3EFEC; --amber:#B07310; --amber-soft:#F7EEDD;
+    --card:#FFFFFF;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#171D24; --ink:#E8E6E1; --muted:#9AA3AD; --line:#333B45;
+      --teal:#4FB3A1; --teal-soft:#1D3330; --amber:#D9A04C; --amber-soft:#332A1B;
+      --card:#1F2731;
+    }
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0}
+  .wrap{max-width:44rem; margin:0 auto; padding:2.5rem 1.25rem 4rem}
+  .eyebrow{font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); font-weight:700; margin:0 0 .5rem}
+  h1{font-size:1.9rem; margin:0 0 .4rem; letter-spacing:-.015em}
+  .sub{color:var(--muted); margin:0 0 1.6rem; max-width:36rem}
+  h2{font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:2.4rem 0 .8rem}
+  .rel{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1.1rem 1.35rem; margin:.8rem 0}
+  .rel h3{margin:0; font-size:1.02rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:.6em}
+  .date{font-size:.78rem; color:var(--muted); font-weight:400}
+  .tag{font-size:.72rem; font-weight:700; padding:.15em .65em; border-radius:999px; background:var(--teal-soft); color:var(--teal); border:1px solid var(--teal)}
+  .tag.amber{background:var(--amber-soft); color:var(--amber); border-color:var(--amber)}
+  .rel ul{margin:.6rem 0 0; padding-left:1.2rem; color:var(--muted); font-size:.92rem}
+  .rel li{margin:.25rem 0}
+  .rel li b{color:var(--ink)}
+  a{color:var(--teal)}
+  .back{font-size:.9rem}
+  footer{margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.83rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">TrueCrew — Verified Workforce Attendance</p>
+  <h1>Release Notes</h1>
+  <p class="sub">What changed in every version. <span class="back"><a href="/download.html">← Back to downloads</a></span></p>
+  <p class="sub"><b>Version naming:</b> <span class="tag">Apps vX.Y.Z</span> = the Android APK and Windows app (always released together) · <span class="tag amber">Platform vX.Y.Z</span> = the web portal &amp; server. Preview builds are pre-1.0 and may change quickly.</p>
+
+  <h2>Apps (Android + Windows)</h2>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.15</span> Identity match at enrollment <span class="date">16 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Aadhaar photo extracted automatically</b> — importing the PDF now also pulls the worker's Aadhaar photo into the form.</li>
+      <li><b>Two-photo identity check</b> — the Aadhaar photo and the live camera photo are compared by the face engine the moment both exist, with an animated match indicator (e.g. "match 87%"). Low scores warn the operator; old Aadhaar photos never block registration.</li>
+      <li><b>Registration checklist</b> — a live "Ready to save?" panel ticks off name, Aadhaar, fingerprint (with quality), photos and consent as you go.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.14</span> Field-ready gate experience <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Aadhaar PDF import in the app</b> — pick the e-Aadhaar PDF during registration: name, DOB, gender and Aadhaar auto-fill, and the PDF attaches to the worker's record on sync. Masked PDFs verified by last-4 match. The whole registration now completes in one place.</li>
+      <li><b>Gate "verified" screen</b> — after every successful scan (finger or face): animated check, the worker's photo, name, IN/OUT with time, and a greeting. Auto-clears for the next worker.</li>
+      <li><b>Vendor tools</b> — tap a worker for live analytics (days present, hours, missed OUTs) and <b>deploy to a company</b> with a date range, right from the app.</li>
+      <li><b>Android fix:</b> the USB permission dialog now appears correctly (Android 14 restriction); plugging in a scanner offers to open TrueCrew and remembers the permission.</li>
+      <li><b>Windows:</b> Face attendance tab enabled (camera support added).</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.13</span> Scanner SDK bundled <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Android is plug-and-scan:</b> the SecuGen fingerprint SDK now ships inside the APK — connect a scanner via USB-OTG, tap Allow, capture. Nothing to install on any phone.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.12</span> Windows scanner auto-discovery <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li>Windows finds the SecuGen library automatically wherever the driver installed it — no SDK install, no manual copying, no background service. Diagnostics show exactly which library loaded.</li>
+      <li>Clear guidance when something is missing (including 32-bit vs 64-bit mismatches).</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.11</span> Full registration + on-device biometrics <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li>Complete worker registration in-app: details, consent, fingerprint, photo — offline-capable, syncs when connected. Photo auto-enrolls the worker for camera (face) attendance.</li>
+      <li>Windows talks to the scanner directly through its SDK (the old browser-service requirement is gone). Android USB scanner channel + on-device face quality checks (real face, eyes open) before any photo is accepted.</li>
+      <li>In-app camera Face attendance tab (Android); Diagnostics screen with device connect/retry and precise status for server, scanner and sync.</li>
+      <li>Password show/hide toggles on all sign-in screens.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.0–0.9.7</span> First releases <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li>Android + Windows apps: sign in, role-based screens (vendor / gate / admin view), offline store, automatic two-way sync with duplicate-proof records, simulated + real capture paths, downloads page distribution and automated builds.</li>
+    </ul>
+  </div>
+
+  <h2>Web platform</h2>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.2.0</span> Exports, gate scoping, self-service reset <span class="date">16 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Attendance exports</b> — daily CSV and monthly-totals CSV (Excel-ready) plus a print-ready month report, with a month picker on the Attendance Log.</li>
+      <li><b>Per-gate scoping</b> — gate logins with a location set see only their own gate's records, everywhere.</li>
+      <li><b>Forgot password</b> — self-service reset from the sign-in page; email notifications for vendor approvals and plan decisions.</li>
+      <li>Fingerprint Test page removed — biometrics live in the apps now.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.1.x</span> Face attendance + SaaS <span class="date">15–16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Camera face attendance</b> on the web gate — workers enrolled automatically from their registration photo; every mark re-verified on the server.</li>
+      <li><b>SaaS self-service:</b> public signup for companies and vendors, Trial / Professional / Enterprise plans with live usage meters, upgrade requests (offline payment), super-admin Subscriptions console.</li>
+      <li>Company admins create their own vendors (auto-approved) and gate/vendor logins.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.0.0</span> Launch <span class="date">15 Aug 2026</span></h3>
+    <ul>
+      <li>Multi-company, multi-vendor workforce registration with vendor approval workflow.</li>
+      <li><b>Aadhaar-verified identity:</b> PDF extraction with auto-fill, masked storage (last 4 only), duplicate detection across vendors, consent capture.</li>
+      <li>Fingerprint enrollment + gate attendance with IN/OUT tracking, daily summaries, exceptions (who's still inside), worker analytics.</li>
+      <li>Role-scoped access for super admin, company admin, gate, vendor admin and operators; full audit logging; private document storage.</li>
+    </ul>
+  </div>
+
+  <footer>TrueCrew · <a href="/download.html">Downloads</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></footer>
+</div>
+</body>
+</html>

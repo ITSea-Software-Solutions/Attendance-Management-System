@@ -327,6 +327,20 @@ class AppState extends ChangeNotifier {
     return Map<String, dynamic>.from(body['data'] as Map? ?? {});
   }
 
+  /// Enrollment identity check: Aadhaar PDF photo vs live camera photo,
+  /// compared server-side (ArcFace). Advisory — old Aadhaar photos score low.
+  Future<Map<String, dynamic>> verifyAadhaarFace(
+      String aadhaarPhotoB64, String livePhotoPath) async {
+    final api = await Api.client();
+    final fd = FormData.fromMap({
+      'aadhaar_photo_base64': aadhaarPhotoB64,
+      'live_photo':
+          await MultipartFile.fromFile(livePhotoPath, filename: 'live.jpg'),
+    });
+    final r = await api.post('/aadhaar/face-verify', data: fd);
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
   /// Authenticated URL + headers for a worker's photo (gate result card).
   Future<(String, Map<String, String>)?> workerPhotoRequest(
       int? serverId) async {

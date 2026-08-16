@@ -89,6 +89,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('extract',          [AadhaarController::class, 'extract']);
         Route::post('upload/{worker}',  [AadhaarController::class, 'upload']);
         Route::get('download/{worker}', [AadhaarController::class, 'download']);
+        Route::post('face-verify',      [AadhaarController::class, 'verifyFace']);
     });
 
     // ── Worker Deployments (Assignments) ──────────────────────────────────────

@@ -11,13 +11,13 @@ const APPS = [
     icon: Smartphone,
     title: "Android App",
     desc: "Full worker registration (Aadhaar + fingerprint + face) and gate attendance, offline-capable. SecuGen SDK bundled — plug a USB scanner in and scan; camera face match on-device.",
-    status: "/downloads/truecrew-android-v0.9.14-preview.apk",
+    status: "/downloads/truecrew-android-v0.9.15-preview.apk",
   },
   {
     icon: Monitor,
     title: "Windows App",
     desc: "Registration + attendance station. Talks to SecuGen scanners directly via the FDx SDK — no extra service needed.",
-    status: "/downloads/truecrew-windows-x64-preview.zip",
+    status: "/downloads/truecrew-windows-x64-v0.9.15-preview.zip",
   },
 ];
 
@@ -33,6 +33,12 @@ const DOCS = [
     title: "User Manual",
     desc: "Step-by-step guide for every role — super admin, company, gate and vendor users.",
     href: "/docs/user-manual.html",
+  },
+  {
+    icon: BookOpen,
+    title: "Release Notes",
+    desc: "What changed in every version — apps and web platform.",
+    href: "/release-notes.html",
   },
   {
     icon: FileCode2,

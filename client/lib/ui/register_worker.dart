@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
@@ -42,11 +43,38 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
   bool _pdfBusy = false;
   String? _pdfNote;
 
+  // Aadhaar photo (extracted from the PDF) + live-photo identity check
+  String? _aadhaarPhotoB64;
+  bool _verifyBusy = false;
+  double? _faceSim; // 0..1 similarity when both photos verified
+  bool? _faceMatch;
+  String? _verifyNote;
+
   EnrollCapture? _fp;
   bool _fpBusy = false;
   String? _photoPath;
   bool _busy = false;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    // Live checklist: re-render as the name/Aadhaar fields are typed.
+    _name.addListener(_onFieldChange);
+    _aadhaar.addListener(_onFieldChange);
+  }
+
+  void _onFieldChange() => setState(() {});
+
+  @override
+  void dispose() {
+    _name.removeListener(_onFieldChange);
+    _aadhaar.removeListener(_onFieldChange);
+    for (final c in [_name, _aadhaar, _phone, _dob]) {
+      c.dispose();
+    }
+    super.dispose();
+  }
 
   Future<void> _importAadhaarPdf() async {
     final app = AppScope.of(context);
@@ -102,6 +130,8 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
       final masked = '${data['aadhaar_number_masked'] ?? ''}';
       setState(() {
         _pdfPath = dest;
+        final pb = '${data['photo_base64'] ?? ''}';
+        if (pb.length > 100) _aadhaarPhotoB64 = pb;
         if ('${data['name'] ?? ''}'.isNotEmpty) _name.text = '${data['name']}';
         final g = '${data['gender'] ?? ''}'.toUpperCase();
         if (g.startsWith('M')) _gender = 'M';
@@ -128,6 +158,34 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
           : 'Extraction failed — check the connection and retry.');
     } finally {
       if (mounted) setState(() => _pdfBusy = false);
+    }
+    _maybeVerifyFaces();
+  }
+
+  /// Compare the Aadhaar PDF photo with the live photo (server-side ArcFace)
+  /// the moment both exist. Advisory: warns on low score, never blocks —
+  /// Aadhaar photos are often many years old.
+  Future<void> _maybeVerifyFaces() async {
+    final app = AppScope.of(context);
+    if (_aadhaarPhotoB64 == null || _photoPath == null) return;
+    if (!app.online) {
+      setState(() => _verifyNote = 'Photo match check runs when online.');
+      return;
+    }
+    setState(() { _verifyBusy = true; _verifyNote = null; _faceSim = null; _faceMatch = null; });
+    try {
+      final r = await app.verifyAadhaarFace(_aadhaarPhotoB64!, _photoPath!);
+      setState(() {
+        _verifyBusy = false;
+        if (r['similarity'] == null) {
+          _verifyNote = '${r['message'] ?? 'Could not compare the photos.'}';
+        } else {
+          _faceSim = (r['similarity'] as num).toDouble();
+          _faceMatch = r['match'] == true;
+        }
+      });
+    } catch (_) {
+      setState(() { _verifyBusy = false; _verifyNote = 'Match check failed — you can still save.'; });
     }
   }
 
@@ -170,6 +228,7 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
         }
       }
       setState(() { _error = null; _photoPath = dest; });
+      _maybeVerifyFaces();
     } catch (e) {
       setState(() => _error =
           'Camera unavailable — try "Pick from gallery/files" instead.');
@@ -374,7 +433,7 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
               ),
               const SizedBox(height: 10),
 
-              // ── Photo (enables camera/face attendance) ──────────────────
+              // ── Photos: Aadhaar (from PDF) + live — with identity match ──
               Card(
                 child: Padding(
                   padding: const EdgeInsets.all(14),
@@ -385,19 +444,42 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
                         const Icon(Icons.photo_camera,
                             color: Color(0xFF10685A)),
                         const SizedBox(width: 8),
-                        Text('Photo (recommended)',
+                        Text('Photos & identity match',
                             style: Theme.of(context).textTheme.titleSmall),
-                        const Spacer(),
-                        if (_photoPath != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.file(File(_photoPath!),
-                                width: 42, height: 42, fit: BoxFit.cover),
-                          ),
                       ]),
-                      const SizedBox(height: 6),
+                      const SizedBox(height: 10),
+                      Row(
+                        children: [
+                          _photoSlot(
+                            label: 'Aadhaar photo',
+                            image: _aadhaarPhotoB64 != null
+                                ? Image.memory(base64Decode(_aadhaarPhotoB64!),
+                                    fit: BoxFit.cover)
+                                : null,
+                            emptyHint: 'From PDF import',
+                          ),
+                          SizedBox(width: 68, child: _matchIndicator()),
+                          _photoSlot(
+                            label: 'Live photo',
+                            image: _photoPath != null
+                                ? Image.file(File(_photoPath!),
+                                    fit: BoxFit.cover)
+                                : null,
+                            emptyHint: 'Use camera below',
+                          ),
+                        ],
+                      ),
+                      if (_verifyNote != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(_verifyNote!,
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.orange.shade800)),
+                        ),
+                      const SizedBox(height: 10),
                       Text(
-                        'On sync, the photo also enrolls the worker for CAMERA (face) attendance — no scanner needed at the gate.',
+                        'The live photo also enrolls the worker for CAMERA (face) attendance. When both photos exist, they are compared automatically.',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 8),
@@ -405,13 +487,44 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
                         FilledButton.tonalIcon(
                             onPressed: () => _takePhoto(ImageSource.camera),
                             icon: const Icon(Icons.photo_camera),
-                            label: const Text('Camera')),
+                            label: Text(_photoPath == null
+                                ? 'Take live photo'
+                                : 'Retake')),
                         const SizedBox(width: 8),
                         OutlinedButton.icon(
                             onPressed: () => _takePhoto(ImageSource.gallery),
                             icon: const Icon(Icons.folder_open),
                             label: const Text('Gallery / files')),
                       ]),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 10),
+
+              // ── Registration checklist — live status of every requirement ──
+              Card(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Ready to save?',
+                          style: Theme.of(context).textTheme.titleSmall),
+                      const SizedBox(height: 4),
+                      _checkRow(_name.text.trim().isNotEmpty, 'Worker name'),
+                      _checkRow(
+                          RegExp(r'^\d{12}$').hasMatch(_aadhaar.text.trim()),
+                          'Aadhaar — 12 digits'
+                          '${_pdfPath != null ? ' + PDF attached' : ''}'),
+                      _checkRow(_fp != null,
+                          'Fingerprint${_fp != null ? ' — quality ${_fp!.quality}${_fp!.simulated ? ' (simulated)' : ''}' : ''}'),
+                      _checkRow(
+                          _photoPath != null,
+                          'Live photo'
+                          '${_faceSim != null ? ' — Aadhaar match ${(_faceSim! * 100).round()}%' : ''}',
+                          optional: true),
+                      _checkRow(_consent, 'Consent confirmed'),
                     ],
                   ),
                 ),
@@ -443,6 +556,123 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  /// One photo slot: image pops in with a scale animation; dashed-style
+  /// placeholder with a hint until then.
+  Widget _photoSlot(
+      {required String label, Widget? image, required String emptyHint}) {
+    return Expanded(
+      child: Column(children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 350),
+          transitionBuilder: (child, anim) => ScaleTransition(
+              scale: CurvedAnimation(parent: anim, curve: Curves.easeOutBack),
+              child: FadeTransition(opacity: anim, child: child)),
+          child: Container(
+            key: ValueKey(image == null ? 'empty-$label' : 'img-$label'),
+            height: 120,
+            clipBehavior: Clip.antiAlias,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              color: const Color(0xFF10685A).withValues(alpha: .06),
+              border: Border.all(
+                  color: image != null
+                      ? const Color(0xFF10685A)
+                      : Colors.grey.shade400,
+                  width: image != null ? 1.6 : 1),
+            ),
+            child: image ??
+                Center(
+                    child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                      Icon(Icons.person_outline,
+                          color: Colors.grey.shade500, size: 34),
+                      const SizedBox(height: 4),
+                      Text(emptyHint,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              fontSize: 10, color: Colors.grey.shade600)),
+                    ])),
+          ),
+        ),
+        const SizedBox(height: 5),
+        Text(label, style: const TextStyle(fontSize: 11.5)),
+      ]),
+    );
+  }
+
+  /// Animated indicator between the two photos: idle ⇄, spinner while
+  /// comparing, green % on match, amber % on low match.
+  Widget _matchIndicator() {
+    Widget child;
+    if (_verifyBusy) {
+      child = const SizedBox(
+          key: ValueKey('busy'),
+          width: 22, height: 22,
+          child: CircularProgressIndicator(strokeWidth: 2.4));
+    } else if (_faceSim != null) {
+      final ok = _faceMatch == true;
+      final color = ok ? const Color(0xFF16A34A) : Colors.orange.shade800;
+      child = TweenAnimationBuilder<double>(
+        key: ValueKey('score-$_faceSim'),
+        tween: Tween(begin: 0, end: 1),
+        duration: const Duration(milliseconds: 550),
+        curve: Curves.elasticOut,
+        builder: (context, v, c) => Transform.scale(scale: v, child: c),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Icon(ok ? Icons.verified_user : Icons.help_outline,
+              color: color, size: 26),
+          Text('${(_faceSim! * 100).round()}%',
+              style: TextStyle(
+                  fontSize: 13, fontWeight: FontWeight.w800, color: color)),
+          Text(ok ? 'match' : 'low match',
+              style: TextStyle(fontSize: 9.5, color: color)),
+        ]),
+      );
+    } else {
+      child = Icon(Icons.compare_arrows,
+          key: const ValueKey('idle'), color: Colors.grey.shade400, size: 26);
+    }
+    return AnimatedSwitcher(
+        duration: const Duration(milliseconds: 250),
+        child: Center(child: child));
+  }
+
+  /// Checklist row whose icon animates pending → done.
+  Widget _checkRow(bool done, String label, {bool optional = false}) {
+    final color = done
+        ? const Color(0xFF16A34A)
+        : (optional ? Colors.grey.shade500 : Colors.orange.shade800);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 300),
+          transitionBuilder: (child, anim) =>
+              ScaleTransition(scale: anim, child: child),
+          child: Icon(
+            done
+                ? Icons.check_circle
+                : (optional
+                    ? Icons.radio_button_unchecked
+                    : Icons.error_outline),
+            key: ValueKey('$label-$done'),
+            size: 18,
+            color: color,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+            child: Text(
+                label + (optional && !done ? '  (optional)' : ''),
+                style: TextStyle(
+                    fontSize: 12.5,
+                    color: done ? null : color,
+                    fontWeight: done ? FontWeight.w500 : FontWeight.w400))),
+      ]),
     );
   }
 }
