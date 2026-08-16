@@ -70,6 +70,27 @@ and SecuGen thumb scanner, with offline storage.
   endpoints + liveness anti-spoofing) — camera-only gates.
 - Offline deployment management, payroll/muster exports, notifications.
 
+### Biometric & verification support matrix
+
+| Method | Hardware | Platforms | Match | Status |
+|---|---|---|---|---|
+| **Fingerprint (SecuGen)** | Hamster Pro 20 (HU20/HU20-AP), USB / USB-OTG | Windows + Android | 1:N on-device (SDK matcher, ISO 19794-2, 0–200 score) | **v1** |
+| **Face (camera)** | Device camera only | Windows + Android | 1:N server-side (InsightFace/ArcFace) + active liveness (blink/turn) | **v2** |
+| Fingerprint (Mantra MFS100/110, Morpho MSO 1300, Startek FM220) | Common Aadhaar-ecosystem USB scanners in India | Android + Windows via vendor SDKs | Behind the same capture abstraction as SecuGen | Extensible — add per client demand |
+| Device-agnostic fingerprint matcher | — (software) | All | **SourceAFIS** (open-source) or NIST NBIS server-side — matches ISO templates/images across scanner brands | Option when mixing scanner brands |
+| QR / ID-badge fallback | Printed signed-QR badge + camera | All | 1:1 — guard visually confirms the worker photo shown on scan; optional biometric confirm | Planned fallback (failed/worn fingerprints) |
+| NFC tap (non-biometric) | NFC cards; phone NFC / USB reader | Android (built-in), Windows (USB reader) | 1:1 token | Optional add-on, not scheduled |
+| Iris (IriTech IriShield etc.) | Dedicated USB iris scanner | Android + Windows | Aadhaar-ecosystem devices exist | Possible, **not planned** (cost/niche) |
+| On-device face (offline) | Device camera | Android (TFLite/MediaPipe), Windows (ONNX Runtime) | 1:N on-device embeddings | v2+ — unlocks offline face |
+
+**Platform biometrics are for APP security, not worker ID:** Android BiometricPrompt
+and Windows Hello cannot identify arbitrary people (OS seals templates), but we DO
+use them for what they're good at — unlocking the app / re-authenticating the gate
+operator, and gating the local encrypted store (Android Keystore / Windows TPM-DPAPI).
+
+**Multi-factor option:** high-security zones can require fingerprint + face on the
+same mark; `attendance_logs.method` already records which method(s) produced a mark.
+
 ## 4. Data & Sync Design
 
 **Identity:** every client-created record carries a client-generated **UUID** and
@@ -130,23 +151,23 @@ server records both `marked_at` (device) and `synced_at`.
 | 4 | Pilot at one site (1 gate kiosk + 1 vendor device), then hardening | 1–2 wk |
 | 5 (v2) | Face attendance (liveness), offline deployments, exports | later |
 
-## 8. Repo & Workflow (DECIDED: two repos)
+## 8. Repo & Workflow (DECIDED: monorepo — revised)
 
-Two repos under the `ITSea-Software-Solutions` org:
+Everything lives in **this repo** (`ITSea-Software-Solutions/Attendance-Management-System`):
 
-- **Attendance-Management-System** (this repo) — server (Laravel API), web portal
-  (React), infra. The web portal keeps running and being used by all roles
-  throughout app development; the only changes here for the client app are the
-  new device/sync endpoints (§6).
-- **Attendance-Management-System-Client** (new) — the Flutter app (Windows +
-  Android). Own CI (APK / Windows builds), own release tags/versioning, clean
-  clone for the Windows dev machine.
+- Server (Laravel API) + web portal (React) + infra — as today.
+- Flutter app under **`client/`** — created on the Windows machine with
+  `flutter create client --platforms=windows,android --org com.itsea`.
 
-The **HTTP API is the contract** between the repos: API changes land in the server
-repo first (§6), the app consumes them by version. A copy of this design doc lives
-in the client repo and is authoritative for client-side decisions; §6 (server
-work) stays authoritative here. Design changes: update the doc in the owning repo
-first, then implement.
+Rationale (revised from an earlier two-repo draft): for a small team, API and app
+changes land **atomically in one commit**, one clone carries full context
+(HANDOFF, this design doc, server code) into any Claude session, and the web
+portal keeps serving all roles untouched while `client/` grows. App releases are
+tagged in-repo (`app-vX.Y.Z`); split into a separate repo later only if a
+dedicated mobile team or CI pressure demands it.
+
+The web portal is unaffected by anything under `client/` — the Docker stack never
+builds or mounts it. Design changes: update THIS file first, then implement.
 
 ## 9. Open Questions (decide before/at Phase 1)
 
