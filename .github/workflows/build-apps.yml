@@ -1,0 +1,50 @@
+name: Build TrueCrew apps
+
+# Builds the Flutter client for Windows (on GitHub's Windows runners — a
+# Windows .exe cannot be compiled on macOS) and Android. Runs on app tags
+# or manually via workflow_dispatch; artifacts attach to the tag's release.
+
+on:
+  push:
+    tags: ["app-v*"]
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults: { run: { working-directory: client } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+      - run: flutter build windows --release
+      - name: Zip bundle
+        shell: pwsh
+        run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "$env:GITHUB_WORKSPACE/truecrew-windows-x64.zip"
+      - uses: actions/upload-artifact@v4
+        with: { name: truecrew-windows-x64, path: truecrew-windows-x64.zip }
+      - name: Attach to release (tag builds)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with: { files: truecrew-windows-x64.zip }
+
+  android:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: client } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: "17" }
+      - uses: subosito/flutter-action@v2
+        with: { channel: stable, cache: true }
+      - run: flutter pub get
+      - run: flutter build apk --release
+      - name: Rename APK
+        run: cp build/app/outputs/flutter-apk/app-release.apk "$GITHUB_WORKSPACE/truecrew-android.apk"
+      - uses: actions/upload-artifact@v4
+        with: { name: truecrew-android, path: truecrew-android.apk }
+      - name: Attach to release (tag builds)
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with: { files: truecrew-android.apk }
