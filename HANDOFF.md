@@ -5,6 +5,21 @@ on a new machine. `CLIENT_APP_DESIGN.md` has the client-app architecture.
 
 ---
 
+## Quick reference — every URL/address in one place
+
+| What | Where |
+|------|-------|
+| Git repo | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git` — working branch `security-and-biometric-hardening` |
+| GitHub releases / CI | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System/releases` · `/actions` (workflow: `build-apps.yml`, triggers on `app-v*` tags) |
+| Droplet (server) | `ssh root@142.93.88.143` → app lives in `/var/www/attendance` (DigitalOcean, sfo2). Key-based auth ONLY — see "Droplet access" below |
+| Web portal (demo) | `http://142.93.88.143` (login) · public signup `http://142.93.88.143/signup` |
+| Download page (public) | `http://142.93.88.143/download.html` — APK + Windows zip |
+| Docs (public) | `http://142.93.88.143/docs/client-guide.html` · `user-manual.html` · `developer-guide.html` |
+| Containers on droplet | `ams_nginx :80 → ams_frontend :5173 / ams_backend (php-fpm) / ams_mysql / ams_redis / ams_pdf_service :8001 / ams_queue` — do NOT touch `josbin_*` containers (different project on the same droplet) |
+| SecuGen SDK form | `https://secugen.com/request-free-software/` (Windows SDK link still pending) |
+
+---
+
 ## What this is
 
 **TrueCrew** (repo/internal name AMS) — multi-company, multi-vendor worker
@@ -65,10 +80,32 @@ flutter pub get
 flutter doctor          # fix anything red for "Windows desktop"
 ```
 
-**Droplet access (only needed for deploys):** generate a key
-(`ssh-keygen -t ed25519`) and append the `.pub` line to
-`/root/.ssh/authorized_keys` on the droplet (from a machine that already has
-access, e.g. the Mac: `cat key.pub | ssh root@142.93.88.143 'cat >> ~/.ssh/authorized_keys'`).
+**Droplet access from this laptop (one-time):** the droplet accepts SSH keys
+only, and initially only the Mac's key is authorized. Windows 10/11 has
+OpenSSH built into PowerShell, so:
+
+```powershell
+ssh-keygen -t ed25519        # accept defaults → key at $env:USERPROFILE\.ssh\id_ed25519
+Get-Content $env:USERPROFILE\.ssh\id_ed25519.pub   # copy this ONE line
+```
+
+Then authorize that public key from any machine that already has access
+(e.g. paste the line to the Claude session on the Mac, or run there):
+
+```bash
+echo '<paste the id_ed25519.pub line>' | ssh root@142.93.88.143 'cat >> ~/.ssh/authorized_keys'
+```
+
+After that, `ssh root@142.93.88.143` works from the laptop. Verify with
+`ssh root@142.93.88.143 'docker ps'`. (Fallback if locked out: DigitalOcean
+dashboard → droplet → Console.)
+
+**rsync on Windows:** deploys use rsync, which PowerShell lacks. Either
+install WSL (`wsl --install`, then run deploy commands inside WSL where the
+repo is reachable at `/mnt/c/...`), or fall back to `scp` for single files
+(`scp file root@142.93.88.143:/var/www/attendance/backend/...`). Claude Code
+on the laptop can use whichever shell is available.
+
 No credentials live in this repo.
 
 **Docker Desktop is OPTIONAL** — only for running the whole server stack
