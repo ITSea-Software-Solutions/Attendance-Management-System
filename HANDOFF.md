@@ -1,139 +1,122 @@
-> **UPDATED 2026-08-16 — much of the below is HISTORICAL.** The repo now lives at
-> `ITSea-Software-Solutions/Attendance-Management-System` (all work pushed; tags
-> v1.0.0, v1.1.0, app-v0.9.0-preview). No bundle needed — just `git clone`. The
-> platform is now SaaS (public /signup, plans, Subscriptions admin), has a Flutter
-> client app under `client/` (APK on the download page), and offline sync APIs.
-> Start any new session by reading `CLAUDE.md` + `CLIENT_APP_DESIGN.md`.
+# TrueCrew — Windows Laptop Handoff (2026-08-16)
 
-# AMS — Session Handoff (continue on Windows w/ real SecuGen reader)
-
-Paste this whole file as your first message to Claude Code on the Windows machine.
-It carries the full state of work done on the Mac so you can continue seamlessly.
-
-> **NEXT BIG WORKSTREAM:** the cross-platform client app (Flutter, Windows+Android,
-> offline-first, SecuGen thumb + camera). Agreed scope and architecture live in
-> **`CLIENT_APP_DESIGN.md`** — read that file before starting any client-app work.
+Read this + `CLAUDE.md` (auto-loaded by Claude Code) at the start of a session
+on a new machine. `CLIENT_APP_DESIGN.md` has the client-app architecture.
 
 ---
 
-## 0. WHY THIS HANDOFF EXISTS
-The SecuGen HU20-AP thumb reader is Windows-only, so the **real fingerprint flow
-must run on Windows**. All recent work was done on a Mac and is committed to a
-local branch that is **NOT on GitHub** (push blocked — the GitHub account has no
-write access to `codetechx/adharbased_attendance_system`, 403). `origin/main`
-(`8c03275`) does NOT contain any of the fixes below. Cloning from GitHub alone
-gives you the OLD, broken code (build fails + blank screen).
+## What this is
 
-## 1. GET THE CORRECT CODE ONTO WINDOWS  ← do this first
-The branch `security-and-biometric-hardening` was exported to a git bundle:
-`ams-hardening.bundle` (carry it via USB/cloud).
+**TrueCrew** (repo/internal name AMS) — multi-company, multi-vendor worker
+registration + biometric attendance SaaS.
+- **Server**: Laravel 11 API + React web portal + MySQL/Redis + Python
+  pdf-service (Aadhaar extraction, ArcFace), Docker on the droplet
+  `root@142.93.88.143` (`/var/www/attendance`). Web portal is the FALLBACK UI —
+  the apps are the product.
+- **Apps** (`client/`, Flutter): Android + Windows. Offline-first (SQLite),
+  idempotent sync, full registration (Aadhaar PDF + consent + fingerprint +
+  photo/face), gate attendance (fingerprint 1:N + camera face), diagnostics.
+- **Biometrics**: SecuGen HU20 (Hamster Pro 20) is the test device, drivers
+  kept vendor-neutral. Android: SecuGen FDx SDK **bundled in the APK**
+  (v0.9.13+) — plug in via OTG, allow, scan. Windows: direct FFI to
+  `sgfplib.dll`, auto-discovered from exe dir / System32 /
+  `C:\Program Files\SecuGen\**` (driver install drops it there).
+  Phone's built-in fingerprint sensor can NEVER identify workers (OS-sealed);
+  phone-native worker biometric = camera face match.
 
-On Windows (PowerShell), with the bundle copied to e.g. `C:\work\`:
+## Current state (2026-08-16)
+
+- Web **v1.2.0** live on droplet: SaaS signup/plans/billing, vendor approvals,
+  Aadhaar-only registration (masked-PDF manual-entry path), attendance daily
+  summary + exceptions, **CSV/print exports**, **per-gate scoping**,
+  **self-service password reset**, email notifications (mailer=log until SMTP).
+- Apps **v0.9.13-preview** on the download page (`/download.html`):
+  Android APK with SecuGen SDK inside; Windows zip (CI-built).
+- Tags: `v1.2.0`, `app-v0.9.13-preview`. Branch: `security-and-biometric-hardening`.
+
+**Pending / next:**
+1. **REAL capture test on HU20** — Android (v0.9.13) and Windows (v0.9.12+).
+   Never yet verified on real hardware; everything else E2E-tested with SIM.
+2. **Windows SDK DLL bundling** — waiting on "FDx SDK Pro for Windows" link
+   from SecuGen's form (https://secugen.com/request-free-software/). Then: put
+   x64 DLLs in `client/windows/` packaging + CI zip → fully self-contained
+   (only the USB driver remains a per-machine install; consider shipping the
+   driver installer inside the zip too).
+3. SMTP creds on droplet (`MAIL_MAILER` etc. in backend/.env) → real reset
+   emails + notifications.
+4. Domain + HTTPS (runbook: `docs/HTTPS_SETUP.md`), ToS/Privacy placeholders
+   (`[LEGAL ENTITY NAME]`, grievance email in `frontend/public/terms.html`,
+   `privacy.html`).
+5. Payroll — deferred by decision until attendance ships properly.
+
+## Windows laptop setup (one-time)
+
 ```powershell
-# Option A — fresh clone straight from the bundle (recommended):
-git clone C:\work\ams-hardening.bundle ams
-cd ams
+# 1. Tools: Git, Claude Code for Windows, Flutter SDK (stable channel),
+#    Visual Studio 2022 Community + "Desktop development with C++" workload
+#    (required by `flutter build windows`), Android Studio (only to build APKs).
+# 2. Code (your GitHub user has access):
+git clone https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git truecrew
+cd truecrew
 git checkout security-and-biometric-hardening
-
-# Option B — you already cloned from GitHub and want to add the branch:
-git fetch C:\work\ams-hardening.bundle security-and-biometric-hardening:security-and-biometric-hardening
-git checkout security-and-biometric-hardening
+# 3. App deps:
+cd client
+flutter pub get
+flutter doctor          # fix anything red for "Windows desktop"
 ```
-The branch is 3 commits ahead of `origin/main`:
-- `5c42df7` Security hardening + biometric consolidation
-- `9f3fb65` Fix backend build: disable Composer advisory block
-- `7589580` Fix blank screen: nginx must proxy Vite assets in dev mode
 
-> Still TODO globally: get write access (org owner) or fork+PR so this branch
-> lands on a remote. Until then the bundle is the source of truth.
+**Droplet access (only needed for deploys):** generate a key
+(`ssh-keygen -t ed25519`) and append the `.pub` line to
+`/root/.ssh/authorized_keys` on the droplet (from a machine that already has
+access, e.g. the Mac: `cat key.pub | ssh root@142.93.88.143 'cat >> ~/.ssh/authorized_keys'`).
+No credentials live in this repo.
 
-## 2. WHAT THIS PROJECT IS
-AMS (Attendance Management System) — multi-company/multi-vendor labour
-registration + biometric (fingerprint) attendance. Stack: Laravel 11 / PHP 8.4
-(backend, baked into image), React 18 + Vite (frontend, volume-mounted), MySQL 8,
-Redis, Nginx, a Python FastAPI `pdf-service` (Aadhaar + face), a queue worker.
-7 docker containers, names `ams_*`. See `CLAUDE.md` for the full project map.
+**Docker Desktop is OPTIONAL** — only for running the whole server stack
+locally (`docker compose -f docker-compose.yml -f docker-compose.local.yml up`).
+Simpler: point apps at the droplet (`lib/core/config.dart` server URL) and
+skip local Docker on Windows entirely.
 
-## 3. RUNNING IT ON WINDOWS (with the REAL reader → SIM OFF)
-On the Mac we used a `docker-compose.local.yml` override, but that is **Mac-specific**
-(it worked around this Mac's port conflicts AND forced biometric SIMULATION mode).
-On Windows you want the **real device**, so do NOT reuse that override. Use the base
-compose file only:
+## The fast loop on Windows (why the laptop is better for app work)
+
+With the HU20 plugged into the laptop:
+
 ```powershell
-docker compose up -d --build
+cd client
+flutter run -d windows      # live app + REAL scanner, hot-reload on save
+flutter build windows       # release build → build\windows\x64\runner\Release\
+flutter build apk           # APK (needs Android Studio/SDK installed)
 ```
-- Base compose publishes ports 80/443/3306/5173/6379/8001. Make sure they're free.
-- Biometric SIM defaults to OFF in the base compose (no `VITE_BIOMETRIC_SIM` /
-  `BIOMETRIC_SIM` set) → real-device mode. Good.
-- The backend entrypoint auto-generates `APP_KEY`, runs `migrate --seed --force`
-  (creates the demo users), links storage, caches config. No manual `.env` needed,
-  but you can `copy .env.example .env` if you want a stable key.
-- App URL: http://localhost  (nginx :80 proxies `/`→Vite, `/api`→Laravel)
 
-### SecuGen reader setup (Windows host, outside Docker)
-The browser talks DIRECTLY to the SecuGen local service at `https://localhost:8443`
-(`/SGIFPCapture`, `/SGIMatchScore`) — this is browser→localhost, independent of Docker.
-1. Install SecuGen drivers + the SGIBIOSRV service for the HU20-AP.
-2. Start the proxy: `py -3 biometric-agent\sgibiosrv_proxy.py`
-   (the Node `biometric-agent/server.js` WS on :12345 is DEAD CODE — ignore it.)
-3. Visit http://localhost → log in → /diagnostic/fingerprint to test the scanner.
+No more CI round-trips for Windows testing — `flutter run -d windows` with the
+real device is the loop the scanner work has been missing. Diagnostics screen
+→ scanner card shows exactly which DLL loaded / what's missing.
 
-## 4. FIXES MADE THIS SESSION (don't regress these)
-1. **`backend/Dockerfile`** — added `RUN composer config --global policy.advisories.block false`
-   in the builder stage. Composer 2.8+ refuses to install Laravel 11.31–11.54 (all
-   flagged by security advisories), which broke the image build. ⚠️ Before a REAL
-   production build, bump `laravel/framework` to a patched version and remove this line.
-2. **`nginx/conf.d/default.conf`** — two changes that fixed a blank screen in dev mode:
-   - Removed the `location ~* \.(js|css|...)$ { try_files $uri =404; }` static block.
-     It out-ranked the `location /` Vite proxy and 404'd every JS/CSS module (incl.
-     React). In dev, ALL assets must proxy to Vite. (Re-add a static block only for a
-     production `vite build`.)
-   - Narrowed `location ~ /\.` → `location ~ /\.(?!vite/)` so Vite's optimized dep
-     cache at `/node_modules/.vite/deps/*` is served while `.env`/`.git` stay blocked.
-   - If you ever see a blank page after a deps change: the Vite optimizer may be
-     mid-flight (transient 504s); just reload after it's "ready".
+## Deploy & release (same from any OS)
 
-## 5. DEMO LOGINS (all seeded by DatabaseSeeder; same on local + server)
-AMS — http://localhost (local) / http://142.93.88.143 (test server)
-| Role          | Email                  | Password    |
-|---------------|------------------------|-------------|
-| Super Admin   | superadmin@ams.local   | Admin@12345 |
-| Company Admin | company@ams.local      | Admin@12345 |
-| Gate User     | gate@ams.local         | Admin@12345 |
-| Vendor Admin  | vendor@ams.local       | Admin@12345 |
+- Server: rsync changed files to `root@142.93.88.143:/var/www/attendance/`,
+  then `docker compose -f docker-compose.yml -f docker-compose.prod.yml build
+  backend queue-worker && up -d`, **restart nginx last** (it caches upstream
+  IPs → 502 otherwise). Frontend + docs rsync = live instantly. Backend is a
+  BAKED image (local dev too: `docker cp` + `php artisan optimize:clear`).
+- App release: bump `client/pubspec.yaml` + `lib/core/config.dart` → build APK
+  → replace `frontend/public/downloads/truecrew-android-vX.Y.Z-preview.apk` →
+  bump `frontend/public/download.html` + `frontend/src/pages/Downloads.jsx` →
+  rsync both + APK to droplet → commit → tag `app-vX.Y.Z-preview` + GitHub
+  release → CI (`.github/workflows/build-apps.yml`) attaches APK + Windows zip
+  → download the zip, replace `truecrew-windows-x64-preview.zip` locally + on
+  droplet. Binaries are gitignored — never commit APK/zip/exe.
+- Web release: tag `vX.Y.Z` + GitHub release.
 
-## 6. TEST SERVER (DigitalOcean — shared with "Josbin POS", do not disturb josbin_* containers)
-- IP 142.93.88.143, `ssh root@142.93.88.143` (key-based). AMS at http://142.93.88.143.
-- AMS cloned at `/var/www/attendance`. Deploy model: backend code is BAKED into the
-  image (rebuild + `up -d backend` + `php artisan config:cache` after changes);
-  frontend is volume-mounted (live/HMR). ALWAYS run compose with BOTH files:
-  `docker compose -f docker-compose.yml -f docker-compose.prod.yml <cmd>`.
-- `docker-compose.prod.yml` is server-only (NOT in git): removes public mysql/redis/
-  pdf port publishing, low-mem MySQL tuning, and sets `BIOMETRIC_SIM=true` /
-  `VITE_BIOMETRIC_SIM=true` (server has no reader → SIM ON for demo).
-- The server's deployed backend was shipped via rsync + image rebuild, so its working
-  tree is effectively ahead of git in ways git doesn't track — be careful with
-  git pull/reset on the server (could revert hardening). The nginx fix above WAS
-  applied to the server this session (config copied + nginx reloaded + frontend
-  restarted) and verified.
+## Mac vs Windows — what actually matters
 
-## 7. OPEN ITEMS / TODO (from prior code review + this session)
-- **Real fingerprint matcher**: `BiometricService::matchTemplates()` is a PLACEHOLDER
-  (byte-similarity, not real). With the real reader on Windows, server-side 1:N
-  matching (`POST /attendance/identify`) will use this placeholder — enrollment and
-  capture are real but matching quality is bogus. Wire a real SecuGen SDK / NIST NBIS
-  binary into `callMatchingBinary()`. THIS is likely your main Windows task.
-- Push/access: land the branch on a remote (write access or fork+PR).
-- H1: `pdf-service` returns full Aadhaar number in `raw_text` to Laravel — strip it.
-- M1: Worker `$fillable` includes status/registered_by/fingerprint_template/
-  face_descriptor (mass-assignment risk).
-- No login rate-limiting/lockout.
-- Remove dead `biometric-agent/` Node files + committed `sgbledev.dll`; fix stale help text.
-- Before real prod: production `vite build` behind nginx (don't expose the Vite dev
-  server publicly), bump Laravel off advisory-flagged versions.
+| Work | Where |
+|------|-------|
+| Windows app + scanner testing | **Windows laptop** (real device + local builds; Mac cannot build Windows exes) |
+| Android app | Either (build on both; phone testing wherever the phone is) |
+| Backend/frontend/server | Either — pure edit + rsync |
+| Local full-stack Docker | Mac has it running; optional on Windows |
+| Claude context | Carried by `CLAUDE.md` + this file in the repo — sessions on any machine pick it up. Keep both updated; always `git pull` before starting. |
 
-## 8. LOCAL-ONLY FILES (NOT in git — recreate on Windows as needed)
-- `.env` (gitignored) — optional; entrypoint generates APP_KEY if absent.
-- `docker-compose.local.yml` — Mac-only port/SIM override; do NOT copy to Windows.
-- `demo-logins.xlsx` — credentials spreadsheet (also for Josbin POS).
-- `HANDOFF.md` — this file (untracked).
+Demo logins: `demo-logins.xlsx` (repo root, untracked) / seeded users use
+`Admin@12345`. Aadhaar PDF password format: first 4 letters of name UPPERCASE
++ birth year.
