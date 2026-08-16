@@ -41,4 +41,16 @@ class Api {
         data: {'email': email, 'password': password});
     return Map<String, dynamic>.from(r.data as Map);
   }
+
+  /// Public SaaS signup; returns the {token, user, message} payload.
+  static Future<Map<String, dynamic>> signup(
+      String server, Map<String, dynamic> payload) async {
+    final dio = Dio(BaseOptions(
+      baseUrl: '$server/api',
+      connectTimeout: const Duration(seconds: 10),
+      headers: {'Accept': 'application/json'},
+    ));
+    final r = await dio.post('/signup', data: payload);
+    return Map<String, dynamic>.from(r.data as Map);
+  }
 }

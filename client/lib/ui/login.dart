@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../core/config.dart';
 import '../core/scope.dart';
+import 'signup.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -86,7 +87,15 @@ class _LoginScreenState extends State<LoginScreen> {
                         child: CircularProgressIndicator(strokeWidth: 2))
                     : const Text('Sign in'),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
+              TextButton(
+                onPressed: _busy
+                    ? null
+                    : () => Navigator.push(context,
+                        MaterialPageRoute(builder: (_) => const SignupScreen())),
+                child: const Text('New organisation? Create your account — free trial'),
+              ),
+              const SizedBox(height: 4),
               Text('First sign-in needs internet. After that, the app works offline and syncs automatically.',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall),

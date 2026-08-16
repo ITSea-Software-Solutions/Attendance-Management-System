@@ -43,6 +43,19 @@ class AppState extends ChangeNotifier {
 
   Future<void> login(String server, String email, String password) async {
     final data = await Api.login(server, email, password);
+    await _adoptSession(server, data);
+  }
+
+  /// SaaS self-service signup (company or vendor) — same as the web portal:
+  /// starts on Trial; choosing a paid plan files an offline-payment upgrade
+  /// request. Auto-logs-in with the returned token.
+  Future<String> signup(String server, Map<String, dynamic> payload) async {
+    final data = await Api.signup(server, payload);
+    await _adoptSession(server, data);
+    return (data['message'] ?? 'Account created — welcome to AMS!') as String;
+  }
+
+  Future<void> _adoptSession(String server, Map<String, dynamic> data) async {
     await LocalDb.setMeta('server', server);
     await LocalDb.setMeta('token', data['token'] as String);
     await LocalDb.setMeta('user', jsonEncode(data['user']));
