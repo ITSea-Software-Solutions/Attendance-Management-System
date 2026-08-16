@@ -127,7 +127,6 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `AttendanceMark` | `/attendance/mark` | super_admin, company_admin, company_gate | Fingerprint IN/OUT via SGIBIOSRV |
 | `AttendanceList` | `/attendance` | all | **Daily summary grouped view** (not raw IN/OUT). All/Current/Previous tabs. Row click → WorkerDetail |
 | `AttendanceExceptions` | `/attendance/exceptions` | all | Workers currently inside (IN without OUT) |
-| `FingerprintTest` | `/diagnostic/fingerprint` | super_admin, company_admin, vendor_admin | Scanner diagnostics |
 | `Signup` | `/signup` | PUBLIC | SaaS signup wizard: org type → details → plan cards; auto-login |
 | `ForgotPassword` | `/forgot-password` | PUBLIC | Self-service reset step 1; shows dev link when mailer=log AND debug |
 | `ResetPassword` | `/reset-password` | PUBLIC | Step 2 (from emailed link); revokes all tokens on success |
@@ -350,6 +349,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] **v1.2: Per-gate scoping** — gate users with `users.location_name` set see ONLY logs whose `attendance_logs.location_name` matches (daily-summary, index, exceptions, exports); chip shows "Your gate" on AttendanceList
 - [x] **v1.2: Self-service password reset** — public forgot/reset endpoints (Password broker), Login link, demo dev-link in debug mode only
 - [x] **v1.2: Email notifications (mailer-based)** — vendor approved (to vendor contact + admins), plan upgrade decided (to org contact); Mail::raw, currently mailer=log (add SMTP creds in .env for real sends)
+- [x] **App v0.9.14** — Android USB permission FIXED (Android 14 explicit-package PendingIntent + USB_DEVICE_ATTACHED device_filter → plug-in auto-grant); gate "verified" result card (animated check, worker photo, greeting); face attendance on WINDOWS too (camera_windows; ML Kit gate is Android-only, server re-verifies everywhere); in-app Aadhaar PDF import→extract→autofill (+PDF attaches on sync; masked-PDF manual last-4 match); vendor: worker detail w/ server stats + Deploy-to-company from app. Web FingerprintTest page REMOVED (apps own biometrics)
 - [x] **App v0.9.12** — Windows scanner: multi-path sgfplib.dll discovery (exe dir → System32 → all C:\Program Files\SecuGen folders), SetDllDirectoryW for companion DLLs, 32/64-bit mismatch detection, diagnostics show which DLL loaded
 - [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation

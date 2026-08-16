@@ -31,7 +31,7 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.fingerprint,
           body: const GateAttendanceScreen()
         ),
-      if (app.canMark && Platform.isAndroid)
+      if (app.canMark && (Platform.isAndroid || Platform.isWindows))
         (
           label: 'Face',
           icon: Icons.face_retouching_natural,

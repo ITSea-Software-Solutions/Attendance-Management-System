@@ -84,11 +84,19 @@ class MainActivity : FlutterActivity() {
         else
             @Suppress("UnspecifiedRegisterReceiverFlag")
             registerReceiver(receiver, IntentFilter(actionUsb))
+        // Android 14+: a MUTABLE PendingIntent must wrap an EXPLICIT intent —
+        // without setPackage the system rejects it and the permission dialog
+        // silently never appears.
         val pi = PendingIntent.getBroadcast(
-            this, 0, Intent(actionUsb),
+            this, 0, Intent(actionUsb).setPackage(packageName),
             if (Build.VERSION.SDK_INT >= 31) PendingIntent.FLAG_MUTABLE else 0
         )
-        usbManager().requestPermission(dev, pi)
+        try {
+            usbManager().requestPermission(dev, pi)
+        } catch (e: Throwable) {
+            try { unregisterReceiver(receiver) } catch (_: Throwable) {}
+            if (!replied) { replied = true; result.success(false) }
+        }
     }
 
     /** Full capture via reflected JSGFPLib: Init(AUTO) → Open → ISO template. */

@@ -11,7 +11,7 @@ const APPS = [
     icon: Smartphone,
     title: "Android App",
     desc: "Full worker registration (Aadhaar + fingerprint + face) and gate attendance, offline-capable. SecuGen SDK bundled — plug a USB scanner in and scan; camera face match on-device.",
-    status: "/downloads/truecrew-android-v0.9.13-preview.apk",
+    status: "/downloads/truecrew-android-v0.9.14-preview.apk",
   },
   {
     icon: Monitor,

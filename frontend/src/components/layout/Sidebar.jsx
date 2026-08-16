@@ -2,9 +2,9 @@ import PropTypes from "prop-types";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  LayoutDashboard, Building2, Users, UserCheck, ClipboardList,
-  Fingerprint, BarChart2, AlertTriangle, ShieldCheck, X, FlaskConical, UserCog, Settings,
-  Download as DownloadIcon, CreditCard,
+  LayoutDashboard, Building2, UserCog, Users, Settings, ShieldCheck,
+  UserCheck, ClipboardList, BarChart2, AlertTriangle,
+  Download as DownloadIcon, CreditCard, Fingerprint, X,
 } from "lucide-react";
 
 const NAV = [
@@ -39,14 +39,7 @@ const NAV = [
     label: "Attendance",
     items: [
       { to: "/attendance",            icon: BarChart2,    label: "Attendance Log",  roles: ["all"], end: true },
-      { to: "/attendance/mark",       icon: Fingerprint,  label: "In / Out",        roles: ["super_admin", "company_admin", "company_gate"] },
       { to: "/attendance/exceptions", icon: AlertTriangle,label: "Exceptions",      roles: ["super_admin", "company_admin", "vendor_admin"] },
-    ],
-  },
-  {
-    label: "Diagnostics",
-    items: [
-      { to: "/diagnostic/fingerprint", icon: FlaskConical, label: "Fingerprint Test", roles: ["super_admin", "company_admin", "vendor_admin"] },
     ],
   },
   {

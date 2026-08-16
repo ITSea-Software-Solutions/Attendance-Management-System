@@ -24,7 +24,7 @@ class LocalDb {
     final path = p.join(dir.path, 'ams_client.db');
     _db = await factory.openDatabase(path,
         options: OpenDatabaseOptions(
-          version: 2,
+          version: 3,
           onUpgrade: (db, from, to) async {
             if (from < 2) {
               for (final c in [
@@ -33,6 +33,14 @@ class LocalDb {
                 "ALTER TABLE workers ADD COLUMN fp_simulated INTEGER DEFAULT 0",
                 "ALTER TABLE workers ADD COLUMN photo_path TEXT",
                 "ALTER TABLE workers ADD COLUMN photo_synced INTEGER DEFAULT 0",
+              ]) {
+                try { await db.execute(c); } catch (_) {}
+              }
+            }
+            if (from < 3) {
+              for (final c in [
+                "ALTER TABLE workers ADD COLUMN aadhaar_pdf_path TEXT",
+                "ALTER TABLE workers ADD COLUMN aadhaar_pdf_synced INTEGER DEFAULT 0",
               ]) {
                 try { await db.execute(c); } catch (_) {}
               }
@@ -58,6 +66,8 @@ class LocalDb {
                 fp_simulated INTEGER DEFAULT 0,
                 photo_path TEXT,               -- local file; uploaded post-sync (face auto-enroll)
                 photo_synced INTEGER DEFAULT 0,
+                aadhaar_pdf_path TEXT,         -- local Aadhaar PDF; uploaded post-sync
+                aadhaar_pdf_synced INTEGER DEFAULT 0,
                 sync_state TEXT NOT NULL DEFAULT 'synced',  -- synced|pending|error
                 sync_error TEXT,
                 updated_at TEXT

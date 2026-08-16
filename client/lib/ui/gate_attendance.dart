@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../biometric/driver.dart';
 import '../core/scope.dart';
+import 'gate_result.dart';
 
 /// Gate mode — fingerprint identify → confirm IN/OUT. Works fully offline
 /// (SIM identify against the locally-cached deployed workers; marks queue).
@@ -122,8 +123,17 @@ class _GateAttendanceScreenState extends State<GateAttendanceScreen> {
       simulated: result.simulated,
     );
     if (mounted) {
-      setState(() => _status =
-          '${worker['name']} marked $type${app.online ? ' · syncing' : ' · queued (offline)'}');
+      setState(() => _status = null);
+      // The "verified" moment: animated check + photo + name + greeting.
+      await showGateResult(
+        context,
+        name: worker['name'] as String,
+        type: type,
+        workerServerId: worker['server_id'] as int?,
+        score: result.score,
+        simulated: result.simulated,
+        queuedOffline: !app.online,
+      );
     }
   }
 

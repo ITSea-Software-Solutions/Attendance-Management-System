@@ -15,7 +15,6 @@ import WorkerAssign from "@/pages/workers/WorkerAssign";
 import AttendanceMark from "@/pages/attendance/AttendanceMark";
 import AttendanceList from "@/pages/attendance/AttendanceList";
 import AttendanceExceptions from "@/pages/attendance/AttendanceExceptions";
-import FingerprintTest from "@/pages/diagnostic/FingerprintTest";
 import UserList from "@/pages/users/UserList";
 import Downloads from "@/pages/Downloads";
 import Signup from "@/pages/Signup";
@@ -116,11 +115,6 @@ export default function App() {
           </PrivateRoute>
         } />
         <Route path="attendance/exceptions" element={<AttendanceExceptions />} />
-        <Route path="diagnostic/fingerprint" element={
-          <PrivateRoute roles={["super_admin", "company_admin", "vendor_admin"]}>
-            <FingerprintTest />
-          </PrivateRoute>
-        } />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" />} />
