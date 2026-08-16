@@ -278,6 +278,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 | Issue | Cause | Fix |
 |-------|-------|-----|
 | Backend change not taking effect | No volume mount on backend — saving file does nothing | `docker cp` file + `php artisan optimize:clear` |
+| `Disk [private] does not have a configured driver` | Dockerfile cherry-picked config files; scaffold's filesystems.php lacks the private disk | Dockerfile now does `COPY config/ config/` — keep it that way |
 | `Route [worker.photo] not defined` | Named route missing | Route must have `->name('worker.photo')` in api.php |
 | `id_documents` vs `idDocuments` | Laravel serialises relationships as snake_case JSON | Use `existingWorker?.id_documents` (not `idDocuments`) in React |
 | `aadhaar_pdf_path` always null/empty | Field is in `$hidden` | Check `has_aadhaar_pdf` (in `$appends`) instead |
@@ -337,6 +338,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] Server sync API: `GET /api/sync/pull`, `POST /api/sync/push` (`SyncController`), `client_uuid` unique columns on workers + attendance_logs
 - [x] **Company admins create their own vendors** (auto-approved for their company) + can create that vendor's `vendor_admin` login (only for approved vendors)
 - [x] **SaaS self-service**: public `/signup` (company OR vendor, minimal fields, GST/PAN optional), plans Trial(3u/10w/3links)/Professional(25/500/25)/Enterprise(100/5000/100) in `config/plans.php`, enforced server-side by `PlanService` at user/worker/link creation (+ sync push). Org admins: `/billing` (usage meters + upgrade request). Super admin: `/subscriptions` (approve/reject requests, set any plan). Payment OFFLINE — **user decision: offline payment stays a permanent option even after a payment gateway (e.g. Razorpay) is added later.** Existing orgs grandfathered to enterprise. Company-created vendors inherit the company's plan.
+- [x] **Face attendance (web, v1.1.4)** — camera-only: auto-enroll from registration photo (`FaceService`, pdf-service `/face/embed`, ArcFace 512-D), gate **Face** tab does 1:N `POST /attendance/identify-face`, marks re-verified server-side (`method=face`, `face_score`); threshold `FACE_MATCH_THRESHOLD` (0.45). First face call per pdf-service worker lazy-loads the model (~7s local, ~30-60s droplet)
 - [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation
 

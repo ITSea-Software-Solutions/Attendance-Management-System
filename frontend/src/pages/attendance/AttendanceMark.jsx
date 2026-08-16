@@ -12,7 +12,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import toast from "react-hot-toast";
 import {
   Fingerprint, Camera, LogIn, LogOut, XCircle, AlertTriangle,
-  RefreshCw, MapPin, Search, User, VideoOff,
+  RefreshCw, MapPin, Search, User, VideoOff, ScanFace,
 } from "lucide-react";
 
 import { captureFingerprint, SGI_ERRORS } from "@/lib/biometric";
@@ -89,7 +89,7 @@ function LocationSelector({ locationType, locationName, onTypeChange, onNameChan
 
 // ─── Confirmed worker card ─────────────────────────────────────────────────────
 
-function ConfirmedCard({ worker, score, photoPreview, cameraReady, onPhotoAction, onConfirm, onCancel, isPending }) {
+function ConfirmedCard({ worker, score, scoreLabel, photoPreview, cameraReady, onPhotoAction, onConfirm, onCancel, isPending }) {
   const isIn = worker.pending_type === "IN";
   return (
     <div className={`card border-2 space-y-4 ${isIn ? "border-green-200 bg-green-50" : "border-blue-200 bg-blue-50"}`}>
@@ -109,7 +109,7 @@ function ConfirmedCard({ worker, score, photoPreview, cameraReady, onPhotoAction
               {isIn ? <LogIn size={10} className="mr-1 inline" /> : <LogOut size={10} className="mr-1 inline" />}
               Pending {worker.pending_type}
             </span>
-            {score != null && <span className="text-xs text-gray-400">Score: {score}/200</span>}
+            {score != null && <span className="text-xs text-gray-400">{scoreLabel ?? `Score: ${score}/200`}</span>}
           </div>
         </div>
       </div>
@@ -175,6 +175,11 @@ export default function AttendanceMark() {
   // Manual-specific
   const [search, setSearch]      = useState("");
   const [selectedWorker, setSel] = useState(null);
+
+  // Face-specific (camera match — no scanner hardware needed)
+  const [faceBusy, setFaceBusy] = useState(false);
+  const [faceMsg, setFaceMsg]   = useState("Point the camera at the worker's face, then scan.");
+  const [matchMethod, setMatchMethod] = useState(null); // 'fingerprint' | 'face'
 
   // Shared proof photo
   const [photoFile, setPhotoFile]   = useState(null);
@@ -265,6 +270,7 @@ export default function AttendanceMark() {
     }
 
     setProbe(capture.TemplateBase64);
+    setMatchMethod("fingerprint");
     setMatched(match); // { worker_id, name, photo_url, vendor, pending_type, score }
     setPhase(PHASE.CONFIRMED);
     setMessage("Worker identified!");
@@ -276,6 +282,38 @@ export default function AttendanceMark() {
   const handleWorkerSelect = async (w) => {
     setSel(w);
     await autoSnap(); // auto-capture when worker is selected
+  };
+
+  // ── Face scan (camera 1:N, matched server-side) ───────────────────────────
+
+  const faceScan = async () => {
+    setFaceBusy(true);
+    setFaceMsg("Capturing…");
+    try {
+      let blob = photoFile;
+      if (camera.ready) blob = await camera.snap();
+      if (!blob) {
+        setFaceMsg("No camera available — use 'Add Photo' below to upload a face photo, then scan again.");
+        fileRef.current?.click();
+        return;
+      }
+      setFaceMsg("Identifying worker…");
+      const fd = new FormData();
+      fd.append("company_id", String(companyId));
+      fd.append("photo", blob, "face.jpg");
+      const res = await api.post("/attendance/identify-face", fd, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      setPhotoFile(blob);                       // same photo = proof AND server re-verification probe
+      setPhotoPrev(URL.createObjectURL(blob));
+      setMatchMethod("face");
+      setMatched(res.data);                     // { worker_id, name, …, face_score }
+      setFaceMsg("Worker identified!");
+    } catch (err) {
+      setFaceMsg(err.response?.data?.message || "Face identification failed — try again.");
+    } finally {
+      setFaceBusy(false);
+    }
   };
 
   // ── Mark (unified) ────────────────────────────────────────────────────────
@@ -298,7 +336,11 @@ export default function AttendanceMark() {
 
   const handleMark = () => {
     const worker = confirmedWorker;
-    const method = matched ? "fingerprint" : "manual";
+    const method = matched ? (matchMethod ?? "fingerprint") : "manual";
+    if (method === "face" && !photoFile) {
+      toast.error("Face marks need the captured photo — scan again.");
+      return;
+    }
     markMutation.mutate({
       payload: {
         worker_id:         worker.worker_id,
@@ -306,7 +348,7 @@ export default function AttendanceMark() {
         assignment_id:     worker.assignment_id,
         type:              worker.pending_type,
         method,
-        probe_template:    matched ? probeTemplate : undefined,
+        probe_template:    method === "fingerprint" ? probeTemplate : undefined,
         location_type:     locationType,
         location_name:     resolvedLocation,
       },
@@ -324,6 +366,9 @@ export default function AttendanceMark() {
     setPhotoFile(null);
     setPhotoPrev(null);
     setSearch("");
+    setMatchMethod(null);
+    setFaceBusy(false);
+    setFaceMsg("Point the camera at the worker's face, then scan.");
   };
 
   if (!companyId) {
@@ -404,6 +449,7 @@ export default function AttendanceMark() {
       <div className="flex rounded-lg border border-gray-200 overflow-hidden">
         {[
           ["fingerprint", <Fingerprint size={15} key="fp" />, "Fingerprint"],
+          ["face",        <ScanFace    size={15} key="fc" />, "Face"],
           ["manual",      <User        size={15} key="mn" />, "Manual"],
         ].map(([m, icon, label]) => (
           <button
@@ -473,6 +519,23 @@ export default function AttendanceMark() {
         </div>
       )}
 
+      {/* ── FACE: camera 1:N match — works on any device, no scanner ── */}
+      {mode === "face" && !confirmedWorker && (
+        <div className="card flex flex-col items-center space-y-5 py-8">
+          <div className={`w-32 h-32 rounded-full border-4 ${faceBusy ? "border-brand-400 animate-pulse" : "border-gray-200"} flex items-center justify-center bg-gray-50`}>
+            <ScanFace className={`w-16 h-16 ${faceBusy ? "text-brand-400" : "text-gray-300"}`} />
+          </div>
+          <p className="text-sm text-center text-gray-600 max-w-xs">{faceMsg}</p>
+          <p className="text-xs text-center text-gray-400 max-w-sm -mt-2">
+            Works with the device camera — no scanner needed. The worker must have a
+            photo enrolled (registration Photo step). Matched and re-verified on the server.
+          </p>
+          <button onClick={faceScan} disabled={faceBusy} className="btn-primary px-8 py-3 text-base">
+            <ScanFace size={20} /> {faceBusy ? "Scanning…" : "Scan Face"}
+          </button>
+        </div>
+      )}
+
       {/* ── MANUAL: worker search + list ── */}
       {mode === "manual" && !confirmedWorker && (
         <div className="card space-y-4">
@@ -520,7 +583,8 @@ export default function AttendanceMark() {
       {confirmedWorker && (
         <ConfirmedCard
           worker={confirmedWorker}
-          score={matched?.score}
+          score={matched?.score ?? matched?.face_score}
+          scoreLabel={matched?.face_score != null ? `Similarity: ${Math.round(matched.face_score * 100)}%` : undefined}
           photoPreview={photoPreview}
           cameraReady={camera.ready}
           onPhotoAction={handlePhotoAction}

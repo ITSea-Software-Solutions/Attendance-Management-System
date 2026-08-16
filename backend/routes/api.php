@@ -100,6 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('worker-templates', [AttendanceController::class, 'workerTemplates']); // deployed workers (no templates)
         Route::get('assigned-workers', [AttendanceController::class, 'assignedWorkers']); // photo/manual
         Route::post('identify',       [AttendanceController::class, 'identify']);          // server-side 1:N fingerprint match
+        Route::post('identify-face',  [AttendanceController::class, 'identifyFace']);      // server-side 1:N camera face match
         Route::post('mark',           [AttendanceController::class, 'mark']);
         Route::get('proof/{log}',     [AttendanceController::class, 'proofPhoto']);       // serve proof image
         Route::get('today',           [AttendanceController::class, 'today']);

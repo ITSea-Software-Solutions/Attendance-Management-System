@@ -17,6 +17,7 @@ class AttendanceController extends Controller
     public function __construct(
         private AuditService $audit,
         private BiometricService $biometric,
+        private \App\Services\FaceService $face,
     ) {}
 
     /** Demo deployments run with BIOMETRIC_SIM=true so the fingerprint flow is
@@ -245,6 +246,89 @@ class AttendanceController extends Controller
     // raw templates never reach the browser and the match cannot be forged
     // client-side. Returns the matched worker (no template) or 404.
 
+    /**
+     * Camera-based 1:N identification (hardware-free): the gate submits a
+     * photo; we embed it and cosine-match against enrolled face descriptors
+     * of workers deployed to this company today. Same scoping as identify().
+     */
+    public function identifyFace(Request $request): JsonResponse
+    {
+        $request->validate([
+            'company_id' => 'required|integer|exists:companies,id',
+            'photo'      => 'required|image|max:5120|mimes:jpeg,png,jpg',
+        ]);
+
+        $user      = $request->user();
+        $companyId = (int) $request->input('company_id');
+
+        abort_unless($user->isSuperAdmin() || $user->isCompanyUser(), 403, 'Not permitted.');
+        if ($user->isCompanyUser() && $user->company_id !== $companyId) {
+            return response()->json(['message' => 'Unauthorized company.'], 403);
+        }
+
+        $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('start_date', '<=', today())
+            ->where('end_date', '>=', today())
+            ->pluck('worker_id');
+
+        $workers = Worker::with('vendor')
+            ->whereIn('id', $activeWorkerIds)
+            ->whereNotNull('face_descriptor')
+            ->where('status', Worker::STATUS_ACTIVE)
+            ->get();
+
+        if ($workers->isEmpty()) {
+            return response()->json(['message' => 'No face-enrolled workers deployed today. Upload a worker photo (registration step 4) to enable camera attendance.'], 404);
+        }
+
+        $probe = $this->face->embed(file_get_contents($request->file('photo')->getRealPath()));
+        if (! $probe) {
+            return response()->json(['message' => 'No face detected in the photo — try again with the worker facing the camera.'], 422);
+        }
+
+        $best = ['worker' => null, 'score' => 0.0];
+        foreach ($workers as $worker) {
+            $score = \App\Services\FaceService::cosine($probe, $worker->face_descriptor);
+            if ($score > $best['score']) {
+                $best = ['worker' => $worker, 'score' => $score];
+            }
+        }
+
+        if (! $best['worker'] || $best['score'] < $this->face->threshold()) {
+            return response()->json(['message' => 'No face match found among deployed workers.'], 404);
+        }
+
+        $worker       = $best['worker'];
+        $gateLocation = ($user->isGateUser() && $user->location_name)
+            ? $user->location_name
+            : AttendanceLog::DEFAULT_LOCATION_NAME;
+
+        $lastLog = AttendanceLog::where('worker_id', $worker->id)
+            ->where('company_id', $companyId)
+            ->where('location_name', $gateLocation)
+            ->today()->valid()
+            ->orderByDesc('marked_at')
+            ->first();
+
+        $assignment = WorkerAssignment::where('worker_id', $worker->id)
+            ->where('company_id', $companyId)
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('start_date', '<=', today())
+            ->where('end_date', '>=', today())
+            ->first();
+
+        return response()->json([
+            'worker_id'     => $worker->id,
+            'name'          => $worker->name,
+            'vendor'        => $worker->vendor?->name,
+            'photo_url'     => $worker->photo_url,
+            'assignment_id' => $assignment?->id,
+            'pending_type'  => ($lastLog && $lastLog->type === 'IN') ? 'OUT' : 'IN',
+            'face_score'    => round($best['score'], 3),
+        ]);
+    }
+
     public function identify(Request $request): JsonResponse
     {
         $request->validate([
@@ -327,7 +411,7 @@ class AttendanceController extends Controller
             'company_id'        => 'required|integer|exists:companies,id',
             'assignment_id'     => 'nullable|integer|exists:worker_assignments,id',
             'type'              => 'required|in:IN,OUT',
-            'method'            => 'required|in:fingerprint,photo,manual,id_card',
+            'method'            => 'required|in:fingerprint,face,photo,manual,id_card,device_auth',
             'fingerprint_score' => 'nullable|integer|min:0|max:200',
             'probe_template'    => 'nullable|string',
             'override_reason'   => 'nullable|string',
@@ -378,6 +462,24 @@ class AttendanceController extends Controller
             }
         }
 
+        // Face marks are re-verified SERVER-SIDE from the submitted photo (which
+        // also serves as the proof image) — a client can never assert a face match.
+        $faceScore = null;
+        if ($data['method'] === 'face') {
+            abort_unless($request->hasFile('photo'), 422, 'Face marks require the captured photo.');
+            $worker = Worker::findOrFail($data['worker_id']);
+            abort_unless($worker->face_descriptor, 422, 'Worker has no enrolled face.');
+            $probe = $this->face->embed(file_get_contents($request->file('photo')->getRealPath()));
+            if (! $probe) {
+                return response()->json(['message' => 'No face detected in the photo — retake and try again.'], 422);
+            }
+            $faceScore = \App\Services\FaceService::cosine($probe, $worker->face_descriptor);
+            if ($faceScore < $this->face->threshold()) {
+                return response()->json(['message' => 'Face did not match this worker.'], 422);
+            }
+            $faceScore = round($faceScore, 3);
+        }
+
         // Gate users always stamp their configured location — ignore frontend values
         if ($user->isGateUser() && $user->location_name) {
             $data['location_type'] = $user->location_type ?? AttendanceLog::LOCATION_MAIN_GATE;
@@ -409,6 +511,7 @@ class AttendanceController extends Controller
             'marked_by'         => $user->id,
             'method'            => $data['method'],
             'fingerprint_score' => $serverScore,
+            'face_score'        => $faceScore,
             'auth_proof_path'   => $authProofPath,
             'override_reason'   => $data['override_reason'] ?? null,
             'gate'              => $data['gate'] ?? null,

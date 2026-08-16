@@ -391,7 +391,32 @@ class WorkerController extends Controller
         $path = $request->file('photo')->store('workers/photos', 'private');
         $worker->forceFill(['photo_path' => $path])->save();
 
-        return response()->json(['message' => 'Photo uploaded.', 'photo_path' => $path]);
+        // Best-effort face enrollment from the same photo (camera-based
+        // attendance needs no extra hardware). Failure is non-fatal — the
+        // photo is stored either way and fingerprint flows are unaffected.
+        $faceEnrolled = false;
+        try {
+            $embedding = app(\App\Services\FaceService::class)
+                ->embed(file_get_contents($request->file('photo')->getRealPath()));
+            if ($embedding) {
+                $worker->forceFill([
+                    'face_descriptor'  => $embedding,
+                    'face_enrolled_at' => now(),
+                ])->save();
+                $faceEnrolled = true;
+                $this->audit->log($request->user()->id, 'face_enrolled', Worker::class, $worker->id);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        return response()->json([
+            'message'       => $faceEnrolled
+                ? 'Photo uploaded — face enrolled for camera attendance.'
+                : 'Photo uploaded. (No clear face detected — camera attendance not enabled for this worker.)',
+            'photo_path'    => $path,
+            'face_enrolled' => $faceEnrolled,
+        ]);
     }
 
     public function activate(Request $request, Worker $worker): JsonResponse

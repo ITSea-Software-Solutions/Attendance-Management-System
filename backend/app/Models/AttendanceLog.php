@@ -33,6 +33,7 @@ class AttendanceLog extends Model
         'marked_by',
         'method',
         'fingerprint_score',
+        'face_score',
         'auth_proof_path',
         'override_reason',
         'device_id',

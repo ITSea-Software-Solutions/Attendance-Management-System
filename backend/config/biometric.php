@@ -34,4 +34,16 @@ return [
     */
     'matching_binary' => env('BIOMETRIC_MATCHING_BINARY', '/usr/local/bin/sgmatch'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Face matching (camera-based, hardware-free)
+    |--------------------------------------------------------------------------
+    | Cosine-similarity threshold on ArcFace 512-D embeddings (pdf-service).
+    | Typical same-person similarity is 0.5–0.8; different people < 0.3.
+    | 0.45 balances false accepts/rejects for supervised gate use — raise it
+    | for stricter matching. Face marks are re-verified server-side at mark
+    | time from the submitted photo; the client can never assert a match.
+    */
+    'face_threshold' => (float) env('FACE_MATCH_THRESHOLD', 0.45),
+
 ];

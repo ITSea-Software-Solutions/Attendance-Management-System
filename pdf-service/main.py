@@ -69,3 +69,21 @@ async def extract_aadhaar(
         )
 
     return JSONResponse(content=result["data"])
+
+@app.post("/face/embed")
+async def face_embed(image: UploadFile = File(..., description="Face image (JPEG/PNG)")):
+    """
+    Return the 512-D ArcFace embedding of the largest face in the image,
+    or {"embedding": null} when no face is detected.
+    The model is loaded lazily on first call (keeps startup light; the
+    pdf-only code path never pays the memory cost).
+    """
+    content = await image.read()
+    if len(content) > 8 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="Image must not exceed 8 MB.")
+    try:
+        from face_encoder import encode_face  # lazy: loads InsightFace once per worker
+        embedding = encode_face(content)
+    except RuntimeError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+    return JSONResponse(content={"embedding": embedding})

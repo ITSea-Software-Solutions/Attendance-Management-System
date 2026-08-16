@@ -67,9 +67,10 @@ COPY database/seeders/       database/seeders/
 COPY routes/api.php          routes/api.php
 COPY routes/web.php          routes/web.php
 COPY routes/console.php      routes/console.php
-COPY config/services.php     config/services.php
-COPY config/biometric.php    config/biometric.php
-COPY config/plans.php        config/plans.php
+# Copy ALL repo config over the scaffold defaults. Cherry-picking individual
+# files here has repeatedly caused silently-missing config (biometric.php,
+# plans.php, filesystems.php with the 'private' disk) — never again.
+COPY config/ config/
 
 # ── Regenerate autoload so our new classes are discovered ─────────────────────
 RUN composer dump-autoload --optimize --quiet

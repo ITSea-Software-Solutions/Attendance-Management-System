@@ -74,14 +74,20 @@ and SecuGen thumb scanner, with offline storage.
 
 | Method | Hardware | Platforms | Match | Status |
 |---|---|---|---|---|
-| **Fingerprint (SecuGen)** | Hamster Pro 20 (HU20/HU20-AP), USB / USB-OTG | Windows + Android | 1:N on-device (SDK matcher, ISO 19794-2, 0–200 score) | **v1** |
-| **Face (camera)** | Device camera only | Windows + Android | 1:N server-side (InsightFace/ArcFace) + active liveness (blink/turn) | **v2** |
+| **Fingerprint (external scanner)** | ANY supported USB/USB-OTG scanner behind the driver abstraction — SecuGen Hamster Pro 20 is the current *reference/testing device*, not a hard dependency; Mantra/Morpho/Startek slot in as drivers | Windows + Android | 1:N on-device (vendor SDK matcher) or device-agnostic (SourceAFIS/NBIS) | **v1** (SecuGen driver first) |
+| **Face (camera)** | Device camera only — phones, tablets, laptops; no extra hardware | **LIVE on web gates (v1.1.4)**: 1:N server-side (InsightFace ArcFace, cosine ≥ 0.45), auto-enrolled from the registration photo, re-verified server-side at mark time; supervised use (guard present). Apps + liveness (blink/turn) | Web: **shipped** · Apps: v2 |
 | Fingerprint (Mantra MFS100/110, Morpho MSO 1300, Startek FM220) | Common Aadhaar-ecosystem USB scanners in India | Android + Windows via vendor SDKs | Behind the same capture abstraction as SecuGen | Extensible — add per client demand |
 | Device-agnostic fingerprint matcher | — (software) | All | **SourceAFIS** (open-source) or NIST NBIS server-side — matches ISO templates/images across scanner brands | Option when mixing scanner brands |
 | QR / ID-badge fallback | Printed signed-QR badge + camera | All | 1:1 — guard visually confirms the worker photo shown on scan; optional biometric confirm | Planned fallback (failed/worn fingerprints) |
 | NFC tap (non-biometric) | NFC cards; phone NFC / USB reader | Android (built-in), Windows (USB reader) | 1:1 token | Optional add-on, not scheduled |
 | Iris (IriTech IriShield etc.) | Dedicated USB iris scanner | Android + Windows | Aadhaar-ecosystem devices exist | Possible, **not planned** (cost/niche) |
 | On-device face (offline) | Device camera | Android (TFLite/MediaPipe), Windows (ONNX Runtime) | 1:N on-device embeddings | v2+ — unlocks offline face |
+
+**Worker self-attendance via their OWN phone (planned mode):** a worker's personal
+device can be registered/bound to their record; OS biometric (BiometricPrompt /
+Windows Hello) then proves "the right human holds the bound device" + GPS geofence.
+Identity comes from the device binding — this is the ONLY legitimate way an
+internal phone sensor participates in attendance.
 
 **Platform biometrics are for APP security, not worker ID:** Android BiometricPrompt
 and Windows Hello cannot identify arbitrary people (OS seals templates), but we DO

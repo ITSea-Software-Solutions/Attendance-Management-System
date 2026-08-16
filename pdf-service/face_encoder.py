@@ -21,8 +21,13 @@ def encode_face(image_bytes: bytes) -> list | None:
     Returns None if no face is detected.
     Raises RuntimeError if the image cannot be decoded.
     """
+    if not image_bytes:
+        raise RuntimeError("Empty image upload.")
     arr = np.frombuffer(image_bytes, np.uint8)
-    img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    try:
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    except cv2.error as e:
+        raise RuntimeError("Failed to decode image — ensure it is a valid JPEG or PNG.") from e
 
     if img is None:
         raise RuntimeError("Failed to decode image — ensure it is a valid JPEG or PNG.")
