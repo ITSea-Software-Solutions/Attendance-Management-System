@@ -34,10 +34,9 @@ export default function Signup() {
     if (!form.name.trim()) return toast.error("Your name is required.");
     if (!/^\S+@\S+\.\S+$/.test(form.email)) return toast.error("Enter a valid email.");
     if (form.password.length < 8) return toast.error("Password must be at least 8 characters (letters + numbers).");
-    if (!plans) {
-      // Plan catalogue is public-ish via config; fall back to hardcoded copy on failure.
-      try { const r = await api.get("/plan"); setPlans(r.data.plans); } catch { setPlans(null); }
-    }
+    // NOTE: do NOT fetch /plan here — it requires auth, and a 401 triggers the
+    // axios interceptor's hard redirect to /login, wiping the signup form.
+    // The FALLBACK catalogue below mirrors config/plans.php.
     setStep(1);
   };
 
