@@ -312,7 +312,16 @@ GET  /api/attendance/report                               Date-range report
 
 GET  /api/workers/assign                                  Worker assignments (?deployment=current|previous)
 POST /api/workers/assign                                  Create assignment
-DELETE /api/workers/assign/{id}                          Cancel assignment
+DELETE /api/workers/assign/{id}
+
+POST /api/signup                                   ← PUBLIC SaaS signup (company|vendor, starts on Trial)
+GET  /api/plan                                     ← org plan + usage + catalogue
+POST /api/plan/upgrade-request
+GET  /api/admin/subscriptions                      ← super admin
+POST /api/admin/subscriptions/set-plan
+POST /api/admin/plan-requests/{id}/decide
+GET  /api/sync/pull      POST /api/sync/push       ← client app offline sync (idempotent)
+                          Cancel assignment
 ```
 
 ---

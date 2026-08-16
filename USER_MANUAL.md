@@ -1,3 +1,10 @@
+> **What's new (v1.1, 2026-08-16):** AMS is now self-service — new organisations
+> sign up at `/signup` (Company or Vendor, free Trial). Org admins manage their
+> plan on **Plan & Billing**; the platform owner manages everything on
+> **Subscriptions**. Company admins can now CREATE their own vendors. Apps for
+> Android/Windows: see the **Downloads** page. The freshest end-user guide is
+> `/docs/client-guide.html` (also linked on Downloads).
+
 # AMS User Manual
 ## Workforce Attendance Management System
 

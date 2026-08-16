@@ -17,7 +17,7 @@ Workers are registered by vendor companies, deployed to client companies, and ma
 
 | Layer | Technology |
 |-------|-----------|
-| Backend | Laravel 11, PHP 8.3, PHP-FPM |
+| Backend | Laravel 11, PHP 8.4, PHP-FPM |
 | Frontend | React 18, Vite, Tailwind CSS, TanStack Query v5 |
 | Database | MySQL 8 |
 | Cache/Queue | Redis |
@@ -33,8 +33,8 @@ Workers are registered by vendor companies, deployed to client companies, and ma
 
 | Role | Key abilities |
 |------|--------------|
-| `super_admin` | Full access — creates companies, vendors, all users |
-| `company_admin` | Approves vendors, creates gate users, views company attendance/workers |
+| `super_admin` | Platform owner — creates companies/orgs, manages ALL users, Subscriptions page (plans/upgrades) |
+| `company_admin` | **Creates & approves vendors** (auto-approved for own company), creates gate users + vendor-admin logins, views company attendance/workers, Plan & Billing |
 | `company_gate` | Marks IN/OUT fingerprint attendance only |
 | `vendor_admin` | Registers workers, deploys to companies, views worker attendance |
 | `vendor_operator` | Registers workers only |
@@ -46,7 +46,10 @@ Workers are registered by vendor companies, deployed to client companies, and ma
 ## Business Flow (End-to-End)
 
 ```
-1. Super Admin creates Company + Vendor (with login credentials)
+0. SaaS: anyone signs up at /signup as Company OR Vendor (starts on Trial;
+   paid plan choice files an offline-payment upgrade request)
+1. Super Admin creates Companies (or they self-signup); Company Admin creates
+   their own vendors (auto-approved) — or vendors self-signup and request access
 2. Vendor Admin → Company Access page → sends access request
 3. Company Admin → Vendor Approvals page → approves vendor
 4. Vendor Admin → Register Worker → Aadhaar PDF upload + fingerprint enrollment
@@ -125,6 +128,10 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `AttendanceList` | `/attendance` | all | **Daily summary grouped view** (not raw IN/OUT). All/Current/Previous tabs. Row click → WorkerDetail |
 | `AttendanceExceptions` | `/attendance/exceptions` | all | Workers currently inside (IN without OUT) |
 | `FingerprintTest` | `/diagnostic/fingerprint` | super_admin, company_admin, vendor_admin | Scanner diagnostics |
+| `Signup` | `/signup` | PUBLIC | SaaS signup wizard: org type → details → plan cards; auto-login |
+| `Downloads` | `/downloads` | all | Apps + docs; public twin at /download.html (static) |
+| `PlanBilling` | `/billing` | company_admin, vendor_admin | Current plan, usage meters, upgrade request |
+| `Subscriptions` | `/subscriptions` | super_admin | All orgs' plans/usage; approve/reject requests; set plan |
 
 ---
 
@@ -140,7 +147,10 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `WorkerIdDocumentController` | `index`, `store`, `download`, `destroy` | Accepts images + PDF; company users allowed if worker associated |
 | `AadhaarController` | `extract`, `upload`, `download` | Company users allowed to download if worker attended their company |
 | `AttendanceController` | `mark`, `workerTemplates`, `index` (deployment filter), `dailySummary`, `exceptions`, `report` | `dailySummary()` groups by worker+company+date |
-| `UserController` | CRUD (role-scoped) | |
+| `UserController` | CRUD (role-scoped) | Plan limits enforced on every create branch |
+| `SignupController` | `store` | PUBLIC; creates org + admin user on Trial; vendor contact_email pre-check |
+| `PlanController` | `show`, `requestUpgrade`, `index`, `setPlan`, `decide` | Org billing + super admin subscriptions |
+| `SyncController` | `pull`, `push` | Client-app offline sync; idempotent by client_uuid; plan limits on push |
 | `DashboardController` | `stats`, `today`, `activity` | |
 
 ---

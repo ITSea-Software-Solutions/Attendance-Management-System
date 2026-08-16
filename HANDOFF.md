@@ -1,3 +1,10 @@
+> **UPDATED 2026-08-16 — much of the below is HISTORICAL.** The repo now lives at
+> `ITSea-Software-Solutions/Attendance-Management-System` (all work pushed; tags
+> v1.0.0, v1.1.0, app-v0.9.0-preview). No bundle needed — just `git clone`. The
+> platform is now SaaS (public /signup, plans, Subscriptions admin), has a Flutter
+> client app under `client/` (APK on the download page), and offline sync APIs.
+> Start any new session by reading `CLAUDE.md` + `CLIENT_APP_DESIGN.md`.
+
 # AMS — Session Handoff (continue on Windows w/ real SecuGen reader)
 
 Paste this whole file as your first message to Claude Code on the Windows machine.

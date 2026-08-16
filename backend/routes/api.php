@@ -14,10 +14,11 @@ use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
 
 // ─── Public ───────────────────────────────────────────────────────────────────
-// Throttled: max 5 attempts per minute per IP (brute-force protection)
-Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:5,1');
+// Named limiters (AppServiceProvider): login 5/min, signup 3/10min — separate
+// buckets per IP so one can't starve the other.
+Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
 // SaaS self-service signup (company or vendor; starts on Trial)
-Route::post('/signup', [\App\Http\Controllers\SignupController::class, 'store'])->middleware('throttle:5,1');
+Route::post('/signup', [\App\Http\Controllers\SignupController::class, 'store'])->middleware('throttle:signup');
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {

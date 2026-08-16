@@ -57,6 +57,15 @@ class SignupController extends Controller
             ], 422);
         }
 
+        // vendors.contact_email carries a DB UNIQUE index — pre-check so a
+        // duplicate gives a clean 422 instead of a SQL 500.
+        if (! $isCompany && Vendor::withTrashed()->where('contact_email', $data['email'])->exists()) {
+            return response()->json([
+                'message' => 'Validation failed.',
+                'errors'  => ['email' => ['A vendor with this contact email already exists.']],
+            ], 422);
+        }
+
         $orgFields = [
             'name'           => $data['org_name'],
             'code'           => $this->uniqueCode($isCompany ? 'CMP' : 'VND', $isCompany ? Company::class : Vendor::class),
