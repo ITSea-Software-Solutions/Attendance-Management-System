@@ -22,7 +22,7 @@ dependencies:
   google_mlkit_face_detection: ^0.13.1
   camera: ^0.11.0+2
   camera_windows: ^0.2.6
-  file_picker: ^8.1.2
+  file_picker: ^10.3.2
   cupertino_icons: ^1.0.8
 
 dev_dependencies:
