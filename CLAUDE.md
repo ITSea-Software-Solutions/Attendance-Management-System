@@ -7,7 +7,7 @@ Keep it updated whenever features are added, changed, or removed.
 
 ## What This Project Is
 
-**AMS (Attendance Management System)** — enterprise multi-company, multi-vendor labor registration and biometric attendance system.
+**Hazri** (brand; internal codename **AMS** — keep all technical identifiers: `ams_*` containers, API routes, storage keys) — enterprise multi-company, multi-vendor labor registration and biometric attendance system.
 
 Workers are registered by vendor companies, deployed to client companies, and mark attendance via fingerprint scanning at site gates. The system tracks who is where, when, and for how long.
 

@@ -22,7 +22,7 @@ class AmsApp extends StatelessWidget {
     return AppScope(
       state: state,
       child: MaterialApp(
-        title: 'AMS',
+        title: 'Hazri',
         debugShowCheckedModeBanner: false,
         theme: ThemeData(
           colorScheme: ColorScheme.fromSeed(seedColor: seed),

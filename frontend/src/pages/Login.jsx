@@ -40,8 +40,8 @@ export default function Login() {
           <div className="inline-flex items-center justify-center w-16 h-16 bg-white/10 rounded-2xl mb-4">
             <Fingerprint className="w-9 h-9 text-white" />
           </div>
-          <h1 className="text-3xl font-bold text-white">AMS</h1>
-          <p className="text-blue-200 mt-1 text-sm">Attendance Management System</p>
+          <h1 className="text-3xl font-bold text-white">Hazri</h1>
+          <p className="text-blue-200 mt-1 text-sm">Aadhaar-verified workforce attendance</p>
         </div>
 
         {/* Card */}
@@ -101,7 +101,7 @@ export default function Login() {
 
           <div className="mt-6 pt-4 border-t border-gray-100">
             <p className="text-xs text-gray-400 text-center">
-              Workforce & Labor Attendance — Enterprise Edition
+              Hazri · Aadhaar-verified biometric attendance for contract workforces
             </p>
           </div>
         </div>

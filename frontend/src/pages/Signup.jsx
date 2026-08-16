@@ -70,9 +70,9 @@ export default function Signup() {
       <div className="w-full max-w-3xl">
         <div className="text-center mb-8">
           <Fingerprint size={44} className="mx-auto text-brand-600" />
-          <h1 className="text-2xl font-bold text-gray-900 mt-2">Create your AMS account</h1>
+          <h1 className="text-2xl font-bold text-gray-900 mt-2">Create your Hazri account</h1>
           <p className="text-sm text-gray-500 mt-1">
-            Aadhaar-verified workforce & biometric attendance — start free, upgrade anytime.
+            Digital hazri for your workforce — Aadhaar-verified, biometric, offline-first. Start free.
           </p>
         </div>
 

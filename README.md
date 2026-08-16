@@ -1,4 +1,6 @@
-# AMS — Workforce & Labor Attendance Management System
+# Hazri — Aadhaar-verified Workforce Attendance
+
+> Product name: **Hazri** (हाज़री — "attendance"). Internal/technical codename remains **AMS** (repo, containers `ams_*`, API paths) — do not rename infrastructure.
 
 Enterprise-grade multi-company, multi-vendor labor registration and biometric attendance system built on Laravel + React.
 

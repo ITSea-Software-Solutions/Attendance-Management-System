@@ -34,7 +34,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('AMS — ${_roleLabel(app.role)}'),
+        title: Text('Hazri — ${_roleLabel(app.role)}'),
         actions: [
           // Sync status chip
           Padding(
