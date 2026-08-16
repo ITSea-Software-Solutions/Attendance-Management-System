@@ -19,6 +19,9 @@ use App\Http\Controllers\UserController;
 Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
 // SaaS self-service signup (company or vendor; starts on Trial)
 Route::post('/signup', [\App\Http\Controllers\SignupController::class, 'store'])->middleware('throttle:signup');
+// Self-service password reset (demo mode returns the link when mailer=log)
+Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:signup');
+Route::post('/auth/reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:login');
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
@@ -107,5 +110,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('worker/{worker}', [AttendanceController::class, 'workerHistory']);
         Route::get('report',          [AttendanceController::class, 'report']);
         Route::get('exceptions',      [AttendanceController::class, 'exceptions']);
+        Route::get('export',          [AttendanceController::class, 'export']);      // CSV: ?month=YYYY-MM&type=daily|monthly
+        Route::get('printable',       [AttendanceController::class, 'printable']);   // print-friendly month report
     });
 });

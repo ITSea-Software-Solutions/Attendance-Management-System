@@ -2,6 +2,8 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/axios";
+import { useAuth } from "@/contexts/AuthContext";
+import { Download, Printer } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { LogIn, LogOut, MapPin, Building2, Search } from "lucide-react";
 
@@ -24,6 +26,26 @@ export default function AttendanceList() {
   const [search, setSearch] = useState("");
   const [page, setPage]     = useState(1);
   const [tab, setTab]       = useState("all"); // all | current | previous
+  const { user } = useAuth();
+  const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7));
+
+  const downloadCsv = async (type) => {
+    const r = await api.get("/attendance/export", {
+      params: { month: exportMonth, type }, responseType: "blob",
+    });
+    const url = URL.createObjectURL(r.data);
+    const a = document.createElement("a");
+    a.href = url; a.download = `truecrew-attendance-${exportMonth}-${type}.csv`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const openPrintable = async () => {
+    const r = await api.get("/attendance/printable", {
+      params: { month: exportMonth }, responseType: "blob",
+    });
+    window.open(URL.createObjectURL(new Blob([r.data], { type: "text/html" })), "_blank");
+  };
 
   const deploymentParam = tab !== "all" ? tab : undefined;
 
@@ -39,7 +61,28 @@ export default function AttendanceList() {
     <div className="space-y-5">
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Attendance Log</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Daily summary — one row per worker</p>
+        <p className="text-sm text-gray-500 mt-0.5">
+          Daily summary — one row per worker
+          {user?.role === "company_gate" && user?.location_name && (
+            <span className="ml-2 badge badge-green">Your gate: {user.location_name}</span>
+          )}
+        </p>
+      </div>
+
+      {/* ── Month export (Excel CSV / printable PDF) ── */}
+      <div className="card flex flex-wrap items-center gap-3 py-3">
+        <span className="text-sm font-medium text-gray-700">Export month:</span>
+        <input type="month" className="input w-44 py-1.5 text-sm" value={exportMonth}
+               onChange={(e) => setExportMonth(e.target.value)} />
+        <button className="btn-secondary text-sm" onClick={() => downloadCsv("daily")}>
+          <Download size={14} /> Daily CSV
+        </button>
+        <button className="btn-secondary text-sm" onClick={() => downloadCsv("monthly")}>
+          <Download size={14} /> Monthly totals CSV
+        </button>
+        <button className="btn-secondary text-sm" onClick={openPrintable}>
+          <Printer size={14} /> Report (print / PDF)
+        </button>
       </div>
 
       {/* Tabs */}

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
+use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Worker;
 use App\Models\WorkerAssignment;
@@ -33,6 +34,8 @@ class AttendanceController extends Controller
     {
         $user      = $request->user();
         $companyId = $user->isCompanyUser() ? $user->company_id : null;
+        // Gate/department logins are scoped to THEIR location only.
+        $gateLoc   = ($user->isGateUser() && $user->location_name) ? $user->location_name : null;
 
         $rows = \DB::table('attendance_logs as al')
             ->join('workers as w',      'w.id',  '=', 'al.worker_id')
@@ -53,6 +56,7 @@ class AttendanceController extends Controller
                 GROUP_CONCAT(DISTINCT al.location_name SEPARATOR ', ')          as locations
             ")
             ->when($companyId,               fn($q) => $q->where('al.company_id', $companyId))
+            ->when($gateLoc,                 fn($q, $l) => $q->where('al.location_name', $l))
             ->when($user->isVendorUser(),    fn($q) => $q->where('w.vendor_id', $user->vendor_id))
             ->when($request->date,           fn($q, $d) => $q->whereDate('al.marked_at', $d))
             ->when($request->search,         fn($q, $s) => $q->where('w.name', 'like', "%{$s}%"))
@@ -86,6 +90,135 @@ class AttendanceController extends Controller
         return response()->json($rows->paginate(30));
     }
 
+    /**
+     * Month export as CSV (Excel-ready). ?month=YYYY-MM&type=daily|monthly
+     * Role-scoped exactly like the on-screen lists (company / vendor / gate).
+     */
+    public function export(Request $request)
+    {
+        $request->validate([
+            'month' => 'required|date_format:Y-m',
+            'type'  => 'nullable|in:daily,monthly',
+        ]);
+        $type = $request->input('type', 'daily');
+        $rows = $this->monthRows($request);
+
+        $filename = "truecrew-attendance-{$request->month}-{$type}.csv";
+        return response()->streamDownload(function () use ($rows, $type) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+            if ($type === 'daily') {
+                fputcsv($out, ['Date', 'Worker', 'Vendor', 'Company', 'Location(s)', 'First IN', 'Last OUT', 'Hours', 'Status']);
+                foreach ($rows as $r) {
+                    fputcsv($out, [
+                        $r->work_date, $r->worker_name, $r->vendor_name, $r->company_name,
+                        $r->locations, $r->first_in, $r->last_out,
+                        $this->hoursBetween($r->first_in, $r->last_out),
+                        $r->last_out ? 'Done' : 'Missing OUT',
+                    ]);
+                }
+            } else {
+                fputcsv($out, ['Worker', 'Vendor', 'Company', 'Days Present', 'Total Hours', 'Days Missing OUT']);
+                foreach ($this->monthlyTotals($rows) as $t) {
+                    fputcsv($out, [$t['worker'], $t['vendor'], $t['company'], $t['days'], $t['hours'], $t['missing']]);
+                }
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** Print-friendly monthly report (open in a tab → browser "Save as PDF"). */
+    public function printable(Request $request)
+    {
+        $request->validate(['month' => 'required|date_format:Y-m']);
+        $rows   = $this->monthRows($request);
+        $totals = $this->monthlyTotals($rows);
+        $month  = $request->month;
+        $org    = $request->user()->isVendorUser()
+            ? optional(\App\Models\Vendor::find($request->user()->vendor_id))->name
+            : optional(\App\Models\Company::find($request->user()->company_id))->name;
+
+        $body = '';
+        foreach ($totals as $t) {
+            $body .= '<tr><td>'.e($t['worker']).'</td><td>'.e($t['vendor']).'</td><td>'.e($t['company'])
+                   .'</td><td class="n">'.$t['days'].'</td><td class="n">'.$t['hours'].'</td><td class="n">'.$t['missing'].'</td></tr>';
+        }
+        $daily = '';
+        foreach ($rows as $r) {
+            $daily .= '<tr><td>'.e($r->work_date).'</td><td>'.e($r->worker_name).'</td><td>'.e($r->locations)
+                    .'</td><td>'.e($r->first_in ? substr($r->first_in, 11, 5) : '—').'</td><td>'.e($r->last_out ? substr($r->last_out, 11, 5) : '—')
+                    .'</td><td class="n">'.$this->hoursBetween($r->first_in, $r->last_out).'</td></tr>';
+        }
+        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>TrueCrew — Attendance '.$month.'</title>'
+              .'<style>body{font:13px/1.5 system-ui;margin:24px;color:#1D2833}h1{font-size:19px;margin:0}h2{font-size:14px;margin:24px 0 6px}'
+              .'table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #cbd5d1;padding:4px 7px;text-align:left}'
+              .'th{background:#e3efec}.n{text-align:right}.muted{color:#5A6470;font-size:12px}@media print{button{display:none}}</style></head><body>'
+              .'<button onclick="window.print()" style="float:right;padding:6px 14px">Print / Save as PDF</button>'
+              .'<h1>TrueCrew — Attendance Report</h1>'
+              .'<p class="muted">'.e($org ?? 'All organisations').' · Month: '.$month.' · Generated: '.now()->format('d M Y H:i').'</p>'
+              .'<h2>Monthly totals (muster)</h2><table><tr><th>Worker</th><th>Vendor</th><th>Company</th><th>Days</th><th>Hours</th><th>Missing OUT</th></tr>'.$body.'</table>'
+              .'<h2>Daily detail</h2><table><tr><th>Date</th><th>Worker</th><th>Location</th><th>IN</th><th>OUT</th><th>Hours</th></tr>'.$daily.'</table>'
+              .'</body></html>';
+        return response($html)->header('Content-Type', 'text/html; charset=UTF-8');
+    }
+
+    /** Shared month query — dailySummary's scoping without pagination. */
+    private function monthRows(Request $request)
+    {
+        $user      = $request->user();
+        $companyId = $user->isCompanyUser() ? $user->company_id : null;
+        $gateLoc   = ($user->isGateUser() && $user->location_name) ? $user->location_name : null;
+        [$y, $m]   = explode('-', $request->month);
+
+        return \DB::table('attendance_logs as al')
+            ->join('workers as w', 'w.id', '=', 'al.worker_id')
+            ->leftJoin('vendors as v', 'v.id', '=', 'w.vendor_id')
+            ->leftJoin('companies as c', 'c.id', '=', 'al.company_id')
+            ->selectRaw("
+                w.name as worker_name, v.name as vendor_name, c.name as company_name,
+                DATE(al.marked_at) as work_date,
+                MIN(CASE WHEN al.type='IN'  THEN al.marked_at END) as first_in,
+                MAX(CASE WHEN al.type='OUT' THEN al.marked_at END) as last_out,
+                GROUP_CONCAT(DISTINCT al.location_name SEPARATOR ', ') as locations")
+            ->whereYear('al.marked_at', $y)->whereMonth('al.marked_at', $m)
+            ->where('al.is_valid', true)
+            ->when($companyId, fn($q) => $q->where('al.company_id', $companyId))
+            ->when($gateLoc, fn($q, $l) => $q->where('al.location_name', $l))
+            ->when($user->isVendorUser(), fn($q) => $q->where('w.vendor_id', $user->vendor_id))
+            ->groupBy('al.worker_id', 'al.company_id', \DB::raw('DATE(al.marked_at)'), 'w.name', 'v.name', 'c.name')
+            ->orderBy('w.name')->orderBy('work_date')
+            ->get();
+    }
+
+    private function hoursBetween(?string $in, ?string $out): string
+    {
+        if (! $in || ! $out) return '';
+        $mins = Carbon::parse($out)->diffInMinutes(Carbon::parse($in), true);
+        return sprintf('%d:%02d', intdiv((int) $mins, 60), ((int) $mins) % 60);
+    }
+
+    private function monthlyTotals($rows): array
+    {
+        $agg = [];
+        foreach ($rows as $r) {
+            $k = $r->worker_name.'|'.$r->company_name;
+            $agg[$k] ??= ['worker' => $r->worker_name, 'vendor' => $r->vendor_name, 'company' => $r->company_name,
+                          'days' => 0, 'mins' => 0, 'missing' => 0];
+            $agg[$k]['days']++;
+            if ($r->first_in && $r->last_out) {
+                $agg[$k]['mins'] += Carbon::parse($r->last_out)->diffInMinutes(Carbon::parse($r->first_in), true);
+            } else {
+                $agg[$k]['missing']++;
+            }
+        }
+        return array_map(fn($t) => [
+            'worker' => $t['worker'], 'vendor' => $t['vendor'], 'company' => $t['company'],
+            'days' => $t['days'],
+            'hours' => sprintf('%d:%02d', intdiv((int) $t['mins'], 60), ((int) $t['mins']) % 60),
+            'missing' => $t['missing'],
+        ], array_values($agg));
+    }
+
     // ─── List attendance ──────────────────────────────────────────────────────
 
     public function index(Request $request): JsonResponse
@@ -98,6 +231,8 @@ class AttendanceController extends Controller
                 'markedBy:id,name',
             ])
             ->when($user->isCompanyUser(), fn($q) => $q->where('company_id', $user->company_id))
+            ->when($user->isGateUser() && $user->location_name,
+                fn($q) => $q->where('location_name', $user->location_name))
             ->when($user->isVendorUser(), fn($q) =>
                 $q->whereHas('worker', fn($wq) => $wq->where('vendor_id', $user->vendor_id))
             )
@@ -596,6 +731,8 @@ class AttendanceController extends Controller
             ->where('is_valid', true)
             ->whereDate('marked_at', $date)
             ->when($user->isCompanyUser(), fn($q) => $q->where('company_id', $user->company_id))
+            ->when($user->isGateUser() && $user->location_name,
+                fn($q) => $q->where('location_name', $user->location_name))
             ->whereNotExists(function ($query) use ($date) {
                 $query->from('attendance_logs as out_log')
                     ->whereColumn('out_log.worker_id', 'attendance_logs.worker_id')

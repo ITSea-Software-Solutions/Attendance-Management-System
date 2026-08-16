@@ -164,6 +164,19 @@ class PlanController extends Controller
                 'plan_started_at' => now(),
             ])->save();
         }
+        try {
+            $org = $planRequest->org();
+            if ($org && $org->contact_email) {
+                $approved = $data['action'] === 'approve';
+                \Illuminate\Support\Facades\Mail::raw(
+                    $approved
+                        ? "Your TrueCrew plan upgrade to {$planRequest->requested_plan} is ACTIVE. Thank you!"
+                        : "Your TrueCrew plan upgrade request to {$planRequest->requested_plan} was declined. Reply to this email or contact support for details.",
+                    fn ($m) => $m->to($org->contact_email)->subject('TrueCrew — plan upgrade ' . ($approved ? 'activated' : 'declined'))
+                );
+            }
+        } catch (\Throwable $e) { report($e); }
+
         $this->audit->log($request->user()->id, "plan_request_{$data['action']}", PlanUpgradeRequest::class, $planRequest->id);
 
         return response()->json(['message' => $data['action'] === 'approve'

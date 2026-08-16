@@ -91,7 +91,10 @@ export default function Login() {
             </button>
           </form>
 
-          <p className="text-sm text-gray-500 text-center mt-4">
+          <p className="text-sm text-gray-500 text-center mt-3">
+            <a href="/forgot-password" className="text-brand-600 font-medium">Forgot password?</a>
+          </p>
+          <p className="text-sm text-gray-500 text-center mt-1">
             New here?{" "}
             <a href="/signup" className="text-brand-600 font-semibold">
               Create your company or vendor account

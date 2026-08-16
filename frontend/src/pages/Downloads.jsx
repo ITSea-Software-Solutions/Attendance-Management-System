@@ -10,14 +10,14 @@ const APPS = [
   {
     icon: Smartphone,
     title: "Android App",
-    desc: "Vendor registration + gate attendance, offline-capable. v0.9 preview — fingerprint simulated; USB-OTG scanner support lands in v1.0.",
-    status: "/downloads/ams-android-v0.9.0-preview.apk",
+    desc: "Full worker registration (Aadhaar + fingerprint + face) and gate attendance, offline-capable. USB fingerprint scanners + camera face match on-device.",
+    status: "/downloads/truecrew-android-v0.9.12-preview.apk",
   },
   {
     icon: Monitor,
-    title: "Windows Gate App",
-    desc: "Desktop attendance station with SecuGen fingerprint scanner support.",
-    status: "in_development",
+    title: "Windows App",
+    desc: "Registration + attendance station. Talks to SecuGen scanners directly via the FDx SDK — no extra service needed.",
+    status: "/downloads/truecrew-windows-x64-preview.zip",
   },
 ];
 

@@ -129,6 +129,19 @@ class CompanyController extends Controller
             'rejection_reason' => null,
         ]);
 
+        try {
+            $emails = array_filter(array_unique(array_merge(
+                [$vendor->contact_email],
+                \App\Models\User::where('vendor_id', $vendor->id)->where('role', 'vendor_admin')->pluck('email')->all()
+            )));
+            foreach ($emails as $to) {
+                \Illuminate\Support\Facades\Mail::raw(
+                    "Good news!\n\nYour vendor organisation \"{$vendor->name}\" has been APPROVED by {$company->name} on TrueCrew.\nYou can now deploy workers to their sites.\n\nSign in: " . rtrim(config('app.url'), '/'),
+                    fn ($m) => $m->to($to)->subject("TrueCrew — approved by {$company->name}")
+                );
+            }
+        } catch (\Throwable $e) { report($e); }
+
         $this->audit->log($request->user()->id, 'vendor_approved', Vendor::class, $vendor->id, [
             'company_id' => $company->id,
         ]);

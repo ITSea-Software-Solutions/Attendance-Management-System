@@ -22,6 +22,9 @@ class SgfpDirect {
   int _imgW = 0, _imgH = 0;
   String? loadError;
 
+  /// Where the DLL was actually loaded from (shown in diagnostics).
+  String? loadedFrom;
+
   // ── SDK constants (sgfplib.h) ────────────────────────────────────────────
   static const int _sgDevAuto = 0xFF; // SG_DEV_AUTO
   static const int _tplFormatIso = 0x0300; // TEMPLATE_FORMAT_ISO19794
@@ -42,17 +45,85 @@ class SgfpDirect {
 
   bool _bound = false;
 
+  /// Every place a SecuGen install may have left sgfplib.dll. The bare name
+  /// covers the standard search order (exe dir → System32 → PATH); the rest
+  /// are explicit installs: FDx SDK, SGIBIOSRV (WebAPI), diagnostic utility.
+  List<String> _candidatePaths() {
+    final exeDir = File(Platform.resolvedExecutable).parent.path;
+    final paths = <String>[
+      'sgfplib.dll',
+      '$exeDir\\sgfplib.dll',
+      '$exeDir\\sdk\\sgfplib.dll',
+      'C:\\Windows\\System32\\sgfplib.dll',
+    ];
+    // Scan SecuGen install folders for the DLL wherever their installers put it.
+    for (final root in [
+      'C:\\Program Files\\SecuGen',
+      'C:\\Program Files (x86)\\SecuGen',
+      'C:\\SecuGen',
+    ]) {
+      try {
+        final dir = Directory(root);
+        if (!dir.existsSync()) continue;
+        for (final f in dir.listSync(recursive: true, followLinks: false)) {
+          if (f is File &&
+              f.path.toLowerCase().endsWith('\\sgfplib.dll')) {
+            paths.add(f.path);
+          }
+        }
+      } catch (_) {} // no permission / junction loops — skip
+    }
+    return paths;
+  }
+
+  /// Point Windows' DLL search at [dir] so sgfplib.dll can resolve its
+  /// companion device DLLs (sgfdusdax64.dll etc.) living next to it.
+  void _setDllDirectory(String dir) {
+    try {
+      final k32 = DynamicLibrary.open('kernel32.dll');
+      final setDllDir = k32.lookupFunction<Int32 Function(Pointer<Utf16>),
+          int Function(Pointer<Utf16>)>('SetDllDirectoryW');
+      final p = dir.toNativeUtf16();
+      setDllDir(p);
+      calloc.free(p);
+    } catch (_) {}
+  }
+
   bool _bind() {
     if (_bound) return true;
     if (!Platform.isWindows) {
       loadError = 'Direct SDK is Windows-only.';
       return false;
     }
-    try {
-      _lib = DynamicLibrary.open('sgfplib.dll'); // System32 (FDx SDK installer)
-    } catch (e) {
-      loadError =
-          'sgfplib.dll not found — install the SecuGen FDx SDK (its installer places the DLL in System32).';
+    final tried = <String>[];
+    var archMismatch = false;
+    for (final path in _candidatePaths()) {
+      try {
+        if (path.contains('\\')) {
+          if (!File(path).existsSync()) continue;
+          _setDllDirectory(File(path).parent.path);
+        }
+        _lib = DynamicLibrary.open(path);
+        loadedFrom = path;
+        break;
+      } catch (e) {
+        tried.add(path);
+        // Windows error 193 = "%1 is not a valid Win32 application":
+        // a 32-bit DLL found by a 64-bit app.
+        if ('$e'.contains('193') || '$e'.contains('not a valid')) {
+          archMismatch = true;
+        }
+      }
+    }
+    if (_lib == null) {
+      loadError = archMismatch
+          ? 'Found sgfplib.dll but it is 32-bit; TrueCrew is a 64-bit app. '
+              'Install the 64-bit (x64) SecuGen FDx SDK, or copy the x64 '
+              'sgfplib.dll next to truecrew.exe.'
+          : 'sgfplib.dll not found (searched exe folder, System32, and '
+              'C:\\Program Files\\SecuGen). Fix: copy the x64 sgfplib.dll '
+              'next to truecrew.exe, or install the SecuGen FDx SDK. '
+              'No WebAPI service is needed.';
       return false;
     }
     try {
@@ -143,7 +214,12 @@ class SgfpDirect {
   (bool, String) probe() {
     final err = ensureReady();
     if (err != null) return (false, err);
-    return (true, 'SecuGen device OPEN via direct SDK (sgfplib.dll), sensor ${_imgW}x$_imgH — no WebAPI service needed.');
+    return (
+      true,
+      'SecuGen device OPEN via direct SDK '
+          '(${loadedFrom ?? 'sgfplib.dll'}), sensor ${_imgW}x$_imgH — '
+          'no WebAPI service needed.'
+    );
   }
 
   ({String? template, int quality, String? error}) captureTemplate(

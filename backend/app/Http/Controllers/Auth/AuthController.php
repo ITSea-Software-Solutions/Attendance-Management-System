@@ -93,4 +93,67 @@ class AuthController extends Controller
             'location_name' => $user->location_name,
         ];
     }
+
+    /**
+     * Self-service password reset — step 1: send the reset link.
+     * Works with any SMTP configured via MAIL_* env. On the demo (mailer=log)
+     * the link is ALSO returned in the response so the flow is fully usable
+     * without an email provider — strictly gated to the log mailer.
+     */
+    public function forgotPassword(\Illuminate\Http\Request $request)
+    {
+        $request->validate(['email' => 'required|email']);
+        $user = \App\Models\User::where('email', $request->email)->first();
+
+        // Same response whether or not the account exists (no user enumeration).
+        $generic = ['message' => 'If that email is registered, a reset link has been sent.'];
+        if (! $user) {
+            return response()->json($generic);
+        }
+
+        $token = \Illuminate\Support\Facades\Password::broker()->createToken($user);
+        $url   = rtrim(config('app.url'), '/')
+               . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
+
+        try {
+            \Illuminate\Support\Facades\Mail::raw(
+                "Hello {$user->name},\n\nReset your TrueCrew password using this link (valid 60 minutes):\n{$url}\n\nIf you didn't request this, ignore this email.",
+                fn ($m) => $m->to($user->email)->subject('TrueCrew — password reset')
+            );
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        // Dev/demo convenience ONLY: returning the link publicly would let
+        // anyone take over any account, so require debug mode too.
+        if (config('mail.default') === 'log' && config('app.debug')) {
+            // Demo/dev convenience only — real deployments configure SMTP.
+            $generic['dev_reset_url'] = $url;
+            $generic['note'] = 'Demo mode (no SMTP configured): use this link directly.';
+        }
+        return response()->json($generic);
+    }
+
+    /** Self-service password reset — step 2: set the new password. */
+    public function resetPassword(\Illuminate\Http\Request $request)
+    {
+        $request->validate([
+            'token'    => 'required|string',
+            'email'    => 'required|email',
+            'password' => ['required', 'confirmed', \Illuminate\Validation\Rules\Password::min(8)->letters()->numbers()],
+        ]);
+
+        $status = \Illuminate\Support\Facades\Password::broker()->reset(
+            $request->only('email', 'password', 'password_confirmation', 'token'),
+            function ($user, $password) {
+                $user->forceFill(['password' => \Illuminate\Support\Facades\Hash::make($password)])->save();
+                $user->tokens()->delete(); // revoke all sessions
+            }
+        );
+
+        if ($status !== \Illuminate\Support\Facades\Password::PASSWORD_RESET) {
+            return response()->json(['message' => 'This reset link is invalid or has expired — request a new one.'], 422);
+        }
+        return response()->json(['message' => 'Password updated — sign in with your new password.']);
+    }
 }

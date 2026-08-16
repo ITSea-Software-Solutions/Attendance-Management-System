@@ -129,6 +129,8 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `AttendanceExceptions` | `/attendance/exceptions` | all | Workers currently inside (IN without OUT) |
 | `FingerprintTest` | `/diagnostic/fingerprint` | super_admin, company_admin, vendor_admin | Scanner diagnostics |
 | `Signup` | `/signup` | PUBLIC | SaaS signup wizard: org type → details → plan cards; auto-login |
+| `ForgotPassword` | `/forgot-password` | PUBLIC | Self-service reset step 1; shows dev link when mailer=log AND debug |
+| `ResetPassword` | `/reset-password` | PUBLIC | Step 2 (from emailed link); revokes all tokens on success |
 | `Downloads` | `/downloads` | all | Apps + docs; public twin at /download.html (static) |
 | `PlanBilling` | `/billing` | company_admin, vendor_admin | Current plan, usage meters, upgrade request |
 | `Subscriptions` | `/subscriptions` | super_admin | All orgs' plans/usage; approve/reject requests; set plan |
@@ -192,6 +194,11 @@ GET  /api/attendance/daily-summary                 ← grouped: one row per work
 GET  /api/attendance/worker-templates              ← for fingerprint matching at gate
 POST /api/attendance/mark
 GET  /api/attendance/exceptions
+GET  /api/attendance/export                        ← ?month=YYYY-MM&type=daily|monthly — CSV (UTF-8 BOM)
+GET  /api/attendance/printable                     ← ?month= — print-ready HTML month report
+
+POST /api/auth/forgot-password                     ← PUBLIC, throttle:signup; dev_reset_url only when mailer=log && debug
+POST /api/auth/reset-password                      ← PUBLIC, throttle:login; revokes all tokens
 
 GET  /api/assignments                              ← ?deployment=current|previous (apiResource)
 POST /api/assignments                              ← deploy worker {worker_id, company_id, start_date, end_date}
@@ -305,7 +312,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 
 ---
 
-## Feature Status (as of 2026-08-15 — v1.0.0)
+## Feature Status (as of 2026-08-16 — web v1.2.0, apps v0.9.12)
 
 ### Implemented & Working
 - [x] Multi-company, multi-vendor architecture with pivot approval flow
@@ -339,14 +346,17 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] **Company admins create their own vendors** (auto-approved for their company) + can create that vendor's `vendor_admin` login (only for approved vendors)
 - [x] **SaaS self-service**: public `/signup` (company OR vendor, minimal fields, GST/PAN optional), plans Trial(3u/10w/3links)/Professional(25/500/25)/Enterprise(100/5000/100) in `config/plans.php`, enforced server-side by `PlanService` at user/worker/link creation (+ sync push). Org admins: `/billing` (usage meters + upgrade request). Super admin: `/subscriptions` (approve/reject requests, set any plan). Payment OFFLINE — **user decision: offline payment stays a permanent option even after a payment gateway (e.g. Razorpay) is added later.** Existing orgs grandfathered to enterprise. Company-created vendors inherit the company's plan.
 - [x] **Face attendance (web, v1.1.4)** — camera-only: auto-enroll from registration photo (`FaceService`, pdf-service `/face/embed`, ArcFace 512-D), gate **Face** tab does 1:N `POST /attendance/identify-face`, marks re-verified server-side (`method=face`, `face_score`); threshold `FACE_MATCH_THRESHOLD` (0.45). First face call per pdf-service worker lazy-loads the model (~7s local, ~30-60s droplet)
+- [x] **v1.2: Attendance exports** — CSV (daily rows / monthly totals) + printable HTML month report (`AttendanceController@export/printable`), month picker + buttons on AttendanceList
+- [x] **v1.2: Per-gate scoping** — gate users with `users.location_name` set see ONLY logs whose `attendance_logs.location_name` matches (daily-summary, index, exceptions, exports); chip shows "Your gate" on AttendanceList
+- [x] **v1.2: Self-service password reset** — public forgot/reset endpoints (Password broker), Login link, demo dev-link in debug mode only
+- [x] **v1.2: Email notifications (mailer-based)** — vendor approved (to vendor contact + admins), plan upgrade decided (to org contact); Mail::raw, currently mailer=log (add SMTP creds in .env for real sends)
+- [x] **App v0.9.12** — Windows scanner: multi-path sgfplib.dll discovery (exe dir → System32 → all C:\Program Files\SecuGen folders), SetDllDirectoryW for companion DLLs, 32/64-bit mismatch detection, diagnostics show which DLL loaded
 - [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation
 
 ### Not Yet Implemented / Future
-- [ ] Self-service password reset
-- [ ] Email notifications (vendor approved, worker registered, etc.)
-- [ ] Export attendance to Excel/PDF
-- [ ] Face recognition (tables exist: `face_descriptor`, `face_enrolled_at`)
+- [ ] Real SMTP on droplet (mailer=log now; reset mails + notifications land in laravel.log)
+- [ ] Worker-registered email notification
 - [ ] S3 storage (currently local private disk)
 - [ ] Laravel Horizon for queue monitoring UI
 - [ ] Mobile app / PWA for gate users

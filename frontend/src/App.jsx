@@ -19,6 +19,8 @@ import FingerprintTest from "@/pages/diagnostic/FingerprintTest";
 import UserList from "@/pages/users/UserList";
 import Downloads from "@/pages/Downloads";
 import Signup from "@/pages/Signup";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import PlanBilling from "@/pages/PlanBilling";
 import Subscriptions from "@/pages/Subscriptions";
 
@@ -37,6 +39,8 @@ export default function App() {
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
       <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" />} />
