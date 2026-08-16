@@ -53,5 +53,6 @@ desktop.ini
 frontend/public/downloads/*.apk
 frontend/public/downloads/*.exe
 frontend/public/downloads/*.msix
+frontend/public/downloads/*.zip
 client/build/
 backend/storage/app/private/
