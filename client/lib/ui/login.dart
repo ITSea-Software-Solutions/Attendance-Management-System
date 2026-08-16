@@ -28,8 +28,16 @@ class _LoginScreenState extends State<LoginScreen> {
           _email.text.trim(),
           _password.text);
     } catch (e) {
-      setState(() => _error =
-          'Login failed — check the server address, credentials, and that you are online.');
+      final t = e.toString();
+      String msg = 'Login failed — check your email and password.';
+      if (t.contains('SocketException') || t.contains('connection') || t.contains('Connection')) {
+        msg = 'Cannot reach the server — check the server address and your internet connection.';
+      } else if (t.contains('401')) {
+        msg = 'Wrong email or password.';
+      } else if (t.contains('429')) {
+        msg = 'Too many attempts — wait a minute and try again.';
+      }
+      setState(() => _error = msg);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

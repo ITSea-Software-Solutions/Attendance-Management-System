@@ -1,8 +1,12 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Flutter's release manifest ships WITHOUT this — without it the release
+         APK cannot make any network call at all (login fails instantly). -->
+    <uses-permission android:name="android.permission.INTERNET"/>
     <application
         android:label="TrueCrew"
         android:name="${applicationName}"
-        android:icon="@mipmap/ic_launcher">
+        android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
