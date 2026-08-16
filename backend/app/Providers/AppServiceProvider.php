@@ -23,8 +23,12 @@ class AppServiceProvider extends ServiceProvider
         RateLimiter::for('login', fn (Request $r) => Limit::perMinute(5)->by($r->ip()));
         RateLimiter::for('signup', fn (Request $r) => Limit::perMinutes(10, 3)->by($r->ip()));
 
-        // Force HTTPS in production
-        if ($this->app->environment('production')) {
+        // Force HTTPS for generated URLs ONLY when the app is actually served
+        // over https (APP_URL scheme is the source of truth). Forcing it while
+        // serving plain http (current demo droplet) breaks every generated URL
+        // — e.g. worker photo routes — by pointing them at a TLS port nothing
+        // listens on.
+        if (str_starts_with((string) config('app.url'), 'https://')) {
             URL::forceScheme('https');
         }
 

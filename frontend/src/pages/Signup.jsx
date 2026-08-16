@@ -171,6 +171,12 @@ export default function Signup() {
                 {busy ? "Creating account…" : form.plan === "trial" ? "Start free on Trial" : `Sign up & request ${catalogue[form.plan].label}`}
               </button>
             </div>
+            <p className="text-xs text-gray-400 text-center mt-4">
+              By creating an account you agree to the{" "}
+              <a href="/terms.html" target="_blank" rel="noreferrer" className="underline">Terms of Service</a> and{" "}
+              <a href="/privacy.html" target="_blank" rel="noreferrer" className="underline">Privacy Policy</a>{" "}
+              (incl. Aadhaar & biometric data handling).
+            </p>
           </div>
         )}
       </div>

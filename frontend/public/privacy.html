@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AMS Privacy Policy</title>
+<style>
+  :root{--paper:#FAF9F6;--ink:#1D2833;--muted:#5A6470;--line:#DAD6CC;--teal:#10685A}
+  @media (prefers-color-scheme: dark){:root{--paper:#171D24;--ink:#E8E6E1;--muted:#9AA3AD;--line:#333B45;--teal:#4FB3A1}}
+  *{box-sizing:border-box}
+  body{background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0}
+  .wrap{max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+  h1{font-size:1.8rem;margin:0 0 .3rem;letter-spacing:-.015em}
+  .sub{color:var(--muted);margin:0 0 2rem;font-size:.9rem}
+  h2{font-size:1.05rem;margin:1.8rem 0 .4rem}
+  p,li{max-width:65ch}
+  ul{padding-left:1.3rem}
+  a{color:var(--teal)}
+  table{border-collapse:collapse;width:100%;font-size:.9rem}
+  th,td{text-align:left;border-bottom:1px solid var(--line);padding:.5rem .6rem .5rem 0;vertical-align:top}
+  th{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.83rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Privacy Policy</h1>
+  <p class="sub">AMS — Attendance Management System · ITSea Software Solutions · Last updated: 16 August 2026 · Framed with reference to India's DPDP Act, 2023 and Aadhaar (Targeted Delivery) Act, 2016</p>
+
+  <h2>What we collect, and why</h2>
+  <table>
+    <tr><th>Data</th><th>Why</th><th>How it's protected</th></tr>
+    <tr><td>Organisation &amp; account details (name, email, phone, address; GST/PAN if provided)</td><td>Account operation, invoicing</td><td>Access-controlled, role-scoped</td></tr>
+    <tr><td>Worker identity (name, DOB, gender, address, photo)</td><td>Workforce registration by your vendor/company</td><td>Role-scoped; visible only to the organisations involved</td></tr>
+    <tr><td><b>Aadhaar</b></td><td>One-identity-one-worker verification</td><td><b>The full number is never stored.</b> We keep only the last 4 digits (masked) and a keyed one-way hash used solely to block duplicates. Uploaded e-Aadhaar PDFs are stored encrypted on a private disk, downloadable only by authorised roles, with every access audit-logged.</td></tr>
+    <tr><td><b>Fingerprint templates</b></td><td>Attendance identification at gates</td><td>Stored AES-encrypted; never exposed to browsers; used only for match-at-gate. Raw fingerprint images are not retained.</td></tr>
+    <tr><td>Attendance events (IN/OUT, time, gate, device)</td><td>The core service — who was where, when</td><td>Scoped to the company and vendor involved</td></tr>
+    <tr><td>Audit logs (who did what, IP, timestamp)</td><td>Security &amp; accountability</td><td>Restricted access</td></tr>
+  </table>
+
+  <h2>Consent</h2>
+  <p>Vendors/companies registering a worker are responsible for obtaining that worker's informed consent for identity and biometric processing, as required by applicable law. AMS processes this data on the registering organisation's instructions.</p>
+
+  <h2>What we don't do</h2>
+  <ul>
+    <li>We do not sell or share personal data with third parties for marketing.</li>
+    <li>We do not use worker biometrics for anything except attendance matching.</li>
+    <li>We do not store full Aadhaar numbers, raw fingerprint images, or PDF passwords.</li>
+  </ul>
+
+  <h2>Storage &amp; security</h2>
+  <p>Data is stored on our servers with role-based access control, encrypted biometric templates, private (non-web-accessible) document storage, rate-limited authentication, and full audit trails. Offline apps keep an encrypted local copy scoped to your organisation, protected by your device sign-in; signing out wipes it.</p>
+
+  <h2>Retention &amp; your rights</h2>
+  <p>Data is retained while your account is active. Organisations may request export or deletion of their data; workers may exercise access/correction/erasure rights through the organisation that registered them (as data fiduciary) — we support fulfilment as processor. Some records may be retained where law requires.</p>
+
+  <h2>Changes</h2>
+  <p>We'll post updates to this policy here and note material changes in the product.</p>
+
+  <h2>Contact / Grievance</h2>
+  <p>Privacy questions or grievances: contact ITSea Software Solutions via your AMS administrator. We aim to respond within 30 days.</p>
+
+  <footer>© ITSea Software Solutions · <a href="/terms.html">Terms of Service</a> · <a href="/download.html">Downloads</a></footer>
+</div>
+</body>
+</html>
