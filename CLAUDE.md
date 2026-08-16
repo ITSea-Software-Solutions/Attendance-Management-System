@@ -121,7 +121,7 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `VendorProfile` | `/profile` | vendor_admin, vendor_operator | Vendor org details |
 | `WorkerList` | `/workers` | all | **All/Current/Previous tabs**; row click → WorkerDetail; ID Document column with download |
 | `WorkerDetail` | `/workers/:id` | all | Analytics: stats, monthly breakdown, deployment history (vendor only), recent attendance. **Company users: fixed to their company. Vendor users: company dropdown** |
-| `WorkerRegister` | `/workers/register` `/workers/:id/edit` | super_admin, vendor_admin, vendor_operator | 4-step wizard. **Edit mode (Step 0): shows existing doc download links** |
+| `WorkerRegister` | `/workers/register` `/workers/:id/edit` | super_admin, vendor_admin, vendor_operator | 5-step wizard, **Aadhaar-ONLY identity (other doc types removed 2026-08-16)**, consent checkbox required |
 | `WorkerAssign` | `/workers/assign` | super_admin, vendor_admin | **Current/Previous/All tabs**; cancel allowed even when locked (if worker OUT) |
 | `UserList` | `/users` | super_admin, company_admin | Role-scoped user management |
 | `AttendanceMark` | `/attendance/mark` | super_admin, company_admin, company_gate | Fingerprint IN/OUT via SGIBIOSRV |

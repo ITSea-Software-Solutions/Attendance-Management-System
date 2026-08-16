@@ -145,17 +145,14 @@ const schema = z.object({
   phone:     z.string().optional(),
 });
 
+// Aadhaar is the ONLY identity document for worker registration (user
+// decision 2026-08-16) — other doc types were removed from this flow.
 const ID_TYPES = [
-  { value: "aadhaar",         label: "Aadhaar Card"   },
-  { value: "pan",             label: "PAN Card"        },
-  { value: "driving_licence", label: "Driving Licence" },
-  { value: "voter_id",        label: "Voter ID"        },
-  { value: "passport",        label: "Passport"        },
-  { value: "other",           label: "Other"           },
+  { value: "aadhaar", label: "Aadhaar Card" },
 ];
 
 const STEPS = [
-  { id: "id_doc",      label: "ID Document", icon: CreditCard  },
+  { id: "id_doc",      label: "Aadhaar",     icon: CreditCard  },
   { id: "details",     label: "Details",     icon: User        },
   { id: "fingerprint", label: "Fingerprint", icon: Fingerprint },
   { id: "photo",       label: "Photo",       icon: Camera      },
@@ -327,16 +324,6 @@ export default function WorkerRegister() {
     setStep(1);
   };
 
-  const handleIdDocNext = () => {
-    if (!consent) { toast.error("Please confirm the worker's consent first (checkbox at the top)."); return; }
-    if (!idNumber.trim()) { toast.error("Please enter the ID number."); return; }
-    // Aadhaar stays mandatory even when the primary document is another ID type
-    if (!hasExistingAadhaar && !aadhaarData && !validManualAadhaar) {
-      toast.error("Aadhaar is mandatory — enter the worker's 12-digit Aadhaar number.");
-      return;
-    }
-    setStep(1);
-  };
 
   // ── Step 1: save / update worker ─────────────────────────────────────────
 
@@ -491,9 +478,9 @@ export default function WorkerRegister() {
       {step === 0 && (
         <div className="card space-y-5">
           <div>
-            <h2 className="font-semibold text-gray-900">ID Document</h2>
+            <h2 className="font-semibold text-gray-900">Aadhaar</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              {isEdit ? "Review or replace the worker's identity document." : "Select the identity document for this worker."}
+              {isEdit ? "Review or replace the worker's Aadhaar." : "Verify the worker's Aadhaar — PDF auto-fill or manual 12-digit entry."}
             </p>
           </div>
 
@@ -602,35 +589,6 @@ export default function WorkerRegister() {
           {/* ── NEW or CHANGE: full doc form ── */}
           {(!isEdit || changeDoc) && (
             <>
-              <div>
-                <label className="label">Document Type *</label>
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {ID_TYPES.map((t) => (
-                    <button
-                      key={t.value}
-                      type="button"
-                      onClick={() => {
-                        setIdType(t.value);
-                        setIdNumber("");
-                        setIdFile(null);
-                        setAadhaar(null);
-                        setAadhaarPhoto(null);
-                        setPhotoFile(null);
-                        setPhotoPreview(null);
-                        setManualEntry(false);
-                        setManualAadhaar("");
-                      }}
-                      className={`px-3 py-2.5 rounded-lg border text-sm font-medium text-left transition-colors ${
-                        idType === t.value
-                          ? "border-brand-500 bg-brand-50 text-brand-700"
-                          : "border-gray-200 text-gray-600 hover:border-gray-300"
-                      }`}
-                    >
-                      {t.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               {idType === "aadhaar" && !manualEntry && (
                 <AadhaarFlow onExtracted={handleAadhaarExtracted} onSkip={() => setManualEntry(true)} />
@@ -657,66 +615,6 @@ export default function WorkerRegister() {
                       Back to PDF upload
                     </button>
                     <button type="button" onClick={handleManualAadhaarNext} className="btn-primary" disabled={!validManualAadhaar}>
-                      Continue to Details
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {idType !== "aadhaar" && (
-                <div className="space-y-4">
-                  <div>
-                    <label className="label">ID Number *</label>
-                    <input
-                      value={idNumber}
-                      onChange={(e) => setIdNumber(e.target.value)}
-                      className="input"
-                      placeholder={idType === "pan" ? "ABCDE1234F" : "Enter ID number"}
-                    />
-                  </div>
-
-                  {!hasExistingAadhaar && !aadhaarData && (
-                    <div>
-                      <label className="label">Aadhaar Number * <span className="text-gray-400 font-normal">(mandatory for every worker)</span></label>
-                      <input
-                        value={manualAadhaar}
-                        onChange={(e) => setManualAadhaar(e.target.value.replace(/\D/g, "").slice(0, 12))}
-                        className="input font-mono tracking-widest"
-                        placeholder="XXXXXXXXXXXX"
-                        inputMode="numeric"
-                      />
-                      <p className="text-xs text-gray-400 mt-1">
-                        Aadhaar is required even when the primary document is a different ID.
-                        Only the last 4 digits are stored.
-                      </p>
-                    </div>
-                  )}
-
-                  <div>
-                    <label className="label">
-                      Document Scan / Photo{" "}
-                      <span className="text-gray-400 font-normal">(optional)</span>
-                    </label>
-                    <input
-                      ref={docFileRef}
-                      type="file"
-                      accept="image/*,application/pdf"
-                      onChange={(e) => setIdFile(e.target.files?.[0] ?? null)}
-                      className="hidden"
-                    />
-                    <button type="button" onClick={() => docFileRef.current?.click()} className="btn-secondary w-full">
-                      <Upload size={15} />
-                      {idFile ? idFile.name : "Upload document image"}
-                    </button>
-                  </div>
-
-                  <div className="flex gap-3">
-                    {isEdit && (
-                      <button type="button" onClick={() => setChangeDoc(false)} className="btn-secondary">
-                        Cancel
-                      </button>
-                    )}
-                    <button type="button" onClick={handleIdDocNext} className="btn-primary">
                       Continue to Details
                     </button>
                   </div>
