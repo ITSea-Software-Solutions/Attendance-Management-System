@@ -5,6 +5,14 @@ import 'package:dio/dio.dart';
 
 import '../core/config.dart';
 
+/// Result of an enrollment capture (registration flow).
+class EnrollCapture {
+  final String template;
+  final int quality;
+  final bool simulated;
+  EnrollCapture(this.template, this.quality, {required this.simulated});
+}
+
 /// Result of a capture+identify pass at the gate.
 class IdentifyResult {
   final Map<String, Object?> worker;
@@ -35,6 +43,24 @@ abstract class BiometricDriver {
       if (await sg.available()) return sg;
     }
     return SimDriver();
+  }
+
+  /// Enrollment capture for worker registration.
+  /// Windows + SGIBIOSRV → REAL template from the connected scanner.
+  /// Anywhere else (or service missing) → simulated template, clearly marked.
+  static Future<EnrollCapture?> enrollCapture() async {
+    if (Platform.isWindows) {
+      final sg = SgibiosrvDriver();
+      if (await sg.available()) {
+        final r = await sg.captureForEnroll();
+        if (r != null) return r;
+        return null; // real scanner present but capture failed — let user retry
+      }
+    }
+    await Future.delayed(const Duration(milliseconds: 900));
+    final fake =
+        'U0lNRk1EOg==${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}';
+    return EnrollCapture(fake, 80 + Random().nextInt(15), simulated: true);
   }
 }
 
@@ -84,6 +110,20 @@ class SgibiosrvDriver implements BiometricDriver {
         options: Options(contentType: 'text/plain;charset=UTF-8'));
     final data = r.data is Map ? r.data as Map : {};
     if (data['ErrorCode'] == 0) return data['TemplateBase64'] as String?;
+    return null;
+  }
+
+  /// Real enrollment capture with quality (registration flow).
+  Future<EnrollCapture?> captureForEnroll() async {
+    final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIFPCapture',
+        data: 'Timeout=10000&Quality=60&licstr=&templateFormat=ISO',
+        options: Options(contentType: 'text/plain;charset=UTF-8'));
+    final data = r.data is Map ? r.data as Map : {};
+    if (data['ErrorCode'] == 0 && data['TemplateBase64'] != null) {
+      return EnrollCapture(data['TemplateBase64'] as String,
+          (data['ImageQuality'] as num?)?.toInt() ?? 0,
+          simulated: false);
+    }
     return null;
   }
 

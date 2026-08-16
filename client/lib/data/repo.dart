@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:dio/dio.dart' show FormData, MultipartFile;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -116,8 +117,10 @@ class AppState extends ChangeNotifier {
                 'gender': w['gender'],
                 'phone': w['phone'],
                 // consent is gated by a mandatory checkbox in the register
-                // dialog — a row can only exist if it was confirmed.
+                // flow — a row can only exist if it was confirmed.
                 'consent': true,
+                'fingerprint_template': w['fingerprint_template'],
+                'fingerprint_quality': w['fingerprint_quality'],
               })
           .toList(),
       'marks': marks
@@ -144,12 +147,30 @@ class AppState extends ChangeNotifier {
                   'server_id': item['server_id'],
                   'aadhaar_masked': item['aadhaar_number_masked'],
                   'aadhaar_number': null, // discard raw number once server has it
+                  'fingerprint_template': null, // server holds it encrypted now
                   'sync_state': 'synced',
                   'sync_error': null,
                 }
               : {'sync_state': 'error', 'sync_error': item['message']},
           where: 'client_uuid = ?',
           whereArgs: [item['uuid']]);
+    }
+
+    // Photos: once a worker has a server id, upload the registration photo —
+    // the server stores it privately AND auto-enrolls the face for camera
+    // attendance. Best-effort; retried on every sync until it succeeds.
+    final photoRows = await db.query('workers',
+        where: 'photo_path IS NOT NULL AND photo_synced = 0 AND server_id IS NOT NULL');
+    for (final w in photoRows) {
+      try {
+        final fd = FormData.fromMap({
+          'photo': await MultipartFile.fromFile(w['photo_path'] as String,
+              filename: 'worker.jpg'),
+        });
+        await api.post('/workers/${w['server_id']}/photo', data: fd);
+        await db.update('workers', {'photo_synced': 1},
+            where: 'client_uuid = ?', whereArgs: [w['client_uuid']]);
+      } catch (_) {/* retry next sync */}
     }
     for (final item in List<Map>.from(res['marks'] as List? ?? [])) {
       final ok = item['status'] == 'created' || item['status'] == 'duplicate_uuid';
@@ -271,6 +292,10 @@ class AppState extends ChangeNotifier {
     String? dob,
     String? gender,
     String? phone,
+    String? fingerprintTemplate,
+    int? fingerprintQuality,
+    bool fingerprintSimulated = false,
+    String? photoPath,
   }) async {
     if (!RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
       return 'Aadhaar must be exactly 12 digits.';
@@ -290,7 +315,12 @@ class AppState extends ChangeNotifier {
       'dob': dob,
       'gender': gender,
       'phone': phone,
-      'status': 'pending',
+      'fingerprint_template': fingerprintTemplate,
+      'fingerprint_quality': fingerprintQuality,
+      'fp_simulated': fingerprintSimulated ? 1 : 0,
+      'photo_path': photoPath,
+      'photo_synced': 0,
+      'status': fingerprintTemplate != null ? 'active' : 'pending',
       'sync_state': 'pending',
     });
     await _refreshPending();

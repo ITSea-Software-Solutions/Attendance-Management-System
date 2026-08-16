@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../core/scope.dart';
+import 'register_worker.dart';
 
 /// Vendor mode — worker list (offline cache) + offline-capable registration.
 class VendorWorkersScreen extends StatefulWidget {
@@ -72,117 +72,15 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _register(context),
+        onPressed: () async {
+          await Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const RegisterWorkerScreen()));
+          if (mounted) setState(() {});
+        },
         icon: const Icon(Icons.person_add),
         label: const Text('Register'),
       ),
     );
   }
 
-  Future<void> _register(BuildContext context) async {
-    final app = AppScope.of(context);
-    final name = TextEditingController();
-    final aadhaar = TextEditingController();
-    final phone = TextEditingController();
-    String? gender;
-    String? error;
-    bool consent = false;
-
-    await showDialog<void>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialog) => AlertDialog(
-          title: const Text('Register worker'),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                    controller: name,
-                    decoration: const InputDecoration(labelText: 'Full name *')),
-                const SizedBox(height: 10),
-                TextField(
-                  controller: aadhaar,
-                  keyboardType: TextInputType.number,
-                  maxLength: 12,
-                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  decoration: const InputDecoration(
-                      labelText: 'Aadhaar number * (12 digits)',
-                      helperText:
-                          'Mandatory. Only the last 4 digits are stored.'),
-                ),
-                TextField(
-                    controller: phone,
-                    keyboardType: TextInputType.phone,
-                    decoration: const InputDecoration(labelText: 'Phone')),
-                const SizedBox(height: 10),
-                CheckboxListTile(
-                  value: consent,
-                  onChanged: (v) => setDialog(() => consent = v ?? false),
-                  controlAffinity: ListTileControlAffinity.leading,
-                  contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Worker has given informed consent for identity & fingerprint processing (required)',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
-                DropdownButtonFormField<String>(
-                  initialValue: gender,
-                  decoration: const InputDecoration(labelText: 'Gender'),
-                  items: const [
-                    DropdownMenuItem(value: 'M', child: Text('Male')),
-                    DropdownMenuItem(value: 'F', child: Text('Female')),
-                    DropdownMenuItem(value: 'O', child: Text('Other')),
-                  ],
-                  onChanged: (v) => gender = v,
-                ),
-                if (error != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: Text(error!,
-                        style:
-                            const TextStyle(color: Colors.red, fontSize: 13)),
-                  ),
-              ],
-            ),
-          ),
-          actions: [
-            TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel')),
-            FilledButton(
-              onPressed: () async {
-                if (name.text.trim().isEmpty) {
-                  setDialog(() => error = 'Name is required.');
-                  return;
-                }
-                if (!consent) {
-                  setDialog(() => error = 'Please confirm the worker\'s consent.');
-                  return;
-                }
-                final err = await app.registerWorker(
-                  name: name.text.trim(),
-                  aadhaar: aadhaar.text.trim(),
-                  phone: phone.text.trim().isEmpty ? null : phone.text.trim(),
-                  gender: gender,
-                );
-                if (err != null) {
-                  setDialog(() => error = err);
-                  return;
-                }
-                if (context.mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-                      content: Text(
-                          'Worker saved. Fingerprint enrollment: web portal (app enrollment comes with the scanner SDK).')));
-                }
-              },
-              child: const Text('Save'),
-            ),
-          ],
-        ),
-      ),
-    );
-    if (mounted) setState(() {});
-  }
 }

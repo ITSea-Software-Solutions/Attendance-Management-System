@@ -112,6 +112,8 @@ class SyncController extends Controller
             'registrations.*.gender'         => 'nullable|in:M,F,O',
             'registrations.*.phone'          => 'nullable|string|max:20',
             'registrations.*.consent'        => 'nullable|boolean',
+            'registrations.*.fingerprint_template' => 'nullable|string',
+            'registrations.*.fingerprint_quality'  => 'nullable|integer|min:0|max:100',
             'marks'                          => 'array',
             'marks.*.uuid'                   => 'required|uuid',
             'marks.*.worker_id'              => 'nullable|integer',
@@ -191,12 +193,18 @@ class SyncController extends Controller
             'gender'    => $reg['gender'] ?? null,
             'phone'     => $reg['phone'] ?? null,
         ]);
+        $hasFp = ! empty($reg['fingerprint_template']);
         $worker->forceFill([
             'client_uuid'           => $uuid,
             'aadhaar_number_masked' => $masked,
             'aadhaar_hash'          => $hash,
             'consent_confirmed_at'  => now(),
-            'status'                => Worker::STATUS_PENDING,
+            // Fingerprint captured on-device (real via SGIBIOSRV on Windows,
+            // SIM elsewhere) — encrypted at rest exactly like web enrollment.
+            'fingerprint_template'    => $hasFp ? encrypt($reg['fingerprint_template']) : null,
+            'fingerprint_quality'     => $hasFp ? ($reg['fingerprint_quality'] ?? null) : null,
+            'fingerprint_enrolled_at' => $hasFp ? now() : null,
+            'status'                => $hasFp ? Worker::STATUS_ACTIVE : Worker::STATUS_PENDING,
             'registered_by'         => $user->id,
         ])->save();
 

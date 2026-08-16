@@ -24,7 +24,20 @@ class LocalDb {
     final path = p.join(dir.path, 'ams_client.db');
     _db = await factory.openDatabase(path,
         options: OpenDatabaseOptions(
-          version: 1,
+          version: 2,
+          onUpgrade: (db, from, to) async {
+            if (from < 2) {
+              for (final c in [
+                "ALTER TABLE workers ADD COLUMN fingerprint_template TEXT",
+                "ALTER TABLE workers ADD COLUMN fingerprint_quality INTEGER",
+                "ALTER TABLE workers ADD COLUMN fp_simulated INTEGER DEFAULT 0",
+                "ALTER TABLE workers ADD COLUMN photo_path TEXT",
+                "ALTER TABLE workers ADD COLUMN photo_synced INTEGER DEFAULT 0",
+              ]) {
+                try { await db.execute(c); } catch (_) {}
+              }
+            }
+          },
           onCreate: (db, v) async {
             await db.execute('''
               CREATE TABLE meta (k TEXT PRIMARY KEY, v TEXT)
@@ -40,6 +53,11 @@ class LocalDb {
                 status TEXT NOT NULL DEFAULT 'pending',
                 vendor_id INTEGER,
                 photo_note TEXT,
+                fingerprint_template TEXT,     -- held until synced (server encrypts at rest)
+                fingerprint_quality INTEGER,
+                fp_simulated INTEGER DEFAULT 0,
+                photo_path TEXT,               -- local file; uploaded post-sync (face auto-enroll)
+                photo_synced INTEGER DEFAULT 0,
                 sync_state TEXT NOT NULL DEFAULT 'synced',  -- synced|pending|error
                 sync_error TEXT,
                 updated_at TEXT
