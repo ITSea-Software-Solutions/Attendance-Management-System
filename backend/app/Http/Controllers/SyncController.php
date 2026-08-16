@@ -111,6 +111,7 @@ class SyncController extends Controller
             'registrations.*.dob'            => 'nullable|date',
             'registrations.*.gender'         => 'nullable|in:M,F,O',
             'registrations.*.phone'          => 'nullable|string|max:20',
+            'registrations.*.consent'        => 'nullable|boolean',
             'marks'                          => 'array',
             'marks.*.uuid'                   => 'required|uuid',
             'marks.*.worker_id'              => 'nullable|integer',
@@ -168,6 +169,10 @@ class SyncController extends Controller
             return ['uuid' => $uuid, 'status' => 'error', 'message' => $deny['message']];
         }
 
+        if (empty($reg['consent'])) {
+            return ['uuid' => $uuid, 'status' => 'error', 'message' => 'Worker consent confirmation is required — update the app and re-register.'];
+        }
+
         $num = preg_replace('/\D+/', '', (string) ($reg['aadhaar_number'] ?? ''));
         if (strlen($num) !== 12) {
             return ['uuid' => $uuid, 'status' => 'error', 'message' => 'Aadhaar is mandatory (12 digits).'];
@@ -190,6 +195,7 @@ class SyncController extends Controller
             'client_uuid'           => $uuid,
             'aadhaar_number_masked' => $masked,
             'aadhaar_hash'          => $hash,
+            'consent_confirmed_at'  => now(),
             'status'                => Worker::STATUS_PENDING,
             'registered_by'         => $user->id,
         ])->save();

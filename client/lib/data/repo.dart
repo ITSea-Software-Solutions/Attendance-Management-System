@@ -102,6 +102,9 @@ class AppState extends ChangeNotifier {
                 'dob': w['dob'],
                 'gender': w['gender'],
                 'phone': w['phone'],
+                // consent is gated by a mandatory checkbox in the register
+                // dialog — a row can only exist if it was confirmed.
+                'consent': true,
               })
           .toList(),
       'marks': marks

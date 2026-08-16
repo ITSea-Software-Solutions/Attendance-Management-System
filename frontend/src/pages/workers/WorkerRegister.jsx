@@ -187,6 +187,8 @@ export default function WorkerRegister() {
   // Aadhaar is MANDATORY: manual 12-digit entry when there is no PDF to extract
   const [manualEntry, setManualEntry]     = useState(false);
   const [manualAadhaar, setManualAadhaar] = useState("");
+  // DPDP: registering org must confirm the worker's informed consent
+  const [consent, setConsent] = useState(false);
 
   // Step 2
   const [reEnrollFP, setReEnrollFP] = useState(false); // edit: toggle to re-enroll
@@ -271,12 +273,17 @@ export default function WorkerRegister() {
     }
 
     setSaved(existingWorker);
+    setConsent(true); // existing worker — consent captured at original registration
     // Stay on step 0 so the user reviews existing data before continuing
   }, [existingWorker, setValue]);
 
   // ── Step 0 helpers ────────────────────────────────────────────────────────
 
   const handleAadhaarExtracted = (data, file) => {
+    if (!consent) {
+      toast.error("Please confirm the worker's consent first (checkbox at the top).");
+      return;
+    }
     setAadhaar(data);
     setAadhaarPdf(file);
     if (data.name)                 setValue("name", data.name);
@@ -301,11 +308,13 @@ export default function WorkerRegister() {
 
   // Aadhaar path, no PDF: manual 12-digit entry
   const handleManualAadhaarNext = () => {
+    if (!consent) { toast.error("Please confirm the worker's consent first (checkbox at the top)."); return; }
     if (!validManualAadhaar) { toast.error("Enter the 12-digit Aadhaar number."); return; }
     setStep(1);
   };
 
   const handleIdDocNext = () => {
+    if (!consent) { toast.error("Please confirm the worker's consent first (checkbox at the top)."); return; }
     if (!idNumber.trim()) { toast.error("Please enter the ID number."); return; }
     // Aadhaar stays mandatory even when the primary document is another ID type
     if (!hasExistingAadhaar && !aadhaarData && !validManualAadhaar) {
@@ -326,6 +335,7 @@ export default function WorkerRegister() {
         aadhaar_hash:           aadhaarData?.aadhaar_hash,          // extract path
         aadhaar_number:         manualAadhaar.trim() || undefined,  // manual path (hashed server-side)
         aadhaar_data_extracted: aadhaarData ?? undefined,
+        consent: consent,
       };
       if (isEdit) return api.put(`/workers/${workerId}`, payload).then(r => r.data);
       return api.post("/workers", payload).then(r => r.data);
@@ -472,6 +482,24 @@ export default function WorkerRegister() {
               {isEdit ? "Review or replace the worker's identity document." : "Select the identity document for this worker."}
             </p>
           </div>
+
+          {/* DPDP: informed-consent confirmation — required before any registration path */}
+          {!isEdit && (
+            <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer ${consent ? "border-brand-500 bg-brand-50" : "border-amber-300 bg-amber-50"}`}>
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                className="mt-1 accent-brand-600"
+              />
+              <span className="text-sm text-gray-700">
+                I confirm this worker has given <b>free and informed consent</b> for processing their
+                identity documents and fingerprints for attendance purposes, as described in the{" "}
+                <a href="/privacy.html" target="_blank" rel="noreferrer" className="underline text-brand-700">Privacy Policy</a>.
+                <span className="block text-xs text-gray-500 mt-0.5">Required — recorded with a timestamp on the worker's record.</span>
+              </span>
+            </label>
+          )}
 
           {/* ── EDIT: show existing doc ── */}
           {isEdit && !changeDoc && (

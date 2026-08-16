@@ -5,62 +5,92 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>AMS Privacy Policy</title>
 <style>
-  :root{--paper:#FAF9F6;--ink:#1D2833;--muted:#5A6470;--line:#DAD6CC;--teal:#10685A}
-  @media (prefers-color-scheme: dark){:root{--paper:#171D24;--ink:#E8E6E1;--muted:#9AA3AD;--line:#333B45;--teal:#4FB3A1}}
+  :root{--paper:#FAF9F6;--ink:#1D2833;--muted:#5A6470;--line:#DAD6CC;--teal:#10685A;--soft:#E3EFEC}
+  @media (prefers-color-scheme: dark){:root{--paper:#171D24;--ink:#E8E6E1;--muted:#9AA3AD;--line:#333B45;--teal:#4FB3A1;--soft:#1D3330}}
   *{box-sizing:border-box}
   body{background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0}
-  .wrap{max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+  .wrap{max-width:46rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
   h1{font-size:1.8rem;margin:0 0 .3rem;letter-spacing:-.015em}
-  .sub{color:var(--muted);margin:0 0 2rem;font-size:.9rem}
-  h2{font-size:1.05rem;margin:1.8rem 0 .4rem}
-  p,li{max-width:65ch}
+  .sub{color:var(--muted);margin:0 0 1.2rem;font-size:.9rem}
+  h2{font-size:1.05rem;margin:1.9rem 0 .4rem}
+  p,li{max-width:68ch}
   ul{padding-left:1.3rem}
   a{color:var(--teal)}
+  .fill{background:var(--soft);border:1px dashed var(--teal);border-radius:8px;padding:.6rem .9rem;font-size:.85rem;margin:0 0 1.6rem}
+  .tablewrap{overflow-x:auto;margin:1rem 0}
   table{border-collapse:collapse;width:100%;font-size:.9rem}
   th,td{text-align:left;border-bottom:1px solid var(--line);padding:.5rem .6rem .5rem 0;vertical-align:top}
   th{font-size:.72rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+  code{background:var(--soft);padding:.05em .35em;border-radius:4px;font-size:.88em}
   footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.83rem}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Privacy Policy</h1>
-  <p class="sub">AMS — Attendance Management System · ITSea Software Solutions · Last updated: 16 August 2026 · Framed with reference to India's DPDP Act, 2023 and Aadhaar (Targeted Delivery) Act, 2016</p>
+  <p class="sub">AMS — Attendance Management System · Version 1.0 · Effective: 16 August 2026 · Prepared with reference to the Digital Personal Data Protection Act, 2023 (India), the Aadhaar Act, 2016, and the IT Act, 2000.</p>
+  <p class="fill"><b>To complete:</b> Data Fiduciary/Provider: [LEGAL ENTITY NAME], [REGISTERED ADDRESS] · Grievance Officer: [NAME], <code>[grievance email]</code>, [PHONE].</p>
 
-  <h2>What we collect, and why</h2>
-  <table>
-    <tr><th>Data</th><th>Why</th><th>How it's protected</th></tr>
-    <tr><td>Organisation &amp; account details (name, email, phone, address; GST/PAN if provided)</td><td>Account operation, invoicing</td><td>Access-controlled, role-scoped</td></tr>
-    <tr><td>Worker identity (name, DOB, gender, address, photo)</td><td>Workforce registration by your vendor/company</td><td>Role-scoped; visible only to the organisations involved</td></tr>
-    <tr><td><b>Aadhaar</b></td><td>One-identity-one-worker verification</td><td><b>The full number is never stored.</b> We keep only the last 4 digits (masked) and a keyed one-way hash used solely to block duplicates. Uploaded e-Aadhaar PDFs are stored encrypted on a private disk, downloadable only by authorised roles, with every access audit-logged.</td></tr>
-    <tr><td><b>Fingerprint templates</b></td><td>Attendance identification at gates</td><td>Stored AES-encrypted; never exposed to browsers; used only for match-at-gate. Raw fingerprint images are not retained.</td></tr>
-    <tr><td>Attendance events (IN/OUT, time, gate, device)</td><td>The core service — who was where, when</td><td>Scoped to the company and vendor involved</td></tr>
-    <tr><td>Audit logs (who did what, IP, timestamp)</td><td>Security &amp; accountability</td><td>Restricted access</td></tr>
-  </table>
-
-  <h2>Consent</h2>
-  <p>Vendors/companies registering a worker are responsible for obtaining that worker's informed consent for identity and biometric processing, as required by applicable law. AMS processes this data on the registering organisation's instructions.</p>
-
-  <h2>What we don't do</h2>
+  <h2>Who this policy covers — and the two roles we play</h2>
   <ul>
-    <li>We do not sell or share personal data with third parties for marketing.</li>
-    <li>We do not use worker biometrics for anything except attendance matching.</li>
-    <li>We do not store full Aadhaar numbers, raw fingerprint images, or PDF passwords.</li>
+    <li><b>Account data</b> (organisation and user details): <b>we are the Data Fiduciary</b> — we decide how it's processed to run your account.</li>
+    <li><b>Worker data</b> (identity, Aadhaar-derived values, photo, fingerprints, attendance): the <b>organisation that registers the worker is the Data Fiduciary</b>; we act as its <b>Data Processor</b>, handling this data only to provide the service, on that organisation's instructions. Workers should direct requests to the organisation that registered them — we support fulfilment.</li>
   </ul>
 
-  <h2>Storage &amp; security</h2>
-  <p>Data is stored on our servers with role-based access control, encrypted biometric templates, private (non-web-accessible) document storage, rate-limited authentication, and full audit trails. Offline apps keep an encrypted local copy scoped to your organisation, protected by your device sign-in; signing out wipes it.</p>
+  <h2>What we process, why, and how it's protected</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Data</th><th>Purpose</th><th>Protection</th></tr>
+    <tr><td>Organisation &amp; user accounts (name, email, phone, address; GST/PAN if provided)</td><td>Account operation, plan management, invoicing</td><td>Role-scoped access; login rate-limited</td></tr>
+    <tr><td>Worker identity (name, DOB, gender, address, photo)</td><td>Workforce registration and identification</td><td>Tenant-scoped: visible only to the registering vendor and linked companies</td></tr>
+    <tr><td><b>Aadhaar</b></td><td>One-identity-one-worker verification and duplicate prevention</td><td><b>The full number is never stored.</b> We keep only the masked value (last 4 digits) and a keyed one-way hash used solely for duplicate blocking. Uploaded e-Aadhaar PDFs are stored on private, non-web-accessible storage and served only through authenticated, role-checked endpoints. Every access is audit-logged.</td></tr>
+    <tr><td><b>Fingerprint templates</b></td><td>Attendance identification at gates</td><td>Stored encrypted (AES); never sent to browsers; used only for attendance matching; raw fingerprint images are not retained. Deleted when the worker's enrollment is removed.</td></tr>
+    <tr><td>Consent confirmation</td><td>Record that the registering organisation confirmed the worker's informed consent</td><td>Timestamp stored with the worker record</td></tr>
+    <tr><td>Attendance events (IN/OUT, time, gate/department, device id, match score)</td><td>The core service: verified presence records</td><td>Scoped to the company and vendor involved</td></tr>
+    <tr><td>Audit logs (actor, action, IP, timestamp)</td><td>Security, accountability, dispute resolution</td><td>Restricted access</td></tr>
+    <tr><td>App/device data (device identifier, sync timestamps, offline queue)</td><td>Offline-first sync; duplicate-safe uploads</td><td>Local store scoped to your organisation; cleared on sign-out</td></tr>
+    <tr><td>Login token (browser localStorage / app storage)</td><td>Keeping you signed in (7-day expiry)</td><td>No third-party tracking; no advertising cookies</td></tr>
+  </table></div>
 
-  <h2>Retention &amp; your rights</h2>
-  <p>Data is retained while your account is active. Organisations may request export or deletion of their data; workers may exercise access/correction/erasure rights through the organisation that registered them (as data fiduciary) — we support fulfilment as processor. Some records may be retained where law requires.</p>
+  <h2>Consent</h2>
+  <p>Registering a worker requires the organisation to confirm — at the moment of registration, recorded with a timestamp — that the worker has given free, informed consent for processing their identity documents and biometrics for attendance purposes. Workers may withdraw consent through their organisation; withdrawal leads to removal of biometric enrollment and, where requested and lawful, erasure of their record.</p>
+
+  <h2>What we do not do</h2>
+  <ul>
+    <li>No selling or sharing of personal data for advertising or marketing.</li>
+    <li>No use of biometrics for anything except attendance matching within your organisation's scope.</li>
+    <li>No storage of full Aadhaar numbers, raw fingerprint images, or e-Aadhaar PDF passwords.</li>
+    <li>No profiling or automated decisions with legal effect — attendance records are inputs for humans.</li>
+  </ul>
+
+  <h2>Where data is stored; transfers</h2>
+  <p>The service is currently hosted on DigitalOcean infrastructure located in the <b>United States</b>. The DPDP Act permits such cross-border processing (no restricted-country notification applies as of this version). If hosting moves to an India region we will update this policy. Offline apps additionally keep an encrypted, organisation-scoped copy on the device, protected by your sign-in; signing out wipes it. Transport encryption (HTTPS) is enabled on production domains; evaluation environments may operate over HTTP and should not carry real worker data.</p>
+
+  <h2>Retention</h2>
+  <div class="tablewrap"><table>
+    <tr><th>Data</th><th>Kept</th></tr>
+    <tr><td>Account &amp; organisation data</td><td>Life of the account + 90 days</td></tr>
+    <tr><td>Worker records, documents, attendance</td><td>While the registering organisation's account is active, or until the organisation deletes them</td></tr>
+    <tr><td>Fingerprint templates</td><td>Until enrollment is removed, the worker is deleted, or the account closes</td></tr>
+    <tr><td>Audit logs</td><td>Up to 12 months, then deleted or anonymised</td></tr>
+    <tr><td>Upgrade/billing records</td><td>As required by tax law (typically 8 years)</td></tr>
+  </table></div>
+
+  <h2>Your rights (DPDP Act, 2023)</h2>
+  <p>Data principals (account holders and workers) have the right to access a summary of their personal data, correction and completion, erasure (subject to legal retention), grievance redressal, and to nominate a person to exercise rights on their behalf. Workers: contact the organisation that registered you (it is the Data Fiduciary for your data); we support these requests as its processor. Account holders: contact us directly.</p>
+
+  <h2>Breach notification</h2>
+  <p>If a personal-data breach affects your data, we will inform affected organisations without undue delay and support notifications to the Data Protection Board of India and affected individuals as the law requires.</p>
+
+  <h2>Children</h2>
+  <p>The service is for working adults; accounts and worker registrations are restricted to individuals 18 years or older.</p>
 
   <h2>Changes</h2>
-  <p>We'll post updates to this policy here and note material changes in the product.</p>
+  <p>Updates are posted at this URL with a new version number and effective date; material changes are announced in-product.</p>
 
-  <h2>Contact / Grievance</h2>
-  <p>Privacy questions or grievances: contact ITSea Software Solutions via your AMS administrator. We aim to respond within 30 days.</p>
+  <h2>Grievance Officer &amp; contact</h2>
+  <p>[NAME], <code>[grievance email]</code>, [PHONE]. We acknowledge complaints within 72 hours and aim to resolve them within 30 days, as contemplated by the DPDP Act and IT rules.</p>
 
-  <footer>© ITSea Software Solutions · <a href="/terms.html">Terms of Service</a> · <a href="/download.html">Downloads</a></footer>
+  <footer>© [LEGAL ENTITY NAME] · <a href="/terms.html">Terms of Service</a> · <a href="/download.html">Downloads</a></footer>
 </div>
 </body>
 </html>

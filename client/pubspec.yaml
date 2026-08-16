@@ -1,7 +1,7 @@
 name: ams_client
 description: "AMS — vendor registration & gate attendance (offline-first)."
 publish_to: "none"
-version: 0.9.0+1
+version: 0.9.1+2
 
 environment:
   sdk: ^3.5.0

@@ -86,6 +86,7 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
     final phone = TextEditingController();
     String? gender;
     String? error;
+    bool consent = false;
 
     await showDialog<void>(
       context: context,
@@ -115,6 +116,16 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
                     keyboardType: TextInputType.phone,
                     decoration: const InputDecoration(labelText: 'Phone')),
                 const SizedBox(height: 10),
+                CheckboxListTile(
+                  value: consent,
+                  onChanged: (v) => setDialog(() => consent = v ?? false),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text(
+                    'Worker has given informed consent for identity & fingerprint processing (required)',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
                 DropdownButtonFormField<String>(
                   initialValue: gender,
                   decoration: const InputDecoration(labelText: 'Gender'),
@@ -143,6 +154,10 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
               onPressed: () async {
                 if (name.text.trim().isEmpty) {
                   setDialog(() => error = 'Name is required.');
+                  return;
+                }
+                if (!consent) {
+                  setDialog(() => error = 'Please confirm the worker\'s consent.');
                   return;
                 }
                 final err = await app.registerWorker(

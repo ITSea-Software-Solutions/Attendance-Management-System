@@ -171,6 +171,8 @@ class WorkerController extends Controller
             'aadhaar_hash'           => 'nullable|string|size:64',
             'aadhaar_data_extracted' => 'nullable|array',
             'notes'                  => 'nullable|string',
+            // DPDP: registering org must confirm the worker's informed consent
+            'consent'                => 'accepted',
             'vendor_id'              => [
                 Rule::requiredIf(! $user->isVendorUser()),
                 'nullable',
@@ -179,7 +181,9 @@ class WorkerController extends Controller
             ],
         ], [
             'aadhaar_number.regex' => 'Aadhaar number must be exactly 12 digits.',
+            'consent.accepted'     => 'Please confirm the worker has given informed consent for identity and biometric processing.',
         ]);
+        unset($data['consent']);
 
         if ($user->isVendorUser()) {
             $data['vendor_id'] = $user->vendor_id;
@@ -205,9 +209,10 @@ class WorkerController extends Controller
 
         $worker = new Worker($data);
         $worker->forceFill([
-            'aadhaar_hash'  => $aadhaarHash,
-            'status'        => Worker::STATUS_PENDING,
-            'registered_by' => $user->id,
+            'aadhaar_hash'         => $aadhaarHash,
+            'consent_confirmed_at' => now(),
+            'status'               => Worker::STATUS_PENDING,
+            'registered_by'        => $user->id,
         ])->save();
 
         $this->audit->log($user->id, 'worker_created', Worker::class, $worker->id, [

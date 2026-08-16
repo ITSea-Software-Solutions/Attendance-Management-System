@@ -5,69 +5,115 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>AMS Terms of Service</title>
 <style>
-  :root{--paper:#FAF9F6;--ink:#1D2833;--muted:#5A6470;--line:#DAD6CC;--teal:#10685A}
-  @media (prefers-color-scheme: dark){:root{--paper:#171D24;--ink:#E8E6E1;--muted:#9AA3AD;--line:#333B45;--teal:#4FB3A1}}
+  :root{--paper:#FAF9F6;--ink:#1D2833;--muted:#5A6470;--line:#DAD6CC;--teal:#10685A;--soft:#E3EFEC}
+  @media (prefers-color-scheme: dark){:root{--paper:#171D24;--ink:#E8E6E1;--muted:#9AA3AD;--line:#333B45;--teal:#4FB3A1;--soft:#1D3330}}
   *{box-sizing:border-box}
   body{background:var(--paper);color:var(--ink);font:16px/1.65 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;margin:0}
-  .wrap{max-width:44rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
+  .wrap{max-width:46rem;margin:0 auto;padding:2.5rem 1.25rem 4rem}
   h1{font-size:1.8rem;margin:0 0 .3rem;letter-spacing:-.015em}
-  .sub{color:var(--muted);margin:0 0 2rem;font-size:.9rem}
-  h2{font-size:1.05rem;margin:1.8rem 0 .4rem}
-  p,li{max-width:65ch;color:var(--ink)}
-  ul{padding-left:1.3rem}
+  .sub{color:var(--muted);margin:0 0 1.2rem;font-size:.9rem}
+  h2{font-size:1.05rem;margin:1.9rem 0 .4rem}
+  p,li{max-width:68ch}
+  ul,ol{padding-left:1.3rem}
   a{color:var(--teal)}
+  .fill{background:var(--soft);border:1px dashed var(--teal);border-radius:8px;padding:.6rem .9rem;font-size:.85rem;margin:0 0 1.6rem}
+  code{background:var(--soft);padding:.05em .35em;border-radius:4px;font-size:.88em}
   footer{margin-top:3rem;padding-top:1rem;border-top:1px solid var(--line);color:var(--muted);font-size:.83rem}
 </style>
 </head>
 <body>
 <div class="wrap">
   <h1>Terms of Service</h1>
-  <p class="sub">AMS — Attendance Management System · ITSea Software Solutions · Last updated: 16 August 2026</p>
+  <p class="sub">AMS — Attendance Management System · Version 1.0 · Effective: 16 August 2026</p>
+  <p class="fill"><b>Provider details to complete:</b> [LEGAL ENTITY NAME &amp; TYPE — e.g. "ITSea Software Solutions Pvt. Ltd."] ("<b>ITSea</b>", "we"), registered office [ADDRESS], CIN/GSTIN [IF APPLICABLE], contact <code>[support email]</code>.</p>
 
-  <h2>1. The service</h2>
-  <p>AMS is a workforce registration and biometric attendance platform for companies and their labour vendors/contractors. By creating an account or using AMS (web portal or apps), your organisation agrees to these terms.</p>
-
-  <h2>2. Accounts &amp; responsibilities</h2>
+  <h2>1. Definitions</h2>
   <ul>
-    <li>You must provide accurate organisation and contact details at signup.</li>
-    <li>You are responsible for the credentials you create (admins, operators, gate users) and all activity under them.</li>
-    <li>You must have the legal right — and each worker's consent — to register workers' identity documents and biometrics. AMS acts as a processor of this data on your instructions.</li>
-    <li>Statutory identifiers (GST, PAN, licence numbers) are optional at signup but may be required for invoicing on paid plans.</li>
+    <li><b>Service</b> — the AMS platform: web portal, Android/Windows apps, and APIs for workforce registration and biometric attendance.</li>
+    <li><b>Customer / Organisation</b> — the company or vendor/contractor entity that creates an account.</li>
+    <li><b>Users</b> — individuals the Customer authorises (admins, operators, gate users).</li>
+    <li><b>Worker Data</b> — personal data of workers registered by a Customer: identity details, Aadhaar-derived values, photographs, fingerprint templates, attendance records.</li>
+    <li><b>Plan</b> — a service tier (Trial, Professional, Enterprise) with published limits.</li>
   </ul>
 
-  <h2>3. Plans, trials &amp; payment</h2>
+  <h2>2. The Service; eligibility</h2>
+  <p>AMS lets vendor organisations register workers with verified identity (Aadhaar-based, one identity = one worker platform-wide), deploy them to companies, and record fingerprint attendance at gates, with reporting for all parties. By signing up you confirm that: (a) you act for an organisation and have authority to bind it; (b) all account-holders and registered workers are 18 years or older; (c) the details you provide are accurate.</p>
+
+  <h2>3. Accounts, roles &amp; tenancy</h2>
   <ul>
-    <li>New organisations start on the free <b>Trial</b> plan with published limits (users, workers, company–vendor links). Limits are enforced automatically; exceeding them simply blocks the action until you upgrade.</li>
-    <li>Paid plans (<b>Professional</b>, <b>Enterprise</b>) are activated after an upgrade request. <b>Payment is settled offline</b> (bank transfer / invoice as agreed) — this remains available even if online payment is added later.</li>
-    <li>We may adjust plan pricing and limits with prior notice; changes never apply retroactively to a paid term.</li>
+    <li>Each organisation is a separate tenant. Companies see their sites' data; vendors see their own workforce; data is shared between a company and a vendor only where an approved link exists.</li>
+    <li>You are responsible for safeguarding credentials and for all activity under your Users' accounts. Notify us promptly of suspected compromise.</li>
+    <li>We may verify organisation details (including GST/PAN where provided) before or after activating paid plans.</li>
   </ul>
 
-  <h2>4. Acceptable use</h2>
+  <h2>4. Plans, trial, fees &amp; payment</h2>
   <ul>
-    <li>No unlawful use, including registering identities without authority or consent.</li>
-    <li>No attempts to circumvent plan limits, probe, overload, or reverse-engineer the service.</li>
-    <li>One Aadhaar identity = one worker record, platform-wide; deliberate duplicate or false registrations may lead to suspension.</li>
+    <li>New organisations start on the free <b>Trial</b> plan. Published limits (users, workers, company–vendor links) are enforced automatically: exceeding a limit blocks the action with a message; nothing is deleted.</li>
+    <li>Paid plans are activated on request. <b>Payment is settled offline</b> (invoice / bank transfer as agreed). Offline payment remains available even if online payment methods are introduced later. Fees are exclusive of applicable taxes (GST added where required).</li>
+    <li>Paid terms run as agreed on the invoice. If payment is overdue beyond 15 days after written reminder, we may downgrade the organisation to Trial limits (data is retained).</li>
+    <li>Plan prices and limits may change with at least 30 days' notice; changes never apply retroactively within a paid term.</li>
   </ul>
 
-  <h2>5. Your data</h2>
-  <p>Your organisation's data (workers, documents, attendance) belongs to you. Handling is described in the <a href="/privacy.html">Privacy Policy</a>. On termination you may request an export; we delete or anonymise data after a reasonable retention window, subject to legal obligations.</p>
+  <h2>5. Customer obligations (important)</h2>
+  <ul>
+    <li><b>Worker consent.</b> Before registering a worker you must obtain the worker's free, informed consent for the processing of their identity document data and biometrics for attendance purposes, as required by applicable law (including the DPDP Act, 2023 and the Aadhaar Act, 2016). The Service requires you to confirm this at each registration and records your confirmation with a timestamp. You must retain evidence of consent and honour withdrawal requests.</li>
+    <li><b>Lawful authority.</b> Register only workers you genuinely engage. Aadhaar details must be provided by the worker; you must not source them from third parties.</li>
+    <li><b>Accuracy.</b> Keep organisation, user and worker records accurate and current.</li>
+    <li><b>Statutory compliance.</b> You remain responsible for your obligations under labour law (e.g. CLRA and state rules), tax law, and data-protection law applicable to you as the workers' employer/engager and Data Fiduciary.</li>
+  </ul>
 
-  <h2>6. Availability &amp; support</h2>
-  <p>AMS is provided "as is" without a guaranteed SLA on Trial. Paid plans include the support channel stated on the plan. Scheduled maintenance and updates may cause brief interruptions; offline-capable apps continue queueing attendance during outages.</p>
+  <h2>6. Acceptable use</h2>
+  <ul>
+    <li>No unlawful, deceptive or infringing use; no registering identities without authority or consent; no false or duplicate registrations.</li>
+    <li>No attempts to bypass plan limits, rate limits, tenancy boundaries or security controls; no probing, scraping, reverse-engineering, or reselling without a written agreement.</li>
+    <li>We may suspend accounts that present a security or legal risk (see §13).</li>
+  </ul>
 
-  <h2>7. Liability</h2>
-  <p>To the extent permitted by law, our aggregate liability is limited to the fees paid by your organisation in the three months preceding a claim. We are not liable for indirect losses, or for decisions (e.g. payroll or disciplinary) made from the data — verify before acting.</p>
+  <h2>7. Data protection &amp; processing terms</h2>
+  <ul>
+    <li><b>Roles.</b> For account and billing data, ITSea is the Data Fiduciary. For Worker Data, the registering Customer is the Data Fiduciary and ITSea acts as its Data Processor, processing only to provide the Service and on the Customer's documented instructions.</li>
+    <li><b>Security measures</b> (as implemented in the Service): full Aadhaar numbers are never stored (masked value + keyed one-way hash only); fingerprint templates are stored encrypted; identity documents live on private, non-web-accessible storage behind authenticated, role-scoped endpoints; access is audit-logged; authentication is rate-limited.</li>
+    <li><b>Hosting &amp; transfers.</b> The Service is currently hosted on DigitalOcean infrastructure in the <b>United States</b>. By using the Service you (and, through your consent process, your workers) accept this cross-border storage. [UPDATE THIS CLAUSE IF/WHEN HOSTING MOVES TO AN INDIA REGION.]</li>
+    <li><b>Sub-processors.</b> Cloud hosting (DigitalOcean). We will notify Customers of material sub-processor changes.</li>
+    <li><b>Breach notice.</b> We will notify affected Customers without undue delay after becoming aware of a personal-data breach affecting their data, and cooperate with their statutory notification duties.</li>
+    <li><b>Exit.</b> On termination you may request an export of your data within 30 days; afterwards we delete or anonymise it, except where retention is legally required.</li>
+  </ul>
 
-  <h2>8. Suspension &amp; termination</h2>
-  <p>We may suspend accounts for breach of these terms, non-payment, or security risk — with notice where practicable. You may stop using the service and request deletion at any time.</p>
+  <h2>8. Intellectual property</h2>
+  <p>ITSea owns the Service and all related IP. You receive a non-exclusive, non-transferable right to use it for your internal business during your subscription. Your data remains yours; you grant us a licence to process it solely to provide the Service.</p>
 
-  <h2>9. Governing law</h2>
-  <p>These terms are governed by the laws of India; courts at Pune, Maharashtra have exclusive jurisdiction.</p>
+  <h2>9. Third-party components</h2>
+  <p>Fingerprint capture uses SecuGen hardware and drivers licensed by their manufacturer. e-Aadhaar PDFs are downloaded by workers/vendors from UIDAI's own portal; AMS is not affiliated with UIDAI. Third-party terms apply to those components.</p>
 
-  <h2>10. Contact</h2>
-  <p>Questions about these terms: contact your AMS administrator or ITSea Software Solutions.</p>
+  <h2>10. Warranties &amp; disclaimers</h2>
+  <p>The Service is provided "as is". The Trial plan carries no uptime commitment; paid plans include the support channel stated on the plan. We do not warrant uninterrupted or error-free operation. Attendance and identification are aids, not absolute proof — biometric matching has inherent error rates; keep human oversight for consequential decisions (pay, discipline, termination).</p>
 
-  <footer>© ITSea Software Solutions · <a href="/privacy.html">Privacy Policy</a> · <a href="/download.html">Downloads</a></footer>
+  <h2>11. Indemnity</h2>
+  <p>You will indemnify ITSea against third-party claims arising from: registrations made without lawful authority or consent; your breach of §5 or §6; or your violation of applicable law. We will indemnify you against third-party claims that the Service, as provided by us, infringes their IP.</p>
+
+  <h2>12. Limitation of liability</h2>
+  <p>To the extent permitted by law, neither party is liable for indirect or consequential loss, and our aggregate liability under these terms is capped at the fees paid by your organisation in the 3 months before the event giving rise to the claim (or ₹10,000 for Trial organisations). Nothing limits liability for fraud or wilful misconduct.</p>
+
+  <h2>13. Suspension &amp; termination</h2>
+  <ul>
+    <li>You may stop using the Service and request deletion at any time.</li>
+    <li>We may suspend or terminate for material breach (with 15 days' cure notice where practicable), non-payment, or serious security/legal risk (immediately, with notice).</li>
+    <li>§5, §7 (exit), §8, §11, §12 and §16 survive termination.</li>
+  </ul>
+
+  <h2>14. Changes</h2>
+  <p>We may update the Service and these terms. Material changes will be notified in-product or by email at least 15 days in advance; continued use after the effective date is acceptance. The current version always lives at this URL.</p>
+
+  <h2>15. Force majeure</h2>
+  <p>Neither party is liable for delay or failure caused by events beyond reasonable control (outages of upstream providers, natural events, government action), provided reasonable mitigation is attempted.</p>
+
+  <h2>16. Governing law &amp; disputes</h2>
+  <p>These terms are governed by the laws of India. Courts at Pune, Maharashtra have exclusive jurisdiction, subject to any mandatory arbitration or consumer rights that cannot be contracted out.</p>
+
+  <h2>17. Contact &amp; grievances</h2>
+  <p>Notices and grievances: <code>[support email]</code> · Grievance Officer (see <a href="/privacy.html">Privacy Policy</a>): [NAME], <code>[grievance email]</code>. We acknowledge within 72 hours and aim to resolve within 30 days.</p>
+
+  <footer>© [LEGAL ENTITY NAME] · <a href="/privacy.html">Privacy Policy</a> · <a href="/download.html">Downloads</a> · <a href="/signup">Sign up</a></footer>
 </div>
 </body>
 </html>
