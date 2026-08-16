@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.itsea" "\0"
-            VALUE "FileDescription", "ams_client" "\0"
+            VALUE "CompanyName", "ITSea Software Solutions" "\0"
+            VALUE "FileDescription", "TrueCrew — Verified Workforce Attendance" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
             VALUE "InternalName", "ams_client" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.itsea. All rights reserved." "\0"
-            VALUE "OriginalFilename", "ams_client.exe" "\0"
-            VALUE "ProductName", "ams_client" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 ITSea Software Solutions. All rights reserved." "\0"
+            VALUE "OriginalFilename", "truecrew.exe" "\0"
+            VALUE "ProductName", "TrueCrew" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
