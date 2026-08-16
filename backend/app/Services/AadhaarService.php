@@ -67,8 +67,12 @@ class AadhaarService
         // never persisted, logged, or sent to the frontend.
         if (! empty($data['aadhaar_number'])) {
             $num = preg_replace('/\D+/', '', $data['aadhaar_number']);
-            $data['aadhaar_number_masked'] = 'XXXX-XXXX-' . substr($num, -4);
-            $data['aadhaar_hash']          = self::hashNumber($num);
+            // Guard: masked PDFs can only yield the last 4 digits — hashing a
+            // partial number would collide for everyone sharing those digits.
+            if (strlen($num) === 12) {
+                $data['aadhaar_number_masked'] = 'XXXX-XXXX-' . substr($num, -4);
+                $data['aadhaar_hash']          = self::hashNumber($num);
+            }
             unset($data['aadhaar_number']); // never send raw Aadhaar number to frontend
         }
 

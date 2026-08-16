@@ -297,6 +297,15 @@ export default function WorkerRegister() {
     if (data.photo_base64) {
       setAadhaarPhoto(data.photo_base64); // store as reference; live photo captured in step 3
     }
+    // UIDAI "masked Aadhaar" PDFs carry only the last 4 digits — no hash can be
+    // derived, and the server (rightly) refuses without one. Keep the auto-fill
+    // but require the full 12-digit number before continuing.
+    if (!data.aadhaar_hash) {
+      setManualEntry(true);
+      toast("Masked PDF detected — details auto-filled. Now type the full 12-digit Aadhaar number to verify.",
+        { icon: "🔢", duration: 7000 });
+      return;
+    }
     setStep(1);
     toast.success("Aadhaar data auto-filled. Please review before saving.");
   };
@@ -310,6 +319,11 @@ export default function WorkerRegister() {
   const handleManualAadhaarNext = () => {
     if (!consent) { toast.error("Please confirm the worker's consent first (checkbox at the top)."); return; }
     if (!validManualAadhaar) { toast.error("Enter the 12-digit Aadhaar number."); return; }
+    const pdfLast4 = aadhaarData?.aadhaar_number_masked?.slice(-4);
+    if (pdfLast4 && manualAadhaar.trim().slice(-4) !== pdfLast4) {
+      toast.error(`Number doesn't match the uploaded PDF (…${pdfLast4}). Check and re-enter.`);
+      return;
+    }
     setStep(1);
   };
 
