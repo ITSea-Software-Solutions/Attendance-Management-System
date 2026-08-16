@@ -19,7 +19,7 @@ return [
             'links'        => 3,     // approved company↔vendor associations
             'history_days' => 30,    // attendance history window (soft, UI-level)
             'support'      => 'Community',
-            'features'     => ['notification_center'],
+            'features'     => ['face_attendance', 'offline_apps', 'attendance_exports', 'notification_center'],
         ],
         'professional' => [
             'label'        => 'Professional',
@@ -30,6 +30,7 @@ return [
             'history_days' => 365,
             'support'      => 'Email support',
             'features'     => [
+                'face_attendance', 'offline_apps', 'attendance_exports',
                 'notification_center',
                 'email_notifications',
                 'template_overrides',   // customise notification texts per org
@@ -49,11 +50,13 @@ return [
             'history_days' => null,
             'support'      => 'Priority support + onboarding',
             'features'     => [
+                'face_attendance', 'offline_apps', 'attendance_exports',
                 'notification_center',
                 'email_notifications',
                 'template_overrides',
                 'bulk_import_export',
                 'missing_out_alerts',
+                'weekly_reports',         // Monday attendance summary email
                 'whatsapp_notifications', // IN/OUT to vendor + worker WhatsApp (needs WA Business API creds)
                 'otp_verification',       // email/phone OTP steps (needs SMS/WA provider)
             ],
@@ -62,11 +65,15 @@ return [
 
     // Human labels for the feature chips shown on plan cards / billing pages.
     'feature_labels' => [
+        'face_attendance'        => 'Camera face attendance',
+        'offline_apps'           => 'Offline-capable Android & Windows apps',
+        'attendance_exports'     => 'Attendance CSV + printable reports',
         'notification_center'    => 'In-app notification center',
         'email_notifications'    => 'Email notifications',
         'template_overrides'     => 'Custom notification templates',
         'bulk_import_export'     => 'Bulk import / export (CSV)',
         'missing_out_alerts'     => 'Missing-OUT daily alerts',
+        'weekly_reports'         => 'Weekly attendance summary email',
         'whatsapp_notifications' => 'WhatsApp notifications (IN/OUT)',
         'otp_verification'       => 'OTP verification (email / phone)',
     ],

@@ -18,3 +18,5 @@ Schedule::command('truecrew:missing-out-alerts')->dailyAt('21:00')->timezone('As
 
 // Prune audit logs older than 1 year
 Schedule::command('audit:prune --days=365')->monthly();
+// Monday-morning weekly attendance summary (Enterprise: weekly_reports).
+Schedule::command('truecrew:weekly-report')->weeklyOn(1, '08:00')->timezone('Asia/Kolkata');

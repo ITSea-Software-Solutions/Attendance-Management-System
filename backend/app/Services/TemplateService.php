@@ -64,6 +64,12 @@ class TemplateService
             'body'    => "These workers marked IN on {{date}} but never marked OUT:\n\n{{worker_lines}}\n\nCheck the Exceptions page for live status.",
             'vars'    => ['date', 'count', 'worker_lines'],
         ],
+        'weekly_report' => [
+            'label'   => 'Weekly attendance summary (Enterprise)',
+            'subject' => 'TrueCrew weekly report — {{week}}',
+            'body'    => "Attendance summary for {{company_name}}, week {{week}}:\n\n{{summary_lines}}\n\nTotal worker-days: {{total_days}} · Total hours: {{total_hours}}\n\nFull details are on your Attendance Log page (exports available).",
+            'vars'    => ['week', 'company_name', 'summary_lines', 'total_days', 'total_hours'],
+        ],
         'attendance_inout' => [
             'label'   => 'IN/OUT notification (WhatsApp)',
             'subject' => null,

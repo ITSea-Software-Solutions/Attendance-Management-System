@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Building2, HardHat, Check, Fingerprint, ChevronLeft } from "lucide-react";
@@ -21,6 +21,14 @@ export default function Signup() {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [plans, setPlans] = useState(null);
+  const [featureLabels, setFeatureLabels] = useState({});
+
+  // Public plans catalogue (no auth involved — safe from the 401 interceptor).
+  useEffect(() => {
+    api.get("/plans-public")
+      .then((r) => { setPlans(r.data.plans); setFeatureLabels(r.data.feature_labels ?? {}); })
+      .catch(() => {}); // FALLBACK below covers offline/errors
+  }, []);
   const [form, setForm] = useState({
     org_type: "company",
     org_name: "", name: "", email: "", password: "", phone: "",
@@ -154,6 +162,9 @@ export default function Signup() {
                       <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> Aadhaar + biometric attendance</li>
                       <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> Android & Windows apps</li>
                       <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> {p.support}</li>
+                      {(p.features ?? []).map((f) => (
+                        <li key={f} className="flex gap-2 text-[13px] text-gray-500"><Check size={14} className="text-teal-500 shrink-0 mt-0.5" /> {featureLabels[f] ?? f}</li>
+                      ))}
                     </ul>
                   </button>
                 );

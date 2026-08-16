@@ -53,6 +53,8 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
   EnrollCapture? _fp;
   bool _fpBusy = false;
   String? _photoPath;
+  bool _photoBusy = false;
+  String? _photoNote; // shown INSIDE the Photos card, where the user looks
   bool _busy = false;
   String? _error;
 
@@ -62,6 +64,21 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
     // Live checklist: re-render as the name/Aadhaar fields are typed.
     _name.addListener(_onFieldChange);
     _aadhaar.addListener(_onFieldChange);
+    _recoverLostPhoto();
+  }
+
+  /// Android can kill this app while the camera is open; the captured photo
+  /// then arrives via retrieveLostData() after the app restarts. Without
+  /// this, the photo silently vanishes — "I took it but nothing happened".
+  Future<void> _recoverLostPhoto() async {
+    if (!Platform.isAndroid) return;
+    try {
+      final lost = await ImagePicker().retrieveLostData();
+      final f = lost.file;
+      if (!lost.isEmpty && f != null) {
+        await _acceptPhoto(f.path);
+      }
+    } catch (_) {/* nothing to recover */}
   }
 
   void _onFieldChange() => setState(() {});
@@ -203,35 +220,66 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
   }
 
   Future<void> _takePhoto(ImageSource source) async {
+    XFile? x;
     try {
-      final x = await ImagePicker().pickImage(
+      x = await ImagePicker().pickImage(
           source: source, maxWidth: 1024, imageQuality: 85);
-      if (x == null) return;
+    } catch (e) {
+      setState(() =>
+          _photoNote = 'Camera unavailable ($e) — try "Gallery / files" instead.');
+      return;
+    }
+    if (x == null) {
+      // User cancelled — or Android relaunched us mid-capture (the photo
+      // then arrives via retrieveLostData in initState).
+      return;
+    }
+    await _acceptPhoto(x.path);
+  }
+
+  /// Persist + validate a captured/picked photo, with VISIBLE progress and
+  /// errors inside the Photos card (not buried near the Save button).
+  Future<void> _acceptPhoto(String srcPath) async {
+    setState(() { _photoBusy = true; _photoNote = null; });
+    try {
       // Persist outside the picker's temp dir so it survives until synced.
       final dir = await getApplicationSupportDirectory();
       final dest = p.join(dir.path, 'photos', '${const Uuid().v4()}.jpg');
       await Directory(p.dirname(dest)).create(recursive: true);
-      await File(x.path).copy(dest);
-      // On-device precision: verify a real face is in the frame BEFORE
-      // accepting — a blurry/no-face photo would silently fail server-side
-      // face enrollment later.
+      await File(srcPath).copy(dest);
+
+      // On-device precision (Android): a real face must be in frame. If ML
+      // Kit itself is unavailable on this device, ACCEPT the photo — the
+      // server validates it again at face-enrollment.
       if (Platform.isAndroid) {
-        final detector = FaceDetector(
-            options: FaceDetectorOptions(performanceMode: FaceDetectorMode.accurate));
-        final faces = await detector.processImage(InputImage.fromFilePath(dest));
-        await detector.close();
-        if (faces.isEmpty) {
-          await File(dest).delete();
-          setState(() => _error =
-              'No face detected in that photo — retake with the worker facing the camera in good light.');
-          return;
+        try {
+          final detector = FaceDetector(
+              options: FaceDetectorOptions(
+                  performanceMode: FaceDetectorMode.accurate));
+          final faces =
+              await detector.processImage(InputImage.fromFilePath(dest));
+          await detector.close();
+          if (faces.isEmpty) {
+            await File(dest).delete();
+            setState(() {
+              _photoBusy = false;
+              _photoNote =
+                  'No face detected — retake with the worker facing the camera in good light.';
+            });
+            return;
+          }
+        } catch (_) {
+          setState(() => _photoNote =
+              'On-device face check unavailable — the server will validate on sync.');
         }
       }
-      setState(() { _error = null; _photoPath = dest; });
+      setState(() { _photoBusy = false; _photoPath = dest; });
       _maybeVerifyFaces();
     } catch (e) {
-      setState(() => _error =
-          'Camera unavailable — try "Pick from gallery/files" instead.');
+      setState(() {
+        _photoBusy = false;
+        _photoNote = 'Could not save the photo ($e) — retry.';
+      });
     }
   }
 
@@ -461,14 +509,27 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
                           SizedBox(width: 68, child: _matchIndicator()),
                           _photoSlot(
                             label: 'Live photo',
-                            image: _photoPath != null
-                                ? Image.file(File(_photoPath!),
-                                    fit: BoxFit.cover)
-                                : null,
+                            image: _photoBusy
+                                ? const Center(
+                                    child: SizedBox(width: 26, height: 26,
+                                        child: CircularProgressIndicator(strokeWidth: 2.4)))
+                                : (_photoPath != null
+                                    ? Image.file(File(_photoPath!),
+                                        fit: BoxFit.cover)
+                                    : null),
                             emptyHint: 'Use camera below',
                           ),
                         ],
                       ),
+                      if (_photoNote != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: Text(_photoNote!,
+                              style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Colors.red.shade700)),
+                        ),
                       if (_verifyNote != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 8),

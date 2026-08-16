@@ -22,6 +22,7 @@ import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import PlanBilling from "@/pages/PlanBilling";
 import Templates from "@/pages/Templates";
+import ReleaseNotes from "@/pages/ReleaseNotes";
 import Subscriptions from "@/pages/Subscriptions";
 
 function PrivateRoute({ children, roles }) {
@@ -46,6 +47,7 @@ export default function App() {
         <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="downloads" element={<Downloads />} />
+        <Route path="whats-new" element={<ReleaseNotes />} />
         <Route path="billing" element={
           <PrivateRoute roles={["company_admin", "vendor_admin"]}><PlanBilling /></PrivateRoute>
         } />

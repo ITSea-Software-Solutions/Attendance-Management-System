@@ -47,7 +47,16 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.15</span> Identity match at enrollment <span class="date">16 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.16</span> Camera photo reliability <span class="date">16 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Fixed: photo taken but never appearing.</b> Android may close the app while the camera is open; the photo is now recovered automatically when the app returns. This also fixes photos not reaching the server (nothing was saved locally to upload).</li>
+      <li><b>Visible photo feedback</b> — a spinner in the Live photo slot while the photo processes, and any rejection ("no face detected") now shows in red right inside the Photos card.</li>
+      <li>If the on-device face check is unavailable on a phone, the photo is accepted and the server validates it on sync instead of failing silently.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.15</span> Identity match at enrollment <span class="date">16 Aug 2026</span></h3>
     <ul>
       <li><b>Aadhaar photo extracted automatically</b> — importing the PDF now also pulls the worker's Aadhaar photo into the form.</li>
       <li><b>Two-photo identity check</b> — the Aadhaar photo and the live camera photo are compared by the face engine the moment both exist, with an animated match indicator (e.g. "match 87%"). Low scores warn the operator; old Aadhaar photos never block registration.</li>
@@ -101,7 +110,16 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.3.0</span> Notifications, templates &amp; verification suite <span class="date">16 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.3.1</span> In-portal release notes &amp; richer plans <span class="date">16 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>What's New inside the portal</b> — this page now lives in the sidebar for every logged-in user, so admins see each release without leaving the app.</li>
+      <li><b>Weekly attendance summary email (Enterprise)</b> — every Monday morning, company admins get the previous week's per-worker days &amp; hours digest. Template editable like all others.</li>
+      <li><b>Plan cards show everything</b> — signup and billing pages now list each edition's full feature set (face attendance, offline apps, exports, notifications, templates, bulk CSV, alerts, weekly reports, WhatsApp, OTP).</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.3.0</span> Notifications, templates &amp; verification suite <span class="date">16 Aug 2026</span></h3>
     <ul>
       <li><b>Notification center</b> — a live bell in the portal header: vendor approvals/rejections, worker registrations, plan decisions, daily "IN but never OUT" alerts.</li>
       <li><b>Editable templates</b> — super admin edits the platform defaults; companies and vendors customise their own texts (welcome, password reset, vendor approved/rejected, plan decisions, missing-OUT, IN/OUT pings) with placeholder variables. Professional+.</li>
