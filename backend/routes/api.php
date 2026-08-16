@@ -10,6 +10,7 @@ use App\Http\Controllers\WorkerIdDocumentController;
 use App\Http\Controllers\AttendanceController;
 use App\Http\Controllers\AadhaarController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\SyncController;
 use App\Http\Controllers\UserController;
 
 // ─── Public ───────────────────────────────────────────────────────────────────
@@ -18,6 +19,10 @@ Route::post('/auth/login', [AuthController::class, 'login'])->middleware('thrott
 
 // ─── Authenticated ────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
+
+    // ── Offline-first client app sync (Flutter Windows/Android) ─────────────
+    Route::get('sync/pull',  [SyncController::class, 'pull']);
+    Route::post('sync/push', [SyncController::class, 'push']);
 
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/auth/me', [AuthController::class, 'me']);

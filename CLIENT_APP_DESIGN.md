@@ -142,6 +142,13 @@ server records both `marked_at` (device) and `synced_at`.
 
 ## 7. Phased Roadmap
 
+> **STATUS (2026-08-16): v0.9.0-preview BUILT** — `client/` contains the working
+> app: login, role modes, offline SQLite, idempotent sync (`/api/sync/pull|push`),
+> SIM biometrics everywhere + real SGIBIOSRV capture on Windows desktop.
+> Remaining for v1.0: Android USB-OTG SecuGen SDK (platform channel), on-device
+> SDK matcher (template cache), Aadhaar Secure-QR camera scan, kiosk mode.
+> Windows build: `flutter build windows` (must run on a Windows machine).
+
 | Phase | Deliverable | Size (rough) |
 |---|---|---|
 | 0 | Server prerequisites: HTTPS, Aadhaar mandatory+dedup, H1/M1/rate-limit, device registration + sync endpoints | 1–2 wk |

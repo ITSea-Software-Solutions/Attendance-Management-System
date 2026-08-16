@@ -29,8 +29,10 @@ class VendorController extends Controller
 
     public function store(Request $request): JsonResponse
     {
-        if (! $request->user()->isSuperAdmin()) {
-            abort(403, 'Only Super Admin can create vendors.');
+        // Super admin creates global vendors; a company admin can create a
+        // vendor for their own company (auto-approved for that company).
+        if (! $request->user()->isSuperAdmin() && $request->user()->role !== 'company_admin') {
+            abort(403, 'Only Super Admin or a Company Admin can create vendors.');
         }
 
         $data = $request->validate([
@@ -49,6 +51,19 @@ class VendorController extends Controller
         ]);
 
         $vendor = Vendor::create(array_merge($data, ['status' => 'active']));
+
+        // Company-created vendor: immediately approved for that company —
+        // the company chose to onboard them, no separate approval round-trip.
+        if ($request->user()->role === 'company_admin' && $request->user()->company_id) {
+            $vendor->companies()->syncWithoutDetaching([
+                $request->user()->company_id => [
+                    'status'      => 'approved',
+                    'approved_at' => now(),
+                    'approved_by' => $request->user()->id,
+                ],
+            ]);
+        }
+
         $this->audit->log($request->user()->id, 'vendor_created', Vendor::class, $vendor->id);
 
         return response()->json($vendor, 201);

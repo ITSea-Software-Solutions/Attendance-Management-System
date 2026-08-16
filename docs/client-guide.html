@@ -78,11 +78,11 @@
   <p><b>Try it now — demo environment</b></p>
   <p>Web portal: <a href="http://142.93.88.143" class="mono">http://142.93.88.143</a> &nbsp;·&nbsp; password for all demo accounts: <code>Admin@12345</code></p>
   <div class="tablewrap"><table>
-    <tr><th>Role</th><th>Login email</th></tr>
-    <tr><td>Super Admin</td><td><code>superadmin@ams.local</code></td></tr>
-    <tr><td>Company Admin</td><td><code>company@ams.local</code></td></tr>
-    <tr><td>Gate User</td><td><code>gate@ams.local</code></td></tr>
-    <tr><td>Vendor Admin</td><td><code>vendor@ams.local</code></td></tr>
+    <tr><th>Role</th><th>Login email</th><th>Password</th></tr>
+    <tr><td>Super Admin</td><td><code>superadmin@ams.local</code></td><td><code>Admin@12345</code></td></tr>
+    <tr><td>Company Admin</td><td><code>company@ams.local</code></td><td><code>Admin@12345</code></td></tr>
+    <tr><td>Gate User</td><td><code>gate@ams.local</code></td><td><code>Admin@12345</code></td></tr>
+    <tr><td>Vendor Admin</td><td><code>vendor@ams.local</code></td><td><code>Admin@12345</code></td></tr>
   </table></div>
   <p style="font-size:.85rem; color:var(--muted)">The demo runs fingerprint <em>simulation</em> so every flow works without a scanner attached. On production gates, a SecuGen USB fingerprint scanner does the real matching.</p>
 </div>
@@ -101,8 +101,8 @@
 <h2>Who does what</h2>
 <div class="tablewrap"><table>
   <tr><th>Role</th><th>Belongs to</th><th>Can do</th></tr>
-  <tr><td><b>Super Admin</b></td><td>Platform</td><td>Creates companies and vendors, manages all users, sees everything</td></tr>
-  <tr><td><b>Company Admin</b></td><td>A client company</td><td>Approves vendors, creates gate users, views company attendance &amp; workers</td></tr>
+  <tr><td><b>Super Admin</b></td><td>Platform</td><td>Creates companies/organisations, manages all users, sees everything</td></tr>
+  <tr><td><b>Company Admin</b></td><td>A client company</td><td>Creates &amp; approves vendors, creates gate users, views company attendance &amp; workers</td></tr>
   <tr><td><b>Gate User</b></td><td>A company gate/department</td><td>Marks fingerprint IN / OUT attendance only</td></tr>
   <tr><td><b>Vendor Admin</b></td><td>A contractor / vendor</td><td>Registers workers, requests company access, deploys workers, views their attendance</td></tr>
   <tr><td><b>Vendor Operator</b></td><td>A contractor / vendor</td><td>Registers workers only</td></tr>
@@ -110,7 +110,8 @@
 
 <h2>The flow, end to end</h2>
 <ol class="flow">
-  <li><span class="who">Super admin</span><b>Create the company and the vendor</b>Both get admin login credentials at creation.</li>
+  <li><span class="who">Super admin</span><b>Create the company / organisation</b>The company admin gets login credentials.</li>
+  <li><span class="who">Company admin</span><b>Create your vendors</b>Vendors you create are approved for your company immediately — you can also issue the vendor’s admin login. (Existing vendors can still request access instead.)</li>
   <li><span class="who">Vendor admin</span><b>Request access to the company</b><em>Company Access</em> page → send request.</li>
   <li><span class="who">Company admin</span><b>Approve the vendor</b><em>Vendor Approvals</em> page → Approve (or reject with a reason).</li>
   <li><span class="who">Vendor</span><b>Register workers</b>Aadhaar PDF auto-fill or manual 12-digit entry, then fingerprint enrollment. Aadhaar is mandatory; duplicates are refused.</li>

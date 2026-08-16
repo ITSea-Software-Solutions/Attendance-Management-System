@@ -48,3 +48,9 @@ desktop.ini
 *.log
 *.tmp
 *.swp
+
+# ── App binaries (built artifacts — deploy via rsync / GitHub releases, not git) ──
+frontend/public/downloads/*.apk
+frontend/public/downloads/*.exe
+frontend/public/downloads/*.msix
+client/build/

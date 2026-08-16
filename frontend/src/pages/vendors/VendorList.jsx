@@ -126,6 +126,7 @@ export default function VendorList() {
     onSuccess: () => {
       toast.success("Vendor created!");
       queryClient.invalidateQueries(["vendors"]);
+      queryClient.invalidateQueries(["company-vendors-list"]);
       setShowCreate(false);
       setForm(VENDOR_INIT);
       setAdmin(ADMIN_INIT);
@@ -194,7 +195,7 @@ export default function VendorList() {
             {isCompanyUser ? "Vendors associated with your company" : "Registered vendor companies"}
           </p>
         </div>
-        {isSuperAdmin && (
+        {(isSuperAdmin || user?.role === "company_admin") && (
           <button className="btn-primary" onClick={() => { setShowCreate(true); setForm(VENDOR_INIT); setAdmin(ADMIN_INIT); }}>
             <Plus size={16} /> Add Vendor
           </button>

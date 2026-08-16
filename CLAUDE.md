@@ -183,9 +183,13 @@ GET  /api/attendance/worker-templates              ← for fingerprint matching 
 POST /api/attendance/mark
 GET  /api/attendance/exceptions
 
-GET  /api/workers/assign                           ← ?deployment=current|previous
-POST /api/workers/assign
-DELETE /api/workers/assign/{id}
+GET  /api/assignments                              ← ?deployment=current|previous (apiResource)
+POST /api/assignments                              ← deploy worker {worker_id, company_id, start_date, end_date}
+DELETE /api/assignments/{id}
+  (NOTE: frontend page is /workers/assign but the API resource is /assignments)
+
+GET  /api/sync/pull                                ← client app: role-scoped bundle (workers/assignments/attendance)
+POST /api/sync/push                                ← client app: idempotent batch {device_id, registrations[], marks[]} by client UUID
 
 GET  /api/users
 POST /api/users
@@ -318,7 +322,11 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] Login rate-limiting (throttle 5/min per IP on /auth/login)
 - [x] Worker `$fillable` hardened — system/biometric fields writable only via forceFill()
 - [x] Downloads page (`/downloads`, all roles) — docs served from frontend/public/docs; app builds land here later
-- [x] Flutter client app design agreed → see `CLIENT_APP_DESIGN.md` (app lives under `client/`, built on Windows)
+- [x] Flutter client app design agreed → see `CLIENT_APP_DESIGN.md`
+- [x] **Flutter app v0.9.0-preview BUILT** (`client/`) — login, role modes (vendor/gate/admin-view), offline SQLite store, idempotent sync (pull/push by client UUID), SIM fingerprint + SGIBIOSRV capture on Windows. APK at `frontend/public/downloads/` (NOT in git — build via `flutter build apk`; Windows: `flutter build windows` on a Windows machine)
+- [x] Server sync API: `GET /api/sync/pull`, `POST /api/sync/push` (`SyncController`), `client_uuid` unique columns on workers + attendance_logs
+- [x] **Company admins create their own vendors** (auto-approved for their company) + can create that vendor's `vendor_admin` login (only for approved vendors)
+- [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation
 
 ### Not Yet Implemented / Future

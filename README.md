@@ -6,8 +6,47 @@ Enterprise-grade multi-company, multi-vendor labor registration and biometric at
 
 ## Architecture
 
+### System overview (v1.0 web + v0.9 client apps)
+
+```mermaid
+flowchart LR
+  subgraph Clients
+    WEB["Web portal (React+Vite)\nsuper admin · company admin\nvendor · gate"]
+    APP["Flutter app (client/)\nAndroid + Windows\nvendor + gate, OFFLINE-first"]
+    SG["SecuGen scanner\nSGIBIOSRV localhost:8443\n(gate PCs / Windows)"]
+  end
+  subgraph Server["DigitalOcean droplet (docker compose)"]
+    NG[nginx :80]
+    BE["Laravel 11 API\n(auth, workers, attendance,\nsync/pull + sync/push)"]
+    MY[(MySQL 8)]
+    RD[(Redis)]
+    PY["pdf-service (FastAPI)\nAadhaar extract · insightface"]
+    Q[queue worker]
+  end
+  WEB -->|/  + /api| NG
+  APP -->|"/api (login online; then offline\nqueue → idempotent sync by UUID)"| NG
+  WEB -.->|fingerprint capture| SG
+  APP -.->|"Windows capture (v0.9)\nAndroid USB-OTG SDK (v1.0)"| SG
+  NG --> BE
+  BE --> MY
+  BE --> RD
+  BE --> PY
+  Q --> RD
+  APP <-->|"pull: workers/assignments/attendance\npush: registrations + marks"| BE
+```
+
+- **Offline model:** app keeps an encrypted local SQLite copy; events (registrations,
+  attendance marks) queue with client UUIDs and push idempotently; master data pulls
+  role-scoped bundles — **server wins** on master data, events are append-only.
+- **Biometrics:** web + Windows app capture via SGIBIOSRV; demo/sim mode works with
+  no hardware. Android USB-OTG SecuGen SDK and face (InsightFace) are the next phases
+  — full matrix in `CLIENT_APP_DESIGN.md`.
+
+### Repository layout
+
 ```
 attendance_system/
+├── client/                     # Flutter app (Android + Windows) — offline-first
 ├── docker-compose.yml          # All services wired together
 ├── init.sh                     # One-time setup script
 ├── .env.example                # Copy to .env before starting

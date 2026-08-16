@@ -10,8 +10,8 @@ const APPS = [
   {
     icon: Smartphone,
     title: "Android App",
-    desc: "Vendor registration + gate attendance (offline-capable, USB fingerprint via OTG).",
-    status: "in_development",
+    desc: "Vendor registration + gate attendance, offline-capable. v0.9 preview — fingerprint simulated; USB-OTG scanner support lands in v1.0.",
+    status: "/downloads/ams-android-v0.9.0-preview.apk",
   },
   {
     icon: Monitor,

@@ -41,6 +41,32 @@ class UserController extends Controller
         $auth = $request->user();
 
         if ($auth->role === 'company_admin') {
+            // Company admins create gate users for their company — and may also
+            // create the ADMIN LOGIN for a vendor that is approved for (or was
+            // created by) their company.
+            if ($request->input('role') === 'vendor_admin') {
+                $data = $request->validate([
+                    'name'      => 'required|string|max:100',
+                    'email'     => 'required|email|unique:users',
+                    'password'  => ['required', Password::min(8)->letters()->numbers()],
+                    'phone'     => 'nullable|string|max:15',
+                    'vendor_id' => 'required|integer|exists:vendors,id',
+                ]);
+                $approved = \App\Models\Company::find($auth->company_id)
+                    ?->vendors()->where('vendors.id', $data['vendor_id'])
+                    ->wherePivot('status', 'approved')->exists();
+                if (! $approved) {
+                    return response()->json([
+                        'message' => 'That vendor is not approved for your company.',
+                    ], 403);
+                }
+                $data['role']      = 'vendor_admin';
+                $data['is_active'] = true;
+                $user = User::create($data);
+                $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+                return response()->json($user, 201);
+            }
+
             $data = $request->validate([
                 'name'          => 'required|string|max:100',
                 'email'         => 'required|email|unique:users',
