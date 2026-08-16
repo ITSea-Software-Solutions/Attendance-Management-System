@@ -45,7 +45,10 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
     setState(() {
       _fp = r;
       _fpBusy = false;
-      if (r == null) _error = 'Capture failed — check the scanner and try again.';
+      if (r == null) {
+        _error = BiometricDriver.lastEnrollError ??
+            'Capture failed — check the scanner and try again.';
+      }
     });
   }
 
@@ -176,7 +179,7 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
                       const SizedBox(height: 6),
                       Text(
                         Platform.isWindows
-                            ? 'Uses the connected SecuGen scanner (SGIBIOSRV). If the service is not running, a simulated capture is used.'
+                            ? 'Captures directly from the connected SecuGen scanner via its SDK — no extra service needed. (WebAPI/simulation are automatic fallbacks.)'
                             : 'Real USB-OTG scanner support arrives with the SecuGen Android SDK — until then this is a simulated capture. (Phone built-in sensors cannot capture worker fingerprints — OS rule.)',
                         style: Theme.of(context).textTheme.bodySmall,
                       ),

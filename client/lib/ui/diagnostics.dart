@@ -42,17 +42,8 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
     setState(() { _capBusy = true; _capError = null; _testCap = null; });
     EnrollCapture? r;
     String? err;
-    if (Theme.of(context).platform == TargetPlatform.windows) {
-      final sg = SgibiosrvDriver();
-      if (await sg.available()) {
-        r = await sg.captureForEnroll();
-        err = sg.lastError;
-      } else {
-        r = await BiometricDriver.enrollCapture();
-      }
-    } else {
-      r = await BiometricDriver.enrollCapture();
-    }
+    r = await BiometricDriver.enrollCapture();
+    err = BiometricDriver.lastEnrollError;
     if (mounted) {
       setState(() {
         _testCap = r;

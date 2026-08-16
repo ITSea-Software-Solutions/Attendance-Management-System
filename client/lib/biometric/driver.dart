@@ -5,6 +5,7 @@ import 'package:dio/dio.dart';
 import 'package:dio/io.dart';
 
 import '../core/config.dart';
+import 'sgfplib_ffi.dart';
 
 /// SecuGen device error codes → human messages (mirror of the web map).
 const Map<int, String> kSgiErrors = {
@@ -68,12 +69,23 @@ abstract class BiometricDriver {
     return SimDriver();
   }
 
-  /// Diagnostics: probe the fingerprint scanner service with timing + detail.
+  /// Diagnostics: probe the fingerprint scanner with timing + detail.
+  /// Windows order: 1) DIRECT SDK via sgfplib.dll (no service needed — same
+  /// path as SecuGen's own utility), 2) WebAPI service, 3) report both.
   static Future<DeviceProbe> probeScanner() async {
     if (!Platform.isWindows) {
       return DeviceProbe(false,
           'No USB scanner driver on this platform yet — fingerprint runs in SIMULATION. Real Android USB-OTG support arrives with the SecuGen FDx SDK.');
     }
+    // 1) Direct SDK
+    final swd = Stopwatch()..start();
+    final direct = SgfpDirect.instance.probe();
+    swd.stop();
+    if (direct.$1) {
+      return DeviceProbe(true, direct.$2, latencyMs: swd.elapsedMilliseconds);
+    }
+    final directWhy = direct.$2;
+    // 2) WebAPI fallback
     final sw = Stopwatch()..start();
     final sg = SgibiosrvDriver();
     try {
@@ -92,32 +104,43 @@ abstract class BiometricDriver {
           if (ec != 0) extra = '\nDevice says: ${kSgiErrors[ec] ?? "ErrorCode $ec"}';
         }
         return DeviceProbe(true,
-            'SGIBIOSRV responding at ${AppConfig.sgibiosrvUrl} (HTTP $code) — real captures enabled.$extra',
+            'Direct SDK unavailable ($directWhy)\nFallback OK: SGIBIOSRV WebAPI at ${AppConfig.sgibiosrvUrl} (HTTP $code) — real captures enabled.$extra',
             latencyMs: sw.elapsedMilliseconds);
       }
       return DeviceProbe(false,
-          'Port 8443 answered but not like SGIBIOSRV.\nHTTP $code — response starts: "${body.replaceAll("\n", " ").substring(0, body.length > 180 ? 180 : body.length)}"\n'
-          'Send this text to support — it identifies exactly what is listening there.',
+          'Direct SDK: $directWhy\nWebAPI: port 8443 answered but not like SGIBIOSRV (HTTP $code) — response starts: "${body.replaceAll("\n", " ").substring(0, body.length > 180 ? 180 : body.length)}"',
           latencyMs: sw.elapsedMilliseconds);
     } catch (e) {
       sw.stop();
       return DeviceProbe(false,
-          'Cannot reach the SecuGen WebAPI (SGIBIOSRV) at ${AppConfig.sgibiosrvUrl}.\n'
-          'If the SecuGen diagnostic utility captures fine but this fails, the driver is OK — the WEBAPI SERVICE is missing or stopped: '
-          'install "SecuGen WebAPI" from secugen.com/download, start SGIBIOSRV in services.msc, then Retry.\n(${e.runtimeType})');
+          'Direct SDK: $directWhy\nWebAPI: nothing listening at ${AppConfig.sgibiosrvUrl}.\n'
+          'Fix the Direct SDK line above (usually: plug in the scanner / reinstall the FDx SDK) — the desktop app needs NO WebAPI service.');
     }
   }
 
   /// Enrollment capture for worker registration.
   /// Windows + SGIBIOSRV → REAL template from the connected scanner.
   /// Anywhere else (or service missing) → simulated template, clearly marked.
+  static String? lastEnrollError;
   static Future<EnrollCapture?> enrollCapture() async {
+    lastEnrollError = null;
     if (Platform.isWindows) {
+      // 1) Direct SDK — no service required.
+      if (SgfpDirect.instance.ensureReady() == null) {
+        final r = SgfpDirect.instance.captureTemplate();
+        if (r.template != null) {
+          return EnrollCapture(r.template!, r.quality, simulated: false);
+        }
+        lastEnrollError = r.error;
+        return null; // real device present — surface the error, let user retry
+      }
+      // 2) WebAPI fallback.
       final sg = SgibiosrvDriver();
       if (await sg.available()) {
         final r = await sg.captureForEnroll();
         if (r != null) return r;
-        return null; // real scanner present but capture failed — let user retry
+        lastEnrollError = sg.lastError;
+        return null;
       }
     }
     await Future.delayed(const Duration(milliseconds: 900));

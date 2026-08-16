@@ -1,7 +1,7 @@
 name: ams_client
 description: "TrueCrew — Every worker verified — Aadhaar + biometric attendance (offline-first)."
 publish_to: "none"
-version: 0.9.9+10
+version: 0.9.10+11
 
 environment:
   sdk: ^3.5.0
@@ -10,6 +10,7 @@ dependencies:
   flutter:
     sdk: flutter
   dio: ^5.4.0
+  ffi: ^2.1.0
   sqflite_common_ffi: ^2.3.0
   sqlite3_flutter_libs: ^0.5.20
   path_provider: ^2.1.2
