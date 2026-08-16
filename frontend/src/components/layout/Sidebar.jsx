@@ -82,7 +82,7 @@ export default function Sidebar({ open, onClose }) {
         <div className="h-16 flex items-center justify-between px-5 border-b border-gray-100">
           <div className="flex items-center gap-2">
             <Fingerprint className="w-7 h-7 text-brand-600" />
-            <span className="text-lg font-bold text-gray-900">Hazri</span>
+            <span className="text-lg font-bold text-gray-900">TrueCrew</span>
           </div>
           <button type="button" className="p-1 rounded lg:hidden" onClick={onClose} aria-label="Close">
             <X size={18} />

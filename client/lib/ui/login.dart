@@ -47,10 +47,10 @@ class _LoginScreenState extends State<LoginScreen> {
             children: [
               const Icon(Icons.fingerprint, size: 56, color: Color(0xFF10685A)),
               const SizedBox(height: 8),
-              Text('Hazri',
+              Text('TrueCrew',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.headlineMedium),
-              Text('Aadhaar-verified workforce attendance',
+              Text('Every worker verified — Aadhaar + biometric attendance',
                   textAlign: TextAlign.center,
                   style: Theme.of(context).textTheme.bodySmall),
               const SizedBox(height: 24),

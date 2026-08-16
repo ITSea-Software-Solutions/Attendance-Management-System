@@ -1,6 +1,6 @@
-# Hazri — Aadhaar-verified Workforce Attendance
+# TrueCrew — Every Worker Verified
 
-> Product name: **Hazri** (हाज़री — "attendance"). Internal/technical codename remains **AMS** (repo, containers `ams_*`, API paths) — do not rename infrastructure.
+> Product name: **TrueCrew** (हाज़री — "attendance"). Internal/technical codename remains **AMS** (repo, containers `ams_*`, API paths) — do not rename infrastructure.
 
 Enterprise-grade multi-company, multi-vendor labor registration and biometric attendance system built on Laravel + React.
 
