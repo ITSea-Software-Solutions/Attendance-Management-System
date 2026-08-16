@@ -46,6 +46,7 @@ const NAV = [
     label: "Resources",
     items: [
       { to: "/downloads", icon: DownloadIcon, label: "Downloads", roles: ["all"] },
+      { to: "/settings/templates", icon: Settings, label: "Templates", roles: ["super_admin", "company_admin", "vendor_admin"] },
       { to: "/billing", icon: CreditCard, label: "Plan & Billing", roles: ["company_admin", "vendor_admin"] },
       { to: "/subscriptions", icon: CreditCard, label: "Subscriptions", roles: ["super_admin"] },
     ],

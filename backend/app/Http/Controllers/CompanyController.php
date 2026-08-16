@@ -129,18 +129,23 @@ class CompanyController extends Controller
             'rejection_reason' => null,
         ]);
 
-        try {
-            $emails = array_filter(array_unique(array_merge(
-                [$vendor->contact_email],
-                \App\Models\User::where('vendor_id', $vendor->id)->where('role', 'vendor_admin')->pluck('email')->all()
-            )));
-            foreach ($emails as $to) {
-                \Illuminate\Support\Facades\Mail::raw(
-                    "Good news!\n\nYour vendor organisation \"{$vendor->name}\" has been APPROVED by {$company->name} on TrueCrew.\nYou can now deploy workers to their sites.\n\nSign in: " . rtrim(config('app.url'), '/'),
-                    fn ($m) => $m->to($to)->subject("TrueCrew — approved by {$company->name}")
-                );
-            }
-        } catch (\Throwable $e) { report($e); }
+        // Notify the vendor: in-app rows for their users + templated emails.
+        $notify = app(\App\Services\NotifyService::class);
+        $vendorUsers = \App\Models\User::where('vendor_id', $vendor->id)->get();
+        $notify->inApp($vendorUsers, 'vendor_approved',
+            "{$company->name} approved your access",
+            'You can now deploy workers to their sites.',
+            ['company_id' => $company->id]);
+        $emails = array_filter(array_unique(array_merge(
+            [$vendor->contact_email],
+            $vendorUsers->where('role', 'vendor_admin')->pluck('email')->all()
+        )));
+        foreach ($emails as $to) {
+            $notify->email($to, 'vendor_approved', [
+                'vendor_name'  => $vendor->name,
+                'company_name' => $company->name,
+            ], 'company', $company->id, $vendor->plan ?? 'trial');
+        }
 
         $this->audit->log($request->user()->id, 'vendor_approved', Vendor::class, $vendor->id, [
             'company_id' => $company->id,
@@ -161,6 +166,19 @@ class CompanyController extends Controller
             'status'           => 'rejected',
             'rejection_reason' => $data['reason'],
         ]);
+
+        $notify = app(\App\Services\NotifyService::class);
+        $vendorUsers = \App\Models\User::where('vendor_id', $vendor->id)->get();
+        $notify->inApp($vendorUsers, 'vendor_rejected',
+            "{$company->name} declined your access request",
+            "Reason: {$data['reason']}", ['company_id' => $company->id]);
+        if ($vendor->contact_email) {
+            $notify->email($vendor->contact_email, 'vendor_rejected', [
+                'vendor_name'  => $vendor->name,
+                'company_name' => $company->name,
+                'reason'       => $data['reason'],
+            ], 'company', $company->id, $vendor->plan ?? 'trial');
+        }
 
         $this->audit->log($request->user()->id, 'vendor_rejected', Vendor::class, $vendor->id, [
             'company_id' => $company->id,

@@ -666,6 +666,31 @@ class AttendanceController extends Controller
             'location_name' => $locationName,
         ]);
 
+        // WhatsApp IN/OUT ping to the vendor contact + the worker's own number.
+        // Triple-gated inside NotifyService: provider creds set + Enterprise
+        // plan + the vendor toggled it on. Best-effort, never blocks the mark.
+        try {
+            $worker = \App\Models\Worker::with('vendor')->find($data['worker_id']);
+            $company = \App\Models\Company::find($data['company_id']);
+            if ($worker && $worker->vendor) {
+                $vars = [
+                    'worker_name'  => $worker->name,
+                    'type'         => $data['type'],
+                    'time'         => now()->format('d M H:i'),
+                    'company_name' => $company?->name ?? '',
+                    'gate'         => $locationName,
+                ];
+                $notify   = app(\App\Services\NotifyService::class);
+                $vSettings = (array) ($worker->vendor->settings ?? []);
+                $notify->whatsapp($worker->vendor->contact_phone, 'attendance_inout', $vars,
+                    'vendor', $worker->vendor->id, $worker->vendor->plan ?? 'trial', $vSettings);
+                $notify->whatsapp($worker->mobile ?: $worker->phone, 'attendance_inout', $vars,
+                    'vendor', $worker->vendor->id, $worker->vendor->plan ?? 'trial', $vSettings);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
         return response()->json([
             'message' => "Attendance {$data['type']} marked at {$locationName}.",
             'log'     => $log->load('worker:id,name'),

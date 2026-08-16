@@ -33,6 +33,23 @@ class PlanService
         return config("plans.plans.$plan") ?? config('plans.plans.trial');
     }
 
+    /** Whether a plan includes a named feature (see config/plans.php). */
+    public static function hasFeature(string $plan, string $feature): bool
+    {
+        return in_array($feature, self::limits($plan)['features'] ?? [], true);
+    }
+
+    /** Feature check straight from a user (super admin has everything). */
+    public static function userHasFeature(User $user, string $feature): bool
+    {
+        $ctx = self::orgFor($user);
+        if (! $ctx) {
+            return true; // super admin
+        }
+
+        return self::hasFeature($ctx['org']->plan ?? 'trial', $feature);
+    }
+
     /** Current usage counters for an org. */
     public static function usage(string $type, int $orgId): array
     {

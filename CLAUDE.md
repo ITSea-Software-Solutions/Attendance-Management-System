@@ -194,6 +194,15 @@ GET  /api/attendance/worker-templates              ← for fingerprint matching 
 POST /api/attendance/mark
 GET  /api/attendance/exceptions
 GET  /api/attendance/export                        ← ?month=YYYY-MM&type=daily|monthly — CSV (UTF-8 BOM)
+GET  /api/notifications                            ← in-app center (60 latest + unread count)
+POST /api/notifications/read                       ← mark read {ids?}
+GET  /api/templates                                ← catalogue + effective values for caller scope
+POST /api/templates | /api/templates/reset         ← save/reset (super=global; org admins=override, Professional+)
+GET  /api/workers-export · POST /api/workers-import ← CSV bulk (Professional+)
+GET  /api/vendors-export                           ← CSV (Professional+)
+POST /api/workers/{id}/verify-step                 ← {step: email|phone} manual attest
+PUT  /api/vendors/{id}/settings                    ← {whatsapp_enabled} (Enterprise)
+POST /api/aadhaar/face-verify                      ← Aadhaar-PDF photo vs live photo (ArcFace, advisory)
 GET  /api/attendance/printable                     ← ?month= — print-ready HTML month report
 
 POST /api/auth/forgot-password                     ← PUBLIC, throttle:signup; dev_reset_url only when mailer=log && debug
@@ -311,7 +320,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 
 ---
 
-## Feature Status (as of 2026-08-16 — web v1.2.0, apps v0.9.12)
+## Feature Status (as of 2026-08-16 — web v1.3.0, apps v0.9.15)
 
 ### Implemented & Working
 - [x] Multi-company, multi-vendor architecture with pivot approval flow
@@ -351,6 +360,11 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] **v1.2: Email notifications (mailer-based)** — vendor approved (to vendor contact + admins), plan upgrade decided (to org contact); Mail::raw, currently mailer=log (add SMTP creds in .env for real sends)
 - [x] **App v0.9.14** — Android USB permission FIXED (Android 14 explicit-package PendingIntent + USB_DEVICE_ATTACHED device_filter → plug-in auto-grant); gate "verified" result card (animated check, worker photo, greeting); face attendance on WINDOWS too (camera_windows; ML Kit gate is Android-only, server re-verifies everywhere); in-app Aadhaar PDF import→extract→autofill (+PDF attaches on sync; masked-PDF manual last-4 match); vendor: worker detail w/ server stats + Deploy-to-company from app. Web FingerprintTest page REMOVED (apps own biometrics)
 - [x] **App v0.9.12** — Windows scanner: multi-path sgfplib.dll discovery (exe dir → System32 → all C:\Program Files\SecuGen folders), SetDllDirectoryW for companion DLLs, 32/64-bit mismatch detection, diagnostics show which DLL loaded
+- [x] **v1.3: Notification suite** — `notification_templates` (global + org overrides, `TemplateService`, 9 seeded keys), in-app center (`notifications_inapp`, bell w/ unread badge, GET/POST /notifications), `NotifyService` fan-out (in-app all plans; email Professional+; WhatsApp Enterprise via Meta Cloud API — needs WHATSAPP_TOKEN/WHATSAPP_PHONE_ID), events wired: vendor approve/reject, plan decide, user welcome, worker registered, missing-OUT daily digest (`truecrew:missing-out-alerts`, scheduled 21:00 IST)
+- [x] **v1.3: Plan feature flags** — `features` arrays in config/plans.php + `PlanService::hasFeature/userHasFeature`; feature chips on plan cards; enforced server-side
+- [x] **v1.3: Bulk import/export** — GET /workers-export, POST /workers-import (CSV: name,aadhaar_number,dob,gender,phone,email; per-row report, hash dedup, plan limits), GET /vendors-export (Professional+)
+- [x] **v1.3: Worker verification steps** — workers.email + email/phone_verified_at, POST /workers/{id}/verify-step (manual attest until OTP provider), verification panel on WorkerDetail; vendors.settings json + PUT /vendors/{id}/settings (whatsapp_enabled, Enterprise)
+- [x] **App v0.9.15** — Aadhaar photo extracted from PDF + live-photo identity match (POST /aadhaar/face-verify, advisory), registration checklist UI; v0.9.14: gate verified card, in-app PDF import, vendor deploy/stats, Android USB permission fix, Windows Face tab
 - [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation
 

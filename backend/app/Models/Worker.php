@@ -33,6 +33,7 @@ class Worker extends Model
         'pin',
         'phone',
         'mobile',
+        'email',
         'aadhaar_number_masked',
         'aadhaar_data_extracted',
         'notes',
@@ -52,6 +53,8 @@ class Worker extends Model
         'fingerprint_enrolled_at' => 'datetime',
         'face_descriptor'         => 'array',
         'face_enrolled_at'        => 'datetime',
+        'email_verified_at'       => 'datetime',
+        'phone_verified_at'       => 'datetime',
     ];
 
     // ─── Relationships ─────────────────────────────────────────────────────────

@@ -50,6 +50,7 @@ export default function PlanBilling() {
   if (isLoading) return <div className="text-gray-400 p-8">Loading…</div>;
   const org = data?.org;
   const plans = data?.plans ?? {};
+  const featureLabels = data?.feature_labels ?? {};
   const pending = data?.pending_request;
   if (!org) return <div className="p-8 text-gray-500">Super admin manages plans on the Subscriptions page.</div>;
 
@@ -99,6 +100,9 @@ export default function PlanBilling() {
                 <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> {fmt(p.workers)} workers</li>
                 <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> {fmt(p.links)} company–vendor links</li>
                 <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> {p.support}</li>
+                {(p.features ?? []).map((f) => (
+                  <li key={f} className="flex gap-2 text-[13px]"><Check size={14} className="text-teal-500 shrink-0 mt-0.5" /> {featureLabels[f] ?? f}</li>
+                ))}
               </ul>
               {isUpgrade && !pending && (
                 <button className="btn-primary w-full justify-center mt-4"

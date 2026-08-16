@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/axios";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Search, Fingerprint, Download, FileText } from "lucide-react";
+import { Plus, Search, Fingerprint, Download, FileText, Upload } from "lucide-react";
 import toast from "react-hot-toast";
 
 const STATUS_BADGE = {
@@ -64,6 +64,41 @@ export default function WorkerList() {
     onError:    () => toast.error("Failed to deactivate worker."),
   });
 
+  const exportCsv = async () => {
+    try {
+      const r = await api.get("/workers-export", { responseType: "blob" });
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = `truecrew-workers-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(e.response?.status === 403
+        ? "Bulk export is a Professional/Enterprise feature — see Plan & Billing."
+        : "Export failed.");
+    }
+  };
+
+  const importCsv = async (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    const fd = new FormData();
+    fd.append("file", file);
+    try {
+      const r = await api.post("/workers-import", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      const errs = r.data.errors ?? [];
+      toast.success(r.data.message, { duration: 6000 });
+      if (errs.length) toast(errs.slice(0, 3).join("\n"), { duration: 8000, icon: "⚠️" });
+      queryClient.invalidateQueries(["workers"]);
+    } catch (err) {
+      toast.error(err.response?.data?.message
+        ?? (err.response?.status === 403
+          ? "Bulk import is a Professional/Enterprise feature — see Plan & Billing."
+          : "Import failed — check the CSV format."));
+    }
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -71,12 +106,23 @@ export default function WorkerList() {
           <h1 className="text-2xl font-bold text-gray-900">Workers</h1>
           <p className="text-gray-500 text-sm mt-0.5">Registered labor / workers</p>
         </div>
-        {canRegister && (
-          <Link to="/workers/register" className="btn-primary">
-            <Plus size={16} />
-            Register Worker
-          </Link>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button className="btn-secondary text-sm" onClick={exportCsv} title="Professional+ feature">
+            <Download size={14} /> Export CSV
+          </button>
+          {canRegister && (
+            <>
+              <label className="btn-secondary text-sm cursor-pointer" title="CSV columns: name, aadhaar_number, dob, gender, phone, email — Professional+ feature">
+                <Upload size={14} /> Import CSV
+                <input type="file" accept=".csv" className="hidden" onChange={importCsv} />
+              </label>
+              <Link to="/workers/register" className="btn-primary">
+                <Plus size={16} />
+                Register Worker
+              </Link>
+            </>
+          )}
+        </div>
       </div>
 
       {/* Deployment tabs */}

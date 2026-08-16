@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\CompanyController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\VendorController;
 use App\Http\Controllers\WorkerController;
 use App\Http\Controllers\WorkerAssignmentController;
@@ -66,11 +67,25 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('vendors/{vendor}/companies', [VendorController::class, 'myCompanies']);
     Route::get('vendors/{vendor}/available-companies', [VendorController::class, 'availableCompanies']);
 
+    // ── Bulk import/export + org settings (plan-gated: bulk_import_export) ───
+    Route::get('workers-export',  [WorkerController::class, 'export']);
+    Route::post('workers-import', [WorkerController::class, 'import']);
+    Route::get('vendors-export',  [VendorController::class, 'export']);
+    Route::put('vendors/{vendor}/settings', [VendorController::class, 'saveSettings']);
+
+    // ── Notification center + editable templates ─────────────────────────────
+    Route::get('notifications',       [NotificationController::class, 'index']);
+    Route::post('notifications/read', [NotificationController::class, 'markRead']);
+    Route::get('templates',           [NotificationController::class, 'templates']);
+    Route::post('templates',          [NotificationController::class, 'saveTemplate']);
+    Route::post('templates/reset',    [NotificationController::class, 'resetTemplate']);
+
     // ── Workers ───────────────────────────────────────────────────────────────
     Route::apiResource('workers', WorkerController::class);
     Route::prefix('workers/{worker}')->group(function () {
         Route::get('stats',          [WorkerController::class, 'stats']);
         Route::get('photo',          [WorkerController::class, 'servePhoto'])->name('worker.photo');
+        Route::post('verify-step',   [WorkerController::class, 'verifyStep']);
         Route::post('fingerprint',   [WorkerController::class, 'storeFingerprint']);
         Route::delete('fingerprint', [WorkerController::class, 'deleteFingerprint']);
         Route::post('photo',         [WorkerController::class, 'uploadPhoto']);

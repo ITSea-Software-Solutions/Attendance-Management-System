@@ -195,11 +195,33 @@ export default function VendorList() {
             {isCompanyUser ? "Vendors associated with your company" : "Registered vendor companies"}
           </p>
         </div>
-        {(isSuperAdmin || user?.role === "company_admin") && (
-          <button className="btn-primary" onClick={() => { setShowCreate(true); setForm(VENDOR_INIT); setAdmin(ADMIN_INIT); }}>
-            <Plus size={16} /> Add Vendor
+        <div className="flex items-center gap-2">
+          <button
+            className="btn-secondary text-sm"
+            title="Professional+ feature"
+            onClick={async () => {
+              try {
+                const r = await api.get("/vendors-export", { responseType: "blob" });
+                const url = URL.createObjectURL(r.data);
+                const a = document.createElement("a");
+                a.href = url; a.download = `truecrew-vendors-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+              } catch (e) {
+                toast.error(e.response?.status === 403
+                  ? "Bulk export is a Professional/Enterprise feature — see Plan & Billing."
+                  : "Export failed.");
+              }
+            }}
+          >
+            <Download size={14} /> Export CSV
           </button>
-        )}
+          {(isSuperAdmin || user?.role === "company_admin") && (
+            <button className="btn-primary" onClick={() => { setShowCreate(true); setForm(VENDOR_INIT); setAdmin(ADMIN_INIT); }}>
+              <Plus size={16} /> Add Vendor
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Status tabs — company users only */}

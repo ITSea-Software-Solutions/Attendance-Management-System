@@ -67,6 +67,7 @@ class UserController extends Controller
                 $data['is_active'] = true;
                 $user = User::create($data);
                 $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+            $this->sendWelcome($user);
                 return response()->json($user, 201);
             }
 
@@ -86,6 +87,7 @@ class UserController extends Controller
             $data['is_active']  = true;
             $user = User::create($data);
             $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+            $this->sendWelcome($user);
             return response()->json($user, 201);
         }
 
@@ -104,6 +106,7 @@ class UserController extends Controller
             $data['is_active'] = true;
             $user = User::create($data);
             $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+            $this->sendWelcome($user);
             return response()->json($user, 201);
         }
 
@@ -135,6 +138,7 @@ class UserController extends Controller
         $user = User::create($data);
 
         $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+            $this->sendWelcome($user);
 
         return response()->json($user, 201);
     }
@@ -230,5 +234,21 @@ class UserController extends Controller
         $this->audit->log($auth->id, 'user_deleted', User::class, $user->id);
 
         return response()->json(['message' => 'User deleted.']);
+    }
+
+    /** Templated welcome mail + in-app hello for a freshly created login. */
+    private function sendWelcome(User $user): void
+    {
+        $notify = app(\App\Services\NotifyService::class);
+        $notify->inApp([$user], 'welcome', 'Welcome to TrueCrew!',
+            'Your login is ready — explore your dashboard to get started.');
+        $ctx = \App\Services\PlanService::orgFor($user);
+        $notify->email($user->email, 'welcome_user', [
+            'name'      => $user->name,
+            'email'     => $user->email,
+            'role'      => $user->role,
+            'login_url' => rtrim(config('app.url'), '/'),
+            'org_name'  => $ctx ? $ctx['org']->name : 'TrueCrew',
+        ], $ctx['type'] ?? null, $ctx ? $ctx['org']->id : null, $ctx ? ($ctx['org']->plan ?? 'trial') : null);
     }
 }

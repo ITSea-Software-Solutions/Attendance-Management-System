@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
+import toast from "react-hot-toast";
 import {
   ArrowLeft, Calendar, LogIn, LogOut, MapPin, Building2,
   Fingerprint, User, Clock, ChevronDown,
@@ -70,7 +71,24 @@ export default function WorkerDetail() {
     }
   }, [data, companyId, companyOptions]);
 
-  const { worker, summary, monthly, deployments, recent_logs } = data ?? {};
+  const { worker: workerStats, summary, monthly, deployments, recent_logs } = data ?? {};
+
+  // Full record (verification fields, PDF flag) + manual verify actions.
+  const { data: workerFull, refetch: refetchWorker } = useQuery({
+    queryKey: ["worker-record", id],
+    queryFn:  () => api.get(`/workers/${id}`).then((r) => r.data),
+  });
+  const worker = workerFull ?? workerStats;
+  const canVerify = ["super_admin", "vendor_admin"].includes(user?.role);
+  const verifyStep = async (step) => {
+    try {
+      const r = await api.post(`/workers/${id}/verify-step`, { step });
+      toast.success(r.data.message);
+      refetchWorker();
+    } catch (e) {
+      toast.error(e.response?.data?.message ?? "Could not verify.");
+    }
+  };
 
   // Label shown above stats — company name for company users, selected company for vendors
   const scopeLabel = isCompanyUser
@@ -143,6 +161,41 @@ export default function WorkerDetail() {
           </div>
         )}
       </div>
+
+      {/* Verification steps — each identity check, at a glance */}
+      {worker && (
+        <div className="card">
+          <p className="text-sm font-semibold text-gray-800 mb-3">Verification steps</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { label: "Aadhaar", done: !!worker.aadhaar_number_masked, hint: worker.has_aadhaar_pdf ? "PDF on file" : "number verified" },
+              { label: "Fingerprint", done: !!worker.fingerprint_enrolled_at, hint: worker.fingerprint_enrolled_at ? "enrolled" : "pending" },
+              { label: "Face / photo", done: !!worker.face_enrolled_at, hint: worker.face_enrolled_at ? "enrolled" : "pending" },
+              { label: "Email", done: !!worker.email_verified_at, hint: worker.email ?? "no email", verifyStep: "email", can: !!worker.email && !worker.email_verified_at },
+              { label: "Phone", done: !!worker.phone_verified_at, hint: worker.phone ?? worker.mobile ?? "no phone", verifyStep: "phone", can: !!(worker.phone || worker.mobile) && !worker.phone_verified_at },
+            ].map((s) => (
+              <div key={s.label} className={`rounded-lg border p-3 ${s.done ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"}`}>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${s.done ? "bg-green-500" : "bg-gray-300"}`} />
+                  <span className="text-xs font-semibold text-gray-700">{s.label}</span>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1 truncate">{s.done ? "Verified" : s.hint}</p>
+                {canVerify && s.can && (
+                  <button
+                    className="text-[11px] text-brand-600 font-medium mt-1 underline"
+                    onClick={() => verifyStep(s.verifyStep)}
+                  >
+                    Mark verified
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-2">
+            Aadhaar, fingerprint and face verify through their own flows. Email/phone are attested manually for now — OTP verification activates with an SMS/WhatsApp provider (Enterprise).
+          </p>
+        </div>
+      )}
 
       {/* Scope bar */}
       <div className="flex items-center gap-3">

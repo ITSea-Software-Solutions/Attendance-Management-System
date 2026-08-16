@@ -21,6 +21,7 @@ import Signup from "@/pages/Signup";
 import ForgotPassword from "@/pages/ForgotPassword";
 import ResetPassword from "@/pages/ResetPassword";
 import PlanBilling from "@/pages/PlanBilling";
+import Templates from "@/pages/Templates";
 import Subscriptions from "@/pages/Subscriptions";
 
 function PrivateRoute({ children, roles }) {
@@ -47,6 +48,9 @@ export default function App() {
         <Route path="downloads" element={<Downloads />} />
         <Route path="billing" element={
           <PrivateRoute roles={["company_admin", "vendor_admin"]}><PlanBilling /></PrivateRoute>
+        } />
+        <Route path="settings/templates" element={
+          <PrivateRoute roles={["super_admin", "company_admin", "vendor_admin"]}><Templates /></PrivateRoute>
         } />
         <Route path="subscriptions" element={
           <PrivateRoute roles={["super_admin"]}><Subscriptions /></PrivateRoute>

@@ -219,7 +219,147 @@ class WorkerController extends Controller
             'worker_name' => $worker->name,
         ]);
 
+        // Notification center: tell the vendor org's admins (except the actor).
+        $admins = User::where('vendor_id', $worker->vendor_id)
+            ->where('role', 'vendor_admin')->where('id', '!=', $user->id)->get();
+        app(\App\Services\NotifyService::class)->inApp($admins, 'worker_registered',
+            "Worker registered: {$worker->name}",
+            "{$worker->aadhaar_number_masked} · status {$worker->status}",
+            ['worker_id' => $worker->id]);
+
         return response()->json($worker->load('vendor'), 201);
+    }
+
+    /**
+     * CSV export of the caller-visible workers (bulk_import_export feature).
+     */
+    public function export(Request $request)
+    {
+        $user = $request->user();
+        abort_unless(\App\Services\PlanService::userHasFeature($user, 'bulk_import_export'), 403,
+            'Bulk export is a Professional/Enterprise feature.');
+        $q = Worker::with('vendor');
+        if ($user->isVendorUser()) {
+            $q->where('vendor_id', $user->vendor_id);
+        } elseif ($user->isCompanyUser()) {
+            $q->whereHas('assignments', fn ($a) => $a->where('company_id', $user->company_id));
+        }
+        $rows = $q->orderBy('name')->get();
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // Excel-friendly BOM
+            fputcsv($out, ['Name', 'Aadhaar (masked)', 'DOB', 'Gender', 'Phone', 'Email', 'Vendor', 'Status', 'Fingerprint', 'Face', 'Email verified', 'Phone verified']);
+            foreach ($rows as $w) {
+                fputcsv($out, [
+                    $w->name, $w->aadhaar_number_masked,
+                    optional($w->dob)->format('Y-m-d'), $w->gender, $w->phone, $w->email,
+                    $w->vendor?->name, $w->status,
+                    $w->fingerprint_enrolled_at ? 'yes' : 'no',
+                    $w->face_enrolled_at ? 'yes' : 'no',
+                    $w->email_verified_at ? 'yes' : 'no',
+                    $w->phone_verified_at ? 'yes' : 'no',
+                ]);
+            }
+            fclose($out);
+        }, 'truecrew-workers-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /**
+     * CSV bulk import (vendor users). Columns: name, aadhaar_number(12),
+     * dob(YYYY-MM-DD), gender(M/F/O), phone, email — header row required.
+     * Workers land as PENDING (biometrics still happen in person); every row
+     * is validated and reported individually — one bad row never kills the file.
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isVendorUser() || $user->isSuperAdmin(), 403);
+        abort_unless(\App\Services\PlanService::userHasFeature($user, 'bulk_import_export'), 403,
+            'Bulk import is a Professional/Enterprise feature.');
+        $request->validate([
+            'file'      => 'required|file|mimes:csv,txt|max:2048',
+            'vendor_id' => $user->isSuperAdmin() ? 'required|integer|exists:vendors,id' : 'nullable',
+        ]);
+        $vendorId = $user->isVendorUser() ? $user->vendor_id : (int) $request->input('vendor_id');
+
+        $fh = fopen($request->file('file')->getRealPath(), 'r');
+        $header = array_map(fn ($h) => strtolower(trim((string) $h)), fgetcsv($fh) ?: []);
+        $idx = fn (string $col) => array_search($col, $header, true);
+        if ($idx('name') === false || $idx('aadhaar_number') === false) {
+            return response()->json(['message' => 'CSV must have header columns: name, aadhaar_number (plus optional dob, gender, phone, email).'], 422);
+        }
+
+        $created = 0;
+        $errors = [];
+        $line = 1;
+        while (($row = fgetcsv($fh)) !== false) {
+            $line++;
+            $name = trim((string) ($row[$idx('name')] ?? ''));
+            $aadhaar = preg_replace('/\D+/', '', (string) ($row[$idx('aadhaar_number')] ?? ''));
+            if ($name === '' && $aadhaar === '') {
+                continue; // blank line
+            }
+            if ($name === '' || strlen($aadhaar) !== 12) {
+                $errors[] = "line {$line}: name and a 12-digit aadhaar_number are required";
+                continue;
+            }
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $vendorId), 'workers')) {
+                $errors[] = "line {$line}: {$deny['message']}";
+                break; // limit reached — no point continuing
+            }
+            $resolved = $this->resolveAadhaar(['aadhaar_number' => $aadhaar]);
+            if ($resolved instanceof JsonResponse) {
+                $errors[] = "line {$line}: duplicate or invalid Aadhaar";
+                continue;
+            }
+            [$masked, $hash] = $resolved;
+            $g = strtoupper(substr(trim((string) ($idx('gender') !== false ? ($row[$idx('gender')] ?? '') : '')), 0, 1));
+            $worker = new Worker([
+                'vendor_id' => $vendorId,
+                'name'      => $name,
+                'dob'       => $idx('dob') !== false ? (trim((string) ($row[$idx('dob')] ?? '')) ?: null) : null,
+                'gender'    => in_array($g, ['M', 'F', 'O'], true) ? $g : null,
+                'phone'     => $idx('phone') !== false ? (trim((string) ($row[$idx('phone')] ?? '')) ?: null) : null,
+                'email'     => $idx('email') !== false ? (trim((string) ($row[$idx('email')] ?? '')) ?: null) : null,
+                'aadhaar_number_masked' => $masked,
+            ]);
+            $worker->forceFill([
+                'aadhaar_hash'         => $hash,
+                'consent_confirmed_at' => now(), // importer attests consent for the batch
+                'status'               => Worker::STATUS_PENDING,
+                'registered_by'        => $user->id,
+            ])->save();
+            $created++;
+        }
+        fclose($fh);
+        $this->audit->log($user->id, 'workers_imported', Worker::class, null, [
+            'created' => $created, 'errors' => count($errors),
+        ]);
+
+        return response()->json([
+            'message' => "{$created} worker(s) imported".(count($errors) ? ', '.count($errors).' row(s) skipped' : '.'),
+            'created' => $created,
+            'errors'  => array_slice($errors, 0, 50),
+        ]);
+    }
+
+    /**
+     * Manual verification steps (until OTP providers are wired): mark the
+     * worker's email/phone as verified by the vendor. Aadhaar/fingerprint/
+     * face steps are set by their own flows.
+     */
+    public function verifyStep(Request $request, Worker $worker): JsonResponse
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        $data = $request->validate(['step' => 'required|in:email,phone']);
+        abort_if($data['step'] === 'email' && ! $worker->email, 422, 'Worker has no email on record.');
+        abort_if($data['step'] === 'phone' && ! ($worker->phone || $worker->mobile), 422, 'Worker has no phone on record.');
+
+        $worker->forceFill([$data['step'].'_verified_at' => now()])->save();
+        $this->audit->log($request->user()->id, "worker_{$data['step']}_verified", Worker::class, $worker->id);
+
+        return response()->json(['message' => ucfirst($data['step']).' marked verified.', 'worker' => $worker->fresh()]);
     }
 
     /**

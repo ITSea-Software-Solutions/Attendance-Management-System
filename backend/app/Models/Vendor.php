@@ -10,6 +10,8 @@ class Vendor extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $casts = ['settings' => 'array'];
+
     protected $fillable = [
         'name',
         'code',

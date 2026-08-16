@@ -13,5 +13,8 @@ Artisan::command('inspire', function () {
 // Mark open assignments as completed at end of day
 Schedule::command('attendance:close-day')->dailyAt('23:59');
 
+// Daily missing-OUT digest to company admins (in-app; email on Professional+).
+Schedule::command('truecrew:missing-out-alerts')->dailyAt('21:00')->timezone('Asia/Kolkata');
+
 // Prune audit logs older than 1 year
 Schedule::command('audit:prune --days=365')->monthly();

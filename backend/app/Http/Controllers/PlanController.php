@@ -30,7 +30,7 @@ class PlanController extends Controller
     {
         $ctx = PlanService::orgFor($request->user());
         if (! $ctx) { // super admin has no org/plan
-            return response()->json(['plans' => config('plans.plans'), 'org' => null]);
+            return response()->json(['plans' => config('plans.plans'), 'feature_labels' => config('plans.feature_labels'), 'org' => null]);
         }
         $org = $ctx['org'];
         $pending = PlanUpgradeRequest::where('org_type', $ctx['type'])
@@ -47,6 +47,7 @@ class PlanController extends Controller
             ],
             'pending_request' => $pending,
             'plans'           => config('plans.plans'),
+            'feature_labels'  => config('plans.feature_labels'),
         ]);
     }
 
@@ -116,7 +117,7 @@ class PlanController extends Controller
         $pending = PlanUpgradeRequest::with('requester:id,name,email')
             ->where('status', 'pending')->orderBy('created_at')->get();
 
-        return response()->json(['orgs' => $rows, 'pending_requests' => $pending, 'plans' => config('plans.plans')]);
+        return response()->json(['orgs' => $rows, 'pending_requests' => $pending, 'plans' => config('plans.plans'), 'feature_labels' => config('plans.feature_labels')]);
     }
 
     /** Directly set any org's plan (enrolment / after offline payment). */
@@ -164,18 +165,24 @@ class PlanController extends Controller
                 'plan_started_at' => now(),
             ])->save();
         }
-        try {
-            $org = $planRequest->org();
-            if ($org && $org->contact_email) {
-                $approved = $data['action'] === 'approve';
-                \Illuminate\Support\Facades\Mail::raw(
-                    $approved
-                        ? "Your TrueCrew plan upgrade to {$planRequest->requested_plan} is ACTIVE. Thank you!"
-                        : "Your TrueCrew plan upgrade request to {$planRequest->requested_plan} was declined. Reply to this email or contact support for details.",
-                    fn ($m) => $m->to($org->contact_email)->subject('TrueCrew — plan upgrade ' . ($approved ? 'activated' : 'declined'))
-                );
+        $org = $planRequest->org();
+        if ($org) {
+            $approved = $data['action'] === 'approve';
+            $notify = app(\App\Services\NotifyService::class);
+            $orgUsers = $planRequest->org_type === 'company'
+                ? \App\Models\User::where('company_id', $org->id)->get()
+                : \App\Models\User::where('vendor_id', $org->id)->get();
+            $notify->inApp($orgUsers->where('role', '!=', 'company_gate'),
+                $approved ? 'plan_approved' : 'plan_declined',
+                $approved ? "Plan upgrade to {$planRequest->requested_plan} is ACTIVE"
+                          : "Plan upgrade to {$planRequest->requested_plan} was declined");
+            if ($org->contact_email) {
+                $notify->email($org->contact_email,
+                    $approved ? 'plan_approved' : 'plan_declined',
+                    ['plan' => $planRequest->requested_plan, 'org_name' => $org->name],
+                    $planRequest->org_type, $org->id, $org->plan ?? 'trial');
             }
-        } catch (\Throwable $e) { report($e); }
+        }
 
         $this->audit->log($request->user()->id, "plan_request_{$data['action']}", PlanUpgradeRequest::class, $planRequest->id);
 

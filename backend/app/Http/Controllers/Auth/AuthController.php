@@ -116,10 +116,14 @@ class AuthController extends Controller
                . '/reset-password?token=' . $token . '&email=' . urlencode($user->email);
 
         try {
-            \Illuminate\Support\Facades\Mail::raw(
-                "Hello {$user->name},\n\nReset your TrueCrew password using this link (valid 60 minutes):\n{$url}\n\nIf you didn't request this, ignore this email.",
-                fn ($m) => $m->to($user->email)->subject('TrueCrew — password reset')
-            );
+            // Templated (editable on the Templates page); reset mail is a
+            // core account flow so it is NOT plan-gated.
+            $r = app(\App\Services\TemplateService::class)->render('forgot_password', [
+                'email'     => $user->email,
+                'reset_url' => $url,
+            ]);
+            \Illuminate\Support\Facades\Mail::raw($r['body'],
+                fn ($m) => $m->to($user->email)->subject($r['subject'] ?? 'TrueCrew — password reset'));
         } catch (\Throwable $e) {
             report($e);
         }

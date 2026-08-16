@@ -57,7 +57,7 @@ registration + biometric attendance SaaS.
    x64 DLLs in `client/windows/` packaging + CI zip → fully self-contained
    (only the USB driver remains a per-machine install; consider shipping the
    driver installer inside the zip too).
-3. SMTP creds on droplet (`MAIL_MAILER` etc. in backend/.env) → real reset
+3. SMTP creds on droplet (now powers ALL templated notifications) + WhatsApp Business API creds (WHATSAPP_TOKEN, WHATSAPP_PHONE_ID in backend/.env) → activates Enterprise WhatsApp IN/OUT pings + future OTP steps (`MAIL_MAILER` etc. in backend/.env) → real reset
    emails + notifications.
 4. Domain + HTTPS (runbook: `docs/HTTPS_SETUP.md`), ToS/Privacy placeholders
    (`[LEGAL ENTITY NAME]`, grievance email in `frontend/public/terms.html`,
