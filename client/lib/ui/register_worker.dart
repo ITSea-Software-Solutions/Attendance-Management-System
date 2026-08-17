@@ -353,7 +353,9 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
       appBar: AppBar(title: const Text('Register worker')),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 460),
+          constraints: BoxConstraints(
+              maxWidth:
+                  MediaQuery.of(context).size.width >= 840 ? 680 : 460),
           child: ListView(
             padding: const EdgeInsets.all(20),
             children: [

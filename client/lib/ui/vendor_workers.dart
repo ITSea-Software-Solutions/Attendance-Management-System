@@ -17,7 +17,10 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
   Widget build(BuildContext context) {
     final app = AppScope.of(context);
     return Scaffold(
-      body: Column(
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 960),
+          child: Column(
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
@@ -71,6 +74,8 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
             ),
           ),
         ],
+          ),
+        ),
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () async {

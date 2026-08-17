@@ -71,7 +71,9 @@ class _DiagnosticsScreenState extends State<DiagnosticsScreen> {
       appBar: AppBar(title: const Text('Diagnostics')),
       body: Center(
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 520),
+          constraints: BoxConstraints(
+              maxWidth:
+                  MediaQuery.of(context).size.width >= 840 ? 680 : 520),
           child: ListView(
             padding: const EdgeInsets.all(16),
             children: [

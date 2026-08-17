@@ -41,6 +41,9 @@ class _HomeScreenState extends State<HomeScreen> {
       (label: 'Activity', icon: Icons.receipt_long, body: const _ActivityScreen()),
     ];
     final tab = _tab.clamp(0, tabs.length - 1);
+    // Desktop-responsive shell: side rail on wide windows (Windows/tablets),
+    // phone-style bottom bar otherwise.
+    final wide = MediaQuery.of(context).size.width >= 840;
 
     return Scaffold(
       appBar: AppBar(
@@ -112,15 +115,35 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: tabs[tab].body,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: [
-          for (final t in tabs)
-            NavigationDestination(icon: Icon(t.icon), label: t.label),
-        ],
-      ),
+      body: wide
+          ? Row(children: [
+              NavigationRail(
+                selectedIndex: tab,
+                onDestinationSelected: (i) => setState(() => _tab = i),
+                extended: MediaQuery.of(context).size.width >= 1150,
+                labelType: MediaQuery.of(context).size.width >= 1150
+                    ? NavigationRailLabelType.none
+                    : NavigationRailLabelType.all,
+                destinations: [
+                  for (final t in tabs)
+                    NavigationRailDestination(
+                        icon: Icon(t.icon), label: Text(t.label)),
+                ],
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(child: tabs[tab].body),
+            ])
+          : tabs[tab].body,
+      bottomNavigationBar: wide
+          ? null
+          : NavigationBar(
+              selectedIndex: tab,
+              onDestinationSelected: (i) => setState(() => _tab = i),
+              destinations: [
+                for (final t in tabs)
+                  NavigationDestination(icon: Icon(t.icon), label: t.label),
+              ],
+            ),
     );
   }
 
