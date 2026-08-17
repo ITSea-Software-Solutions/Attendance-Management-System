@@ -47,7 +47,14 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.24</span> Always fresh <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.25</span> Scanner session hardening <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Fixed: "Capture failed (SDK code 2)" after gate matching.</b> Old demo workers carry simulated fingerprints; feeding those into the real matcher could sour the scanner session. Simulated/invalid templates are now filtered out before matching, and the scanner session auto-recovers (re-initialises and retries once) if it ever degrades.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.24</span> Always fresh <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Automatic background sync every ~90 seconds</b> while online — newly approved deployments, fingerprints and photos reach every gate device without anyone tapping the sync chip.</li>
       <li>Supports the new HR role (HR signs into the portal to approve; devices pick the results up automatically).</li>

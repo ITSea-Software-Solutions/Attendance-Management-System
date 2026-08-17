@@ -226,7 +226,26 @@ class SgfpDirect {
     );
   }
 
+  /// Tear the SDK session down and bring it back up — recovers the device
+  /// after a native call left it in a bad state (generic error code 2).
+  void _recoverSession() {
+    try { dispose(); } catch (_) {}
+    try { ensureReady(); } catch (_) {}
+  }
+
   ({String? template, int quality, String? error}) captureTemplate(
+      {int timeoutMs = 10000}) {
+    var r = _captureOnce(timeoutMs: timeoutMs);
+    // Code 2 = generic function failure — usually a soured session (e.g.
+    // after a bad match input or a USB hiccup). Re-init once and retry.
+    if (r.error != null && r.error!.contains('SDK code 2')) {
+      _recoverSession();
+      r = _captureOnce(timeoutMs: timeoutMs);
+    }
+    return r;
+  }
+
+  ({String? template, int quality, String? error}) _captureOnce(
       {int timeoutMs = 10000}) {
     final err = ensureReady();
     if (err != null) return (template: null, quality: 0, error: err);
@@ -281,6 +300,10 @@ class SgfpDirect {
   /// 1:1 match score between two base64 ISO templates (0–199; same scale as
   /// the web gate, which accepts ≥ 40). Returns -1 on any SDK failure.
   int matchScore(String liveB64, String storedB64) {
+    // NEVER hand non-template bytes to the native matcher: old demo workers
+    // carry SIMULATED templates ('SIMFMD:' prefix) and truncated data can
+    // sour the whole device session (subsequent captures fail with code 2).
+    if (storedB64.startsWith('U0lNRk1EOg') || storedB64.length < 80) return -1;
     final err = ensureReady();
     if (err != null) return -1;
     Pointer<Uint8>? p1, p2;
@@ -288,12 +311,16 @@ class SgfpDirect {
     try {
       final b1 = base64Decode(liveB64);
       final b2 = base64Decode(storedB64);
+      if (b2.length < 60) return -1; // too small to be a real ISO template
       p1 = calloc<Uint8>(b1.length);
       p2 = calloc<Uint8>(b2.length);
       p1.asTypedList(b1.length).setAll(0, b1);
       p2.asTypedList(b2.length).setAll(0, b2);
       final rc = _getMatchingScore(_h, p1, p2, score);
-      if (rc != 0) return -1;
+      if (rc != 0) {
+        if (rc == 2) _recoverSession(); // keep later captures healthy
+        return -1;
+      }
       return score.value;
     } catch (_) {
       return -1;

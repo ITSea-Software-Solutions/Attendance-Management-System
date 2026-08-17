@@ -314,7 +314,7 @@ class SgibiosrvDriver implements BiometricDriver {
     var bestScore = -1;
     for (final w in candidates) {
       final stored = w['fingerprint_template'] as String?;
-      if (stored == null || stored.isEmpty) continue;
+      if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
       try {
         final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIMatchScore',
             data: 'template1=${Uri.encodeComponent(live)}'
@@ -350,7 +350,8 @@ class SgfpDirectDriver implements BiometricDriver {
     var bestScore = -1;
     for (final w in candidates) {
       final stored = w['fingerprint_template'] as String?;
-      if (stored == null || stored.isEmpty) continue;
+      // Skip missing/simulated/garbage templates — only real enrollments match.
+      if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
       final score = SgfpDirect.instance.matchScore(live, stored);
       if (score > bestScore) {
         bestScore = score;
@@ -393,7 +394,7 @@ class AndroidSgDriver implements BiometricDriver {
       var bestScore = -1;
       for (final w in candidates) {
         final stored = w['fingerprint_template'] as String?;
-        if (stored == null || stored.isEmpty) continue;
+        if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
         try {
           final m = Map<String, dynamic>.from(await _ch.invokeMethod(
               'matchScore', {'t1': live, 't2': stored}) as Map);
