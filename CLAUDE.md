@@ -323,7 +323,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 
 ---
 
-## Feature Status (as of 2026-08-16 — web v1.3.0, apps v0.9.15)
+## Feature Status (as of 2026-08-17 — web v1.6.1, apps v0.9.27)
 
 ### Implemented & Working
 - [x] Multi-company, multi-vendor architecture with pivot approval flow
@@ -370,6 +370,11 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] **App v0.9.15** — Aadhaar photo extracted from PDF + live-photo identity match (POST /aadhaar/face-verify, advisory), registration checklist UI; v0.9.14: gate verified card, in-app PDF import, vendor deploy/stats, Android USB permission fix, Windows Face tab
 - [x] **v1.3.1** — in-portal What's New page (/whats-new, iframes /release-notes.html — single source), public GET /plans-public (Signup fetches real catalogue + feature chips), weekly attendance summary email (`truecrew:weekly-report`, Mondays 08:00 IST, Enterprise `weekly_reports`), base feature chips (face/offline/exports) listed on all plans
 - [x] **v1.4.0 + app v0.9.21: deployment approvals & gate permissions** — companies.settings.require_deployment_approval; worker_assignments approval_status/allowed_locations; endpoints assignments-pending/-approve (bulk + gates multi-select), assignments/{id}/reject, companies/{id}/locations, PUT companies/{id}/settings; enforced in mark validation + sync push + all candidate queries + app deployedWorkers(); WorkerAssign page has HR approvals panel (company_admin route access)
+- [x] **v1.5 + app v0.9.24: company_hr role** (approvals + manual OUT only; users.role ENUM migration 028), preset departments (config/departments.php, Main Gate default-selected), 90s app auto-sync
+- [x] **v1.5.1: worker delete + fair plan counting** — destroy() soft-deletes (blocks while last log IN), plan usage = withTrashed()->whereHas('attendanceLogs') (deny at FIRST deployment of never-worked worker; registration/import/delete quota-free); manual OUT endpoint POST /attendance/manual-out (company_admin/company_hr/super only, requires last log IN at that company, method=manual + override_reason + audit); AADHAAR_DEDUP env flag (config/biometric.php, default ON, OFF on demo/local; DB unique relaxed to plain index migration 027)
+- [x] **v1.6.0 + app v0.9.26: deployment awareness** — SendDeploymentAlerts command (`truecrew:deployment-alerts`, 08:30 IST): vendor digests for benched workers + deployments ending ≤3d (in-app all plans, email Professional+); /workers?deploy_state=undeployed|deployed|expiring filter + WorkerList dropdown; users created_at in UserList "Added" column; assignment requested/decided timestamps on WorkerAssign; sync pull carries assignment created_at/approved_at (app db v6); app: worker rows show color-coded deployment summary + filter chips (All/Deployed/Not deployed/Expiring ≤3d), NotificationsScreen + bell w/ unread badge in app home
+- [x] **v1.6.1 + app v0.9.27: worker actions + engagement lock** — vendor CANNOT delete/deactivate/deleteFingerprint a worker with an active approved deployment (end_date >= today) OR whose last log is IN (`vendorEngagementBlock()` in WorkerController, 422 w/ company+date; edit stays allowed; super admin bypasses); activate/deactivate now role-guarded (super/company_admin/vendor_admin + authorizeWorkerAccess — gate users were previously unguarded!); deleteFingerprint blocked for company users; app worker sheet: Edit (name/phone/DOB/gender) + Activate/Deactivate + Delete (vendor_admin only for the latter two; local-only rows deleted device-side), server 422 messages surfaced verbatim (AppState.apiMessage)
+- [x] **Docs reorganised into role guides (2026-08-17)** — super-admin-guide.html / company-guide.html / vendor-guide.html; developer-guide.html refreshed (addressed to super admin, v1.2→v1.6.1 delta banner); user-manual.html = chooser page; Downloads.jsx + download.html link all guides
 - [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation
 
@@ -412,8 +417,13 @@ docker exec ams_backend php artisan migrate
 |------|---------|
 | `CLAUDE.md` | This file — project context for Claude sessions |
 | `README.md` | Technical overview, architecture, API reference |
-| `USER_MANUAL.md` | User-facing guide for all roles |
-| `docs/developer-guide.html` | Full technical reference (styled HTML) |
-| `docs/user-manual.html` | Full user guide (styled HTML) |
+| `USER_MANUAL.md` | Map of the role guides + server-enforced rules summary |
+| `frontend/public/docs/super-admin-guide.html` | Role guide: platform owner (orgs, plans, users, oversight) |
+| `frontend/public/docs/company-guide.html` | Role guide: company admin + HR + gate |
+| `frontend/public/docs/vendor-guide.html` | Role guide: vendor admin + operator (app-first) |
+| `frontend/public/docs/developer-guide.html` | Super admin's technical companion (architecture, schema, deploy) |
+| `frontend/public/docs/user-manual.html` | Chooser page → the role guides (keeps old links alive) |
+| `frontend/public/docs/client-guide.html` | One-page product overview for prospects |
 
-**Keep all five in sync when features change.**
+**Keep these in sync when features change** (role guides carry the user-facing
+truth; release-notes.html carries the changelog).

@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TrueCrew — Vendor Guide</title>
+<style>
+  :root {
+    --accent:     #0f766e;
+    --accent-dk:  #042f2e;
+    --accent-lt:  #ccfbf1;
+    --accent-bg:  #f0fdfa;
+    --text:       #111827;
+    --muted:      #4b5563;
+    --border:     #e5e7eb;
+    --amber:      #b45309;  --amber-lt:  #fef3c7;
+    --red:        #b91c1c;  --red-lt:    #fee2e2;
+    --orange:     #c2410c;  --orange-lt: #ffedd5;
+    --grey:       #4b5563;  --grey-lt:   #f3f4f6;
+    --radius:     10px;
+    --shadow:     0 1px 6px rgba(0,0,0,.07);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f8fafc; color: var(--text);
+    line-height: 1.7; font-size: 15px;
+  }
+
+  /* ── TOP NAV ────────────────────────────────── */
+  .topnav {
+    position: sticky; top: 0; z-index: 100;
+    background: var(--accent-dk); color: #99f6e4;
+    display: flex; align-items: center;
+    overflow-x: auto; white-space: nowrap;
+    font-size: 13px; border-bottom: 2px solid #115e59;
+    -webkit-overflow-scrolling: touch;
+  }
+  .topnav .brand {
+    background: var(--accent); color: #fff;
+    font-weight: 700; font-size: 15px; padding: 13px 22px;
+    letter-spacing: .5px; flex-shrink: 0;
+  }
+  .topnav a {
+    color: #99f6e4; text-decoration: none;
+    padding: 13px 14px; display: block; flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .topnav a:hover { background: #134e4a; color: #fff; }
+
+  /* ── HERO ───────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, #042f2e 0%, #0f766e 100%);
+    color: #fff; padding: 64px 20px 56px; text-align: center;
+  }
+  .hero h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -.5px; }
+  .hero p  { margin-top: 12px; font-size: 1.1rem; opacity: .88; max-width: 640px; margin-left: auto; margin-right: auto; }
+  .hero .badges { margin-top: 24px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .hero .badge {
+    padding: 5px 14px; border-radius: 999px; font-size: 12px;
+    font-weight: 600; letter-spacing: .3px;
+    background: rgba(255,255,255,.14); border: 1px solid rgba(255,255,255,.35);
+    color: #fff;
+  }
+
+  /* ── LAYOUT ─────────────────────────────────── */
+  .page { max-width: 960px; margin: 0 auto; padding: 0 20px 80px; }
+  section { margin-top: 36px; scroll-margin-top: 64px; }
+
+  /* ── CARDS + HEADINGS ───────────────────────── */
+  .card {
+    background: #fff; border-radius: var(--radius);
+    border: 1px solid var(--border); box-shadow: var(--shadow);
+    padding: 28px; margin-bottom: 20px;
+  }
+  h2 {
+    font-size: 1.35rem; font-weight: 700; color: var(--accent-dk);
+    border-left: 5px solid var(--accent); padding-left: 14px;
+    margin-bottom: 16px; line-height: 1.35;
+  }
+  h3 { font-size: 1rem; font-weight: 700; margin: 20px 0 8px; }
+  .card p { margin: 8px 0; }
+  .card ul { padding-left: 22px; margin: 8px 0; }
+  .card li { margin: 5px 0; }
+  .new-pill {
+    display: inline-block; vertical-align: middle;
+    background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    padding: 2px 10px; border-radius: 999px; margin-left: 10px;
+  }
+
+  /* ── NUMBERED STEP FLOW ─────────────────────── */
+  ol.flow { list-style: none; counter-reset: step; margin: 14px 0 4px; padding: 0; }
+  ol.flow > li {
+    counter-increment: step; position: relative;
+    padding: 0 0 18px 52px; margin: 0;
+  }
+  ol.flow > li::before {
+    content: counter(step);
+    position: absolute; left: 0; top: 1px;
+    width: 32px; height: 32px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-weight: 700; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.flow > li:not(:last-child)::after {
+    content: ""; position: absolute; left: 15px; top: 38px; bottom: 2px;
+    width: 2px; background: var(--border);
+  }
+  ol.flow b, ol.flow strong { color: var(--accent-dk); }
+
+  /* ── TABLES ─────────────────────────────────── */
+  .tablewrap { overflow-x: auto; margin: 12px 0; }
+  table {
+    width: 100%; border-collapse: collapse; font-size: 14px;
+    border: 1px solid var(--border);
+  }
+  th {
+    background: var(--accent-bg); color: var(--accent-dk);
+    text-align: left; padding: 10px 14px; font-weight: 700;
+    border-bottom: 2px solid var(--border);
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── CALLOUTS ───────────────────────────────── */
+  .callout {
+    padding: 14px 18px; border-radius: var(--radius);
+    border-left: 5px solid; margin: 14px 0; font-size: .93rem;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .callout.tip  { background: var(--accent-bg); border-color: var(--accent); color: #134e4a; }
+  .callout.warn { background: var(--amber-lt); border-color: #f59e0b; color: #92400e; }
+  .callout.lock { background: var(--red-lt); border-color: #dc2626; color: #7f1d1d; }
+
+  /* ── STATUS CHIPS (worker list colors) ──────── */
+  .chip {
+    display: inline-block; padding: 2px 12px; border-radius: 999px;
+    font-size: 12.5px; font-weight: 700; white-space: nowrap;
+  }
+  .chip-teal   { background: var(--accent-lt); color: var(--accent); }
+  .chip-amber  { background: var(--amber-lt);  color: var(--amber); }
+  .chip-red    { background: var(--red-lt);    color: var(--red); }
+  .chip-orange { background: var(--orange-lt); color: var(--orange); }
+  .chip-grey   { background: var(--grey-lt);   color: var(--grey); }
+
+  /* ── FAQ ────────────────────────────────────── */
+  details {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 10px; overflow: hidden; background: #fff;
+  }
+  summary {
+    padding: 14px 18px; cursor: pointer; font-weight: 600;
+    background: #f8fafc; user-select: none; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-size: 1.25rem; color: var(--accent); flex-shrink: 0; }
+  details[open] summary::after { content: "−"; }
+  details > div { padding: 14px 18px; font-size: .92rem; line-height: 1.75; }
+  details > div p { margin: 6px 0; }
+
+  /* ── FOOTER ─────────────────────────────────── */
+  footer {
+    max-width: 960px; margin: 0 auto; padding: 24px 20px 48px;
+    color: var(--muted); font-size: 13px; text-align: center;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── PRINT ──────────────────────────────────── */
+  @media print {
+    .topnav { display: none; }
+    body { background: #fff; }
+    .hero {
+      background: var(--accent-dk) !important;
+      -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    }
+    .card, section { break-inside: avoid; }
+    details { break-inside: avoid; }
+  }
+
+  /* ── MOBILE ─────────────────────────────────── */
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 1.7rem; }
+    .hero p { font-size: 1rem; }
+    .card { padding: 20px 16px; }
+    h2 { font-size: 1.15rem; }
+    ol.flow > li { padding-left: 44px; }
+    ol.flow > li::before { width: 28px; height: 28px; font-size: 13px; }
+    ol.flow > li:not(:last-child)::after { left: 13px; top: 34px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- TOP NAV -->
+<nav class="topnav">
+  <span class="brand">TrueCrew</span>
+  <a href="#job">Your job</a>
+  <a href="#start">Getting started</a>
+  <a href="#register">Register a worker</a>
+  <a href="#worker-list">Worker list</a>
+  <a href="#deploy">Deploy</a>
+  <a href="#actions">Worker actions</a>
+  <a href="#notifications">Notifications</a>
+  <a href="#attendance">Attendance</a>
+  <a href="#billing">Plan &amp; billing</a>
+  <a href="#faq">FAQ</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Vendor Guide</h1>
+  <p>Register workers, deploy them to companies, track everything from the app</p>
+  <div class="badges">
+    <span class="badge">Platform v1.6.1</span>
+    <span class="badge">Apps v0.9.27</span>
+    <span class="badge">Updated 17 Aug 2026</span>
+  </div>
+</div>
+
+<div class="page">
+
+<!-- ═══ 1. YOUR JOB ═══ -->
+<section id="job">
+  <div class="card">
+    <h2>Your job in TrueCrew</h2>
+    <p>You supply workers to client companies. TrueCrew helps you do three things:</p>
+    <ul>
+      <li><b>Register workers</b> with a verified identity — Aadhaar, live photo, and fingerprint.</li>
+      <li><b>Deploy workers</b> to the companies you serve, with clear start and end dates.</li>
+      <li><b>Watch their attendance</b> — who worked, where, and for how long. Live, not on paper.</li>
+    </ul>
+    <p>Most of your work happens in the <b>TrueCrew app</b> — on an Android phone or a Windows PC. It works offline and syncs on its own. The web portal is there for company access requests, reports, and billing.</p>
+    <h3>Two vendor roles</h3>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Role</th><th>Who it is for</th><th>What they can do</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>Vendor Admin</b></td>
+            <td>The manager of your vendor account</td>
+            <td>Everything — register workers, deploy them, track attendance, request company access, create operator logins, manage billing</td>
+          </tr>
+          <tr>
+            <td><b>Vendor Operator</b></td>
+            <td>Field staff who enroll workers</td>
+            <td>Register workers only</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 2. GETTING STARTED ═══ -->
+<section id="start">
+  <div class="card">
+    <h2>Getting started</h2>
+    <ol class="flow">
+      <li>
+        <b>Get your account.</b>
+        Sign up at <b>/signup</b> on the web portal and choose <b>Vendor</b>. You start on the free Trial plan right away. Or, a company you work with creates your vendor account and shares the login with you.
+      </li>
+      <li>
+        <b>Request access to companies.</b>
+        On the web portal, open <b>Company Access</b>. Send a request to each company where your workers will be deployed.
+      </li>
+      <li>
+        <b>Wait for approval.</b>
+        The company reviews your request. You get a notification when they approve. You can only deploy workers to approved companies.
+      </li>
+      <li>
+        <b>Download the app.</b>
+        Open the <b>Downloads</b> page and get the app — an APK for Android, or the Windows app for a PC. Sign in with the same email and password you use on the portal.
+      </li>
+    </ol>
+    <div class="callout tip">
+      <strong>Tip</strong>
+      One login works everywhere — portal, Android app, and Windows app. Your data follows you.
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 3. REGISTERING A WORKER ═══ -->
+<section id="register">
+  <div class="card">
+    <h2>Registering a worker (app or web)</h2>
+    <p>Registration is a 5-step wizard. The app guides you through it.</p>
+    <ol class="flow">
+      <li>
+        <b>Get the worker's Aadhaar PDF.</b>
+        The worker downloads it from the UIDAI website. The PDF has a password: the <b>first 4 letters of the name in CAPITALS + birth year</b>. Example: Narendra, born 1955 → <b>NARE1955</b>.
+      </li>
+      <li>
+        <b>Import the PDF in the app.</b>
+        Name, date of birth, gender, and Aadhaar number fill in automatically. Just check them.
+      </li>
+      <li>
+        <b>Take a live photo.</b>
+        The app compares the live photo with the photo inside the Aadhaar PDF and shows a match check. It is advisory — a low score warns you, but an old Aadhaar photo never blocks the registration.
+      </li>
+      <li>
+        <b>Enroll the fingerprint.</b>
+        Use the SecuGen scanner. On <b>Android</b>: plug the scanner in with a USB-OTG cable and tap <b>Allow</b> once — the app remembers it. On <b>Windows</b>: the scanner is detected automatically.
+      </li>
+      <li>
+        <b>Review and save.</b>
+        The <b>"Ready to save?"</b> checklist ticks off name, Aadhaar, fingerprint, photos, and consent. When everything is green, save.
+      </li>
+    </ol>
+    <div class="callout tip">
+      <strong>Works fully offline</strong>
+      No internet at the site? No problem. Registrations queue on the device and sync automatically when you are back online — about every 90 seconds. Photos, the Aadhaar PDF, and fingerprints all upload with the sync.
+    </div>
+    <div class="callout warn">
+      <strong>No PDF? Use manual entry</strong>
+      If the worker has no Aadhaar PDF, choose manual entry and type the 12-digit Aadhaar number. Aadhaar is required for every worker.
+    </div>
+    <p><b>Duplicates are rejected.</b> Each Aadhaar can exist only once in TrueCrew — even across different vendors. If someone already registered this worker, the registration is refused.</p>
+  </div>
+</section>
+
+<!-- ═══ 4. WORKER LIST ═══ -->
+<section id="worker-list">
+  <div class="card">
+    <h2>Your worker list in the app <span class="new-pill">NEW</span></h2>
+    <p>The worker list now answers the most important question at a glance: <b>where is each worker, and until when?</b> Every row shows the worker's deployment, color-coded. It works offline too.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>What you see on the row</th><th>What it means</th></tr></thead>
+        <tbody>
+          <tr><td><span class="chip chip-teal">Acme Ltd · till 30 Sep</span></td><td>Deployed. The company name and end date are shown.</td></tr>
+          <tr><td><span class="chip chip-amber">awaiting approval</span></td><td>You sent the deployment. The company has not decided yet.</td></tr>
+          <tr><td><span class="chip chip-red">rejected</span></td><td>The company rejected the deployment. Open it to read the reason.</td></tr>
+          <tr><td><span class="chip chip-orange">ends in 2 days</span></td><td>The deployment ends within 3 days. Extend it or plan the next one.</td></tr>
+          <tr><td><span class="chip chip-grey">Not deployed</span></td><td>The worker is registered but sitting on the bench.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <h3>Find workers fast</h3>
+    <ul>
+      <li><b>Filter chips</b> at the top: <b>All</b> / <b>Deployed</b> / <b>Not deployed</b> / <b>Expiring ≤3d</b>. One tap each.</li>
+      <li><b>Search box</b> — type a name to jump straight to a worker.</li>
+      <li><b>Sync status icon</b> on every worker — see at once if a record is synced, still waiting, or hit an error. Tap it to read the details.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══ 5. DEPLOYING ═══ -->
+<section id="deploy">
+  <div class="card">
+    <h2>Deploying workers to a company</h2>
+    <ol class="flow">
+      <li><b>Tap a worker</b> in the app.</li>
+      <li><b>Tap "Deploy to company".</b></li>
+      <li><b>Pick the company.</b> Only companies that approved your access appear in the list.</li>
+      <li><b>Pick the date range</b> — start date and end date.</li>
+      <li><b>Send.</b> Done. The worker can now mark attendance at that company's gates during those dates.</li>
+    </ol>
+    <h3>Company approval</h3>
+    <p>Some companies require their HR to approve each deployment. In that case the deployment shows <span class="chip chip-amber">awaiting approval</span> first, then turns <span class="chip chip-teal">approved</span> or <span class="chip chip-red">rejected</span>. A worker cannot mark attendance until the deployment is approved.</p>
+    <p>The company also chooses <b>which gates or departments</b> the worker may use. That rule is enforced at every gate.</p>
+    <p>All deployments are visible on the web portal too, with the exact time each one was requested and decided.</p>
+  </div>
+</section>
+
+<!-- ═══ 6. WORKER ACTIONS ═══ -->
+<section id="actions">
+  <div class="card">
+    <h2>Worker actions in the app <span class="new-pill">NEW in v0.9.27</span></h2>
+    <p>Open any worker to see the actions sheet:</p>
+    <ul>
+      <li><b>Edit</b> — fix the name, phone, date of birth, or gender.</li>
+      <li><b>Activate / Deactivate</b> — turn the worker on or off.</li>
+      <li><b>Delete</b> — remove the worker from your list.</li>
+    </ul>
+    <div class="callout lock">
+      <strong>The lock rule — read this before you delete</strong>
+      Once a worker is deployed to a company — or is still checked IN at a gate — you <b>cannot delete them, deactivate them, or remove their fingerprint</b>. Cancel the deployment first. If the worker is still inside, the company must mark them OUT before the deployment can be cancelled. Editing details (name, phone, and so on) is always allowed.
+    </div>
+    <ul>
+      <li><b>Deleting keeps history.</b> The worker's attendance records stay safely on the server for reports and audits.</li>
+      <li><b>Never-synced registrations</b> can simply be removed from the device — nothing reached the server yet.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══ 7. NOTIFICATIONS ═══ -->
+<section id="notifications">
+  <div class="card">
+    <h2>Notifications — no need to keep checking the portal</h2>
+    <p>The <b>bell</b> in the app (and in the portal) tells you what changed:</p>
+    <ul>
+      <li><b>Deployment approved</b> — the company said yes. The worker can start.</li>
+      <li><b>Deployment rejected</b> — with the company's reason.</li>
+      <li><b>Daily digest at 08:30</b> — two things every morning:
+        <ul>
+          <li>Workers who are <b>ready but not deployed</b> ("benched") — put them to work.</li>
+          <li>Deployments <b>ending within 3 days</b> — extend them before they lapse.</li>
+        </ul>
+      </li>
+    </ul>
+    <p>On the <b>Professional plan and above</b>, you also get these as email copies.</p>
+  </div>
+</section>
+
+<!-- ═══ 8. TRACKING ATTENDANCE ═══ -->
+<section id="attendance">
+  <div class="card">
+    <h2>Tracking attendance</h2>
+    <ul>
+      <li><b>Daily summary</b> — one row per worker per day: first IN, last OUT, total hours, and status (inside / done / incomplete).</li>
+      <li><b>Worker detail</b> — tap any worker for full analytics: days present, total hours, missed OUTs, a month-by-month breakdown, and a per-company view when the worker serves more than one site.</li>
+      <li><b>Exceptions</b> — everyone currently inside (marked IN, no OUT yet). Handy at the end of a shift.</li>
+      <li><b>CSV exports</b> — download daily rows or monthly totals, ready for Excel. On <b>Professional and above</b>, you also get bulk worker <b>import and export</b> by CSV.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══ 9. PLAN & BILLING ═══ -->
+<section id="billing">
+  <div class="card">
+    <h2>Plan &amp; billing</h2>
+    <p>The <b>Billing</b> page on the portal shows live usage meters — how much of your plan you have used.</p>
+    <div class="callout tip">
+      <strong>The fairness rule</strong>
+      Only workers who have <b>actually worked</b> count against your plan — a worker uses a plan slot only after they are deployed <b>and</b> marked IN at least once. Registering workers is free. Register as many as you like, keep your bench full, and pay only for workers who work.
+    </div>
+    <ul>
+      <li>Hitting a limit never breaks anything — the action is simply blocked with a clear message until you upgrade.</li>
+      <li>Deleting a worker who already worked does not free the slot.</li>
+      <li><b>Upgrading:</b> send an upgrade request from the Billing page. Offline payment is supported — the TrueCrew team activates your new plan after contact.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══ 10. FAQ ═══ -->
+<section id="faq">
+  <div class="card">
+    <h2>FAQ / Troubleshooting</h2>
+
+    <details>
+      <summary>A worker row shows a sync error. What do I do?</summary>
+      <div>
+        <p>Tap the sync icon on that row to read the reason. The most common one is a <b>duplicate Aadhaar</b> — someone (possibly another vendor) already registered this person. Each Aadhaar can exist only once in TrueCrew. Other errors usually clear on their own — the app retries on the next sync.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>The fingerprint scanner is not detected on my Android phone</summary>
+      <div>
+        <p>Unplug the scanner and plug it back in. Make sure you use a USB-OTG cable or adapter. When Android asks for USB permission, tap <b>Allow</b> — you only need to do this once. After that, plugging in the scanner can even open TrueCrew by itself.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Does the scanner work on Windows?</summary>
+      <div>
+        <p>Yes. Install the standard SecuGen driver once — the app finds it automatically, wherever it installed. No extra software, no manual copying. The SecuGen Hamster Pro 20 (HU20) is supported. The app's Diagnostics screen shows exactly what was found.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>The Aadhaar PDF will not open</summary>
+      <div>
+        <p>The PDF is password-protected by UIDAI. The password is the <b>first 4 letters of the worker's name in CAPITALS + their birth year</b>. Example: Narendra, born 1955 → <b>NARE1955</b>. Use the name exactly as it appears on the Aadhaar.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>Why is Delete (or Deactivate) blocked on a worker?</summary>
+      <div>
+        <p>The lock rule. The worker is deployed to a company, or is still checked IN at a gate. Cancel the deployment first. If the worker is inside, ask the company to mark them OUT — then cancel, then delete. Their attendance history stays on the server either way.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>The worker's photo did not upload</summary>
+      <div>
+        <p>Photos, Aadhaar PDFs, and fingerprints upload with the automatic sync. If a photo is missing on the server, it retries on the next sync — about every 90 seconds while the app is online. Keep the app open with internet for a minute and check again.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>I forgot my password</summary>
+      <div>
+        <p>Use <b>Forgot password?</b> on the sign-in page of the web portal. Enter your login email and follow the link you receive to set a new password. Then sign in to the app with the new password.</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>A company does not appear when I try to deploy</summary>
+      <div>
+        <p>Only companies that <b>approved your access</b> appear in the Deploy list. Check the <b>Company Access</b> page on the web portal — your request may still be pending, or it was rejected or suspended. Send the request (or ask the company to approve it) and try again once it shows approved.</p>
+      </div>
+    </details>
+
+  </div>
+</section>
+
+</div>
+
+<footer>
+  TrueCrew · Platform v1.6.1 · Apps v0.9.27-preview · 17 August 2026
+</footer>
+
+</body>
+</html>

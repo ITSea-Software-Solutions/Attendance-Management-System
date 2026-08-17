@@ -117,18 +117,26 @@ tr:last-child td{border-bottom:none}
 </style>
 </head>
 <body><div style="max-width:900px;margin:16px auto;padding:14px 18px;border:2px solid #10685A;border-radius:10px;background:#E3EFEC;color:#1D2833;font:15px/1.5 system-ui">
-<b>⚠ Update — AMS v1.1 (Aug 2026):</b> this document predates the SaaS release. New since:
-self-service <b>signup</b> at <code>/signup</code> (Company or Vendor, free Trial) · <b>plans</b>
-(Trial / Professional / Enterprise) with a <b>Plan &amp; Billing</b> page and a super-admin
-<b>Subscriptions</b> page (offline payment) · <b>company admins can create their own vendors</b> ·
-Aadhaar is now <b>mandatory</b> with duplicate blocking · <b>Downloads</b> page with the Android app
-(v0.9 preview) · offline-first <b>Flutter app</b>. The freshest end-user guide is
-<a href="/docs/client-guide.html">the Client Guide</a>.</div>
+<b>Audience &amp; status — Platform v1.6.1, apps v0.9.27 (17 Aug 2026):</b> this is the technical
+companion for the <b>super admin / platform engineer</b>. The core chapters below (architecture,
+auth, schema, deploy loop) are current. Added since they were written:
+self-service <b>signup</b> + <b>plans</b> (Trial/Professional/Enterprise, offline payment, usage counts
+only workers who actually worked) · offline-first <b>Flutter apps</b> (Android + Windows: in-app Aadhaar
+PDF import, live-vs-Aadhaar face check, on-device 1:N fingerprint match, proof photos, 90s auto-sync,
+in-app notifications) · <b>face attendance</b> (ArcFace, server re-verified) · <b>deployment approvals</b>
+(company HR role, per-gate/department permissions, preset departments) · <b>manual OUT</b> (HR/admin only) ·
+<b>notification suite</b> (in-app / email / WhatsApp-ready, editable templates, scheduled digests incl.
+vendor deployment alerts 08:30 IST) · exports (CSV + printable month) · per-gate scoping · password reset ·
+<b>worker lifecycle rules</b> (Aadhaar dedup, delete preserves history, vendor engagement lock: no
+delete/deactivate/deregister while deployed or checked IN). Role-facing manuals:
+<a href="/docs/super-admin-guide.html">Super Admin</a> ·
+<a href="/docs/company-guide.html">Company</a> ·
+<a href="/docs/vendor-guide.html">Vendor</a>.</div>
 
 
 <!-- NAV -->
 <nav class="topnav">
-  <span class="brand">AMS — Dev Guide</span>
+  <span class="brand">TrueCrew — Dev Guide</span>
   <a href="#arch">Architecture</a>
   <a href="#auth">Auth Flow</a>
   <a href="#roles">Roles</a>
@@ -146,7 +154,7 @@ Aadhaar is now <b>mandatory</b> with duplicate blocking · <b>Downloads</b> page
 
 <!-- HERO -->
 <div class="hero">
-  <h1>AMS <span>Developer Guide</span></h1>
+  <h1>TrueCrew <span>Developer Guide</span></h1>
   <p>Architecture · Code flow · Debugging · Adding features · Deployment</p>
   <div class="tags">
     <span class="tag">Laravel 11</span><span class="tag">React 18</span>

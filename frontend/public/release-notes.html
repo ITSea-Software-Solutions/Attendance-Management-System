@@ -47,7 +47,16 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.26</span> Vendor app-first <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.27</span> Worker actions from the app <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Edit / Activate / Deactivate / Delete on the worker sheet</b> — vendors manage workers without the portal. Edit covers name, phone, DOB, gender.</li>
+      <li><b>Engagement lock</b> — while a worker is deployed to a company (or still checked IN) delete, deactivate and fingerprint removal are refused with a clear reason; cancel the deployment first. Editing stays allowed.</li>
+      <li>Registrations that never synced can be removed from the device safely.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.26</span> Vendor app-first <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Deployment info on every worker row</b> — where they're deployed and until when, color-coded: teal (deployed), amber (ends ≤3 days / awaiting approval), grey (not deployed). Works offline.</li>
       <li><b>Filter chips</b> — All / Deployed / Not deployed / Expiring ≤3d, computed on-device.</li>
@@ -185,7 +194,16 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.6.0</span> Deployment awareness <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.6.1</span> Worker engagement lock <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Once a worker is engaged with a company — deployed, or currently checked IN — the vendor cannot delete, deactivate, or remove the fingerprint.</b> The API refuses with the company name and end date; cancel the deployment first. Editing details stays allowed.</li>
+      <li>Activate/deactivate now require admin roles (gate users can no longer change worker status); only the owning vendor can remove a fingerprint.</li>
+      <li>Docs reorganised into role guides: Super Admin, Company, Vendor — plus the refreshed technical Developer Guide.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.6.0</span> Deployment awareness <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Daily vendor digests</b> — workers ready but not deployed, and deployments ending within 3 days (in-app for all plans; email on Professional+).</li>
       <li><b>Deployment-state filter</b> on the Workers page: Deployed now / Not deployed / Expiring in 3 days.</li>

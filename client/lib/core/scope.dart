@@ -2,6 +2,8 @@ import 'package:flutter/widgets.dart';
 
 import '../data/repo.dart';
 
+export '../data/repo.dart' show AppState;
+
 /// Minimal app-wide state access (InheritedNotifier — no external dep).
 class AppScope extends InheritedNotifier<AppState> {
   const AppScope({super.key, required AppState state, required super.child})

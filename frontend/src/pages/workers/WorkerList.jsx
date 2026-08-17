@@ -81,13 +81,13 @@ export default function WorkerList() {
   const activateMutation = useMutation({
     mutationFn: (id) => api.post(`/workers/${id}/activate`),
     onSuccess:  () => { queryClient.invalidateQueries(["workers"]); toast.success("Worker activated."); },
-    onError:    () => toast.error("Failed to activate worker."),
+    onError:    (e) => toast.error(e.response?.data?.message ?? "Failed to activate worker."),
   });
 
   const deactivateMutation = useMutation({
     mutationFn: (id) => api.post(`/workers/${id}/deactivate`),
     onSuccess:  () => { queryClient.invalidateQueries(["workers"]); toast.success("Worker deactivated."); },
-    onError:    () => toast.error("Failed to deactivate worker."),
+    onError:    (e) => toast.error(e.response?.data?.message ?? "Failed to deactivate worker.", { duration: 6000 }),
   });
 
   const deleteMutation = useMutation({

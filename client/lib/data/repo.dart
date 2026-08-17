@@ -4,7 +4,7 @@ import 'dart:io';
 import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:dio/dio.dart' show FormData, MultipartFile;
+import 'package:dio/dio.dart' show DioException, FormData, MultipartFile;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -456,6 +456,57 @@ class AppState extends ChangeNotifier {
     final api = await Api.client();
     final r = await api.get('/workers/$serverId/stats');
     return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  /// The server's human-readable message from an API error (engagement
+  /// locks, plan limits) — fall back to a generic line when absent.
+  static String apiMessage(Object e, String fallback) {
+    if (e is DioException) {
+      final d = e.response?.data;
+      if (d is Map && d['message'] != null) return '${d['message']}';
+    }
+    return fallback;
+  }
+
+  /// Edit basic worker details (online; server is the source of truth).
+  Future<String> updateWorker(int serverId, Map<String, Object?> fields) async {
+    final api = await Api.client();
+    await api.put('/workers/$serverId', data: fields);
+    await sync(); // pull the fresh record into the local cache
+    return 'Worker updated.';
+  }
+
+  /// Activate / deactivate (online). The server enforces the engagement
+  /// lock: a deployed or checked-IN worker can't be deactivated by the vendor.
+  Future<String> setWorkerActive(int serverId, bool active) async {
+    final api = await Api.client();
+    final r = await api
+        .post('/workers/$serverId/${active ? 'activate' : 'deactivate'}');
+    await sync();
+    return (r.data is Map ? (r.data['message'] ?? 'Done.') : 'Done.').toString();
+  }
+
+  /// Delete a worker (online). The server blocks while deployed or checked
+  /// IN; on success we prune the local cache (pull only upserts, never prunes).
+  Future<String> deleteWorker(int serverId) async {
+    final api = await Api.client();
+    final r = await api.delete('/workers/$serverId');
+    final db = await LocalDb.instance();
+    await db.delete('workers', where: 'server_id = ?', whereArgs: [serverId]);
+    await db.delete('assignments',
+        where: 'worker_server_id = ?', whereArgs: [serverId]);
+    notifyListeners();
+    return (r.data is Map ? (r.data['message'] ?? 'Worker deleted.') : 'Worker deleted.')
+        .toString();
+  }
+
+  /// Remove a registration that never reached the server (offline-safe).
+  Future<void> deleteLocalWorker(String clientUuid) async {
+    final db = await LocalDb.instance();
+    await db.delete('workers',
+        where: 'client_uuid = ? AND server_id IS NULL', whereArgs: [clientUuid]);
+    await _refreshPending();
+    notifyListeners();
   }
 
   /// Diagnostics: timed round-trip to the server (auth'd, tiny endpoint).

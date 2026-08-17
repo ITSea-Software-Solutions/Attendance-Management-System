@@ -517,6 +517,12 @@ class WorkerController extends Controller
             ], 422);
         }
 
+        // Once a worker is engaged with a company, the vendor can't pull them
+        // out unilaterally — cancel the deployment first. Super admin bypasses.
+        if ($blocked = $this->vendorEngagementBlock($user, $worker, 'delete them')) {
+            return $blocked;
+        }
+
         WorkerAssignment::where('worker_id', $worker->id)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
             ->update(['status' => WorkerAssignment::STATUS_CANCELLED]);
@@ -561,7 +567,15 @@ class WorkerController extends Controller
 
     public function deleteFingerprint(Request $request, Worker $worker): JsonResponse
     {
-        $this->authorizeWorkerAccess($request->user(), $worker);
+        $user = $request->user();
+        $this->authorizeWorkerAccess($user, $worker);
+        // The fingerprint belongs to the vendor's registration — companies
+        // interact through deployments, never the biometric record.
+        abort_if($user->isCompanyUser(), 403, 'Only the owning vendor can remove a fingerprint.');
+
+        if ($blocked = $this->vendorEngagementBlock($user, $worker, 'remove the fingerprint')) {
+            return $blocked;
+        }
 
         $worker->forceFill([
             'fingerprint_template'    => null,
@@ -634,21 +648,72 @@ class WorkerController extends Controller
 
     public function activate(Request $request, Worker $worker): JsonResponse
     {
+        $user = $request->user();
+        abort_unless(in_array($user->role, ['super_admin', 'company_admin', 'vendor_admin']), 403);
+        $this->authorizeWorkerAccess($user, $worker);
+
         $worker->forceFill(['status' => Worker::STATUS_ACTIVE])->save();
-        $this->audit->log($request->user()->id, 'worker_activated', Worker::class, $worker->id);
+        $this->audit->log($user->id, 'worker_activated', Worker::class, $worker->id);
 
         return response()->json(['message' => 'Worker activated.']);
     }
 
     public function deactivate(Request $request, Worker $worker): JsonResponse
     {
+        $user = $request->user();
+        abort_unless(in_array($user->role, ['super_admin', 'company_admin', 'vendor_admin']), 403);
+        $this->authorizeWorkerAccess($user, $worker);
+
+        if ($blocked = $this->vendorEngagementBlock($user, $worker, 'deactivate them')) {
+            return $blocked;
+        }
+
         $worker->forceFill(['status' => Worker::STATUS_INACTIVE])->save();
-        $this->audit->log($request->user()->id, 'worker_deactivated', Worker::class, $worker->id);
+        $this->audit->log($user->id, 'worker_deactivated', Worker::class, $worker->id);
 
         return response()->json(['message' => 'Worker deactivated.']);
     }
 
     // ─── Private ──────────────────────────────────────────────────────────────
+
+    /**
+     * Business rule: once a worker is engaged with a company — an active,
+     * approved deployment that hasn't ended, or currently checked IN — the
+     * VENDOR cannot delete, deactivate, or deregister them. The company relies
+     * on that worker for attendance; the vendor must cancel the deployment
+     * (and the company mark them OUT) first. Returns a 422 response to send,
+     * or null when the action may proceed.
+     */
+    private function vendorEngagementBlock(User $user, Worker $worker, string $action): ?JsonResponse
+    {
+        if (! $user->isVendorUser()) {
+            return null;
+        }
+
+        $dep = $worker->assignments()
+            ->with('company:id,name')
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
+            ->where('end_date', '>=', today())
+            ->orderByDesc('end_date')
+            ->first();
+        if ($dep) {
+            return response()->json([
+                'message' => "{$worker->name} is deployed to ".(optional($dep->company)->name ?? 'a company')
+                    .' till '.$dep->end_date?->format('d M Y')
+                    ." — cancel the deployment first, then {$action}.",
+            ], 422);
+        }
+
+        $lastLog = AttendanceLog::where('worker_id', $worker->id)->latest('marked_at')->first();
+        if ($lastLog && $lastLog->type === AttendanceLog::TYPE_IN) {
+            return response()->json([
+                'message' => "{$worker->name} is currently checked IN — the company must mark them OUT before you {$action}.",
+            ], 422);
+        }
+
+        return null;
+    }
 
     private function authorizeWorkerAccess(User $user, Worker $worker): void
     {

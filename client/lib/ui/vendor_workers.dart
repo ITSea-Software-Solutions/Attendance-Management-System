@@ -295,13 +295,25 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
                           ),
                           const SizedBox(width: 6),
                           Expanded(
-                            child: Text(
-                              '${d['company_name'] ?? 'Company ${d['company_id']}'} · '
-                              '${'${d['start_date']}'.substring(0, 10)} → ${'${d['end_date']}'.substring(0, 10)}'
-                              '${d['approval_status'] == 'pending' ? '  (awaiting approval)' : ''}'
-                              '${d['approval_status'] == 'rejected' ? '  (rejected)' : ''}',
-                              style: const TextStyle(fontSize: 12.5),
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${d['company_name'] ?? 'Company ${d['company_id']}'} · '
+                                  '${'${d['start_date']}'.substring(0, 10)} → ${'${d['end_date']}'.substring(0, 10)}'
+                                  '${d['approval_status'] == 'pending' ? '  (awaiting approval)' : ''}'
+                                  '${d['approval_status'] == 'rejected' ? '  (rejected)' : ''}',
+                                  style: const TextStyle(fontSize: 12.5),
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (d['created_at'] != null)
+                                  Text(
+                                    'requested ${'${d['created_at']}'.substring(0, 10)}'
+                                    '${d['approved_at'] != null ? ' · decided ${'${d['approved_at']}'.substring(0, 10)}' : ''}',
+                                    style: TextStyle(
+                                        fontSize: 11, color: Colors.grey.shade600),
+                                  ),
+                              ],
                             ),
                           ),
                         ]),
@@ -325,10 +337,183 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
                 ),
               ),
             ]),
+            const SizedBox(height: 8),
+            // Admin actions — same rules as the web portal: while a worker is
+            // deployed or checked IN the server refuses deactivate/delete and
+            // its message is shown as-is.
+            Wrap(spacing: 8, runSpacing: 4, children: [
+              OutlinedButton.icon(
+                onPressed: serverId != null && app.online
+                    ? () {
+                        Navigator.pop(context);
+                        _editDialog(w, serverId);
+                      }
+                    : null,
+                icon: const Icon(Icons.edit, size: 18),
+                label: const Text('Edit'),
+              ),
+              if (app.role == 'vendor_admin' || app.role == 'super_admin') ...[
+                OutlinedButton.icon(
+                  onPressed: serverId != null && app.online
+                      ? () => _doAction(
+                          context,
+                          () => app.setWorkerActive(
+                              serverId, '${w['status']}' != 'active'),
+                          'Could not change status.')
+                      : null,
+                  icon: Icon(
+                      '${w['status']}' == 'active'
+                          ? Icons.pause_circle
+                          : Icons.play_circle,
+                      size: 18),
+                  label: Text('${w['status']}' == 'active'
+                      ? 'Deactivate'
+                      : 'Activate'),
+                ),
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
+                  onPressed: (serverId == null || app.online)
+                      ? () => _confirmDelete(context, w, serverId)
+                      : null,
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Delete'),
+                ),
+              ],
+            ]),
           ],
         ),
       ),
     );
+  }
+
+  /// Run an online admin action, surface the server's message, refresh.
+  Future<void> _doAction(BuildContext sheetContext,
+      Future<String> Function() action, String fallback) async {
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+    String msg;
+    try {
+      msg = await action();
+    } catch (e) {
+      msg = AppState.apiMessage(e, fallback);
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    setState(() {});
+  }
+
+  Future<void> _confirmDelete(
+      BuildContext sheetContext, Map<String, Object?> w, int? serverId) async {
+    final app = AppScope.of(context);
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Delete ${w['name']}?'),
+        content: Text(serverId == null
+            ? 'This registration never synced — it will be removed from this device only.'
+            : 'Attendance history is preserved on the server. A worker who is deployed or checked IN cannot be deleted.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              style: FilledButton.styleFrom(backgroundColor: Colors.red),
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Delete')),
+        ],
+      ),
+    );
+    if (sure != true) return;
+    if (serverId == null) {
+      await app.deleteLocalWorker('${w['client_uuid']}');
+      if (!mounted) return;
+      if (sheetContext.mounted) Navigator.pop(sheetContext);
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Removed from this device.')));
+      setState(() {});
+      return;
+    }
+    if (!mounted || !sheetContext.mounted) return;
+    await _doAction(sheetContext, () => app.deleteWorker(serverId),
+        'Delete failed — check the connection and retry.');
+  }
+
+  /// Edit basic details (name / phone / DOB / gender) — PUT /workers/{id}.
+  Future<void> _editDialog(Map<String, Object?> w, int serverId) async {
+    final app = AppScope.of(context);
+    final name = TextEditingController(text: '${w['name'] ?? ''}');
+    final phone = TextEditingController(text: '${w['phone'] ?? ''}');
+    String? gender = (w['gender'] as String?)?.isNotEmpty == true
+        ? '${w['gender']}'
+        : null;
+    DateTime? dob = DateTime.tryParse('${w['dob'] ?? ''}');
+    String d(DateTime x) =>
+        '${x.year}-${x.month.toString().padLeft(2, '0')}-${x.day.toString().padLeft(2, '0')}';
+
+    final go = await showDialog<bool>(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setD) => AlertDialog(
+          title: Text('Edit ${w['name']}'),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            TextField(
+                controller: name,
+                decoration: const InputDecoration(labelText: 'Full name')),
+            TextField(
+                controller: phone,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Phone')),
+            const SizedBox(height: 8),
+            DropdownButtonFormField<String>(
+              initialValue: gender,
+              decoration: const InputDecoration(labelText: 'Gender'),
+              items: const [
+                DropdownMenuItem(value: 'M', child: Text('Male')),
+                DropdownMenuItem(value: 'F', child: Text('Female')),
+                DropdownMenuItem(value: 'O', child: Text('Other')),
+              ],
+              onChanged: (v) => gender = v,
+            ),
+            ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(dob == null ? 'Date of birth' : 'DOB  ${d(dob!)}'),
+              trailing: const Icon(Icons.edit_calendar, size: 18),
+              onTap: () async {
+                final p = await showDatePicker(
+                    context: context,
+                    initialDate: dob ?? DateTime(2000),
+                    firstDate: DateTime(1940),
+                    lastDate: DateTime.now());
+                if (p != null) setD(() => dob = p);
+              },
+            ),
+          ]),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Cancel')),
+            FilledButton(
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Save')),
+          ],
+        ),
+      ),
+    );
+    if (go != true) return;
+    String msg;
+    try {
+      msg = await app.updateWorker(serverId, {
+        if (name.text.trim().isNotEmpty) 'name': name.text.trim(),
+        'phone': phone.text.trim().isEmpty ? null : phone.text.trim(),
+        if (gender != null) 'gender': gender,
+        if (dob != null) 'dob': d(dob!),
+      });
+    } catch (e) {
+      msg = AppState.apiMessage(e, 'Update failed — check the connection.');
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    setState(() {});
   }
 
   /// Deploy = assign to a company for a date range (POST /assignments).

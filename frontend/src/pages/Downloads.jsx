@@ -11,28 +11,40 @@ const APPS = [
     icon: Smartphone,
     title: "Android App",
     desc: "Full worker registration (Aadhaar + fingerprint + face) and gate attendance, offline-capable. SecuGen SDK bundled — plug a USB scanner in and scan; camera face match on-device.",
-    status: "/downloads/truecrew-android-v0.9.26-preview.apk",
+    status: "/downloads/truecrew-android-v0.9.27-preview.apk",
   },
   {
     icon: Monitor,
     title: "Windows App",
     desc: "Registration + attendance station. Talks to SecuGen scanners directly via the FDx SDK — no extra service needed.",
-    status: "/downloads/truecrew-windows-x64-v0.9.26-preview.zip",
+    status: "/downloads/truecrew-windows-x64-v0.9.27-preview.zip",
   },
 ];
 
 const DOCS = [
   {
     icon: BookOpen,
-    title: "Client Guide",
-    desc: "Start here — features, the end-to-end flow, and how-tos for every role. Shareable with client teams.",
-    href: "/docs/client-guide.html",
+    title: "Super Admin Guide",
+    desc: "Platform owner — organisations, subscriptions & plans, users, templates, oversight.",
+    href: "/docs/super-admin-guide.html",
   },
   {
     icon: BookOpen,
-    title: "User Manual",
-    desc: "Step-by-step guide for every role — super admin, company, gate and vendor users.",
-    href: "/docs/user-manual.html",
+    title: "Company Guide",
+    desc: "Admins, HR and gate teams — vendor approvals, deployment approvals, attendance, manual OUT, reports.",
+    href: "/docs/company-guide.html",
+  },
+  {
+    icon: BookOpen,
+    title: "Vendor Guide",
+    desc: "Register workers, deploy to companies, run everything from the app — offline included.",
+    href: "/docs/vendor-guide.html",
+  },
+  {
+    icon: BookOpen,
+    title: "Client Guide",
+    desc: "One-page product overview — features and the end-to-end flow. Shareable with prospects.",
+    href: "/docs/client-guide.html",
   },
   {
     icon: BookOpen,
@@ -43,7 +55,7 @@ const DOCS = [
   {
     icon: FileCode2,
     title: "Developer Guide",
-    desc: "Technical reference — architecture, API, database schema and deployment.",
+    desc: "Super admin's technical companion — architecture, API, database schema and deployment.",
     href: "/docs/developer-guide.html",
   },
 ];
