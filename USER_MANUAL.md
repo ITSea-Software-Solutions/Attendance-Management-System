@@ -1,6 +1,6 @@
 # TrueCrew User Guides
 
-> **Reorganised 2026-08-17 (Platform v1.6.1, apps v0.9.27):** the single combined
+> **Reorganised 2026-08-17 (Platform v1.7.0, apps v0.9.28):** the single combined
 > manual was split into role-specific guides. Each guide is complete for its role
 > and kept current with every release — this file is now just the map.
 
