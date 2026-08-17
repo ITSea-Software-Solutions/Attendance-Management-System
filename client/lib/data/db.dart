@@ -24,7 +24,7 @@ class LocalDb {
     final path = p.join(dir.path, 'ams_client.db');
     _db = await factory.openDatabase(path,
         options: OpenDatabaseOptions(
-          version: 4,
+          version: 5,
           onUpgrade: (db, from, to) async {
             if (from < 2) {
               for (final c in [
@@ -41,6 +41,14 @@ class LocalDb {
               for (final c in [
                 "ALTER TABLE workers ADD COLUMN aadhaar_pdf_path TEXT",
                 "ALTER TABLE workers ADD COLUMN aadhaar_pdf_synced INTEGER DEFAULT 0",
+              ]) {
+                try { await db.execute(c); } catch (_) {}
+              }
+            }
+            if (from < 5) {
+              for (final c in [
+                "ALTER TABLE assignments ADD COLUMN approval_status TEXT DEFAULT 'approved'",
+                "ALTER TABLE assignments ADD COLUMN allowed_locations TEXT",
               ]) {
                 try { await db.execute(c); } catch (_) {}
               }
@@ -90,7 +98,9 @@ class LocalDb {
                 server_id INTEGER PRIMARY KEY,
                 worker_uuid TEXT, worker_server_id INTEGER,
                 company_id INTEGER, company_name TEXT,
-                start_date TEXT, end_date TEXT, status TEXT
+                start_date TEXT, end_date TEXT, status TEXT,
+                approval_status TEXT DEFAULT 'approved',
+                allowed_locations TEXT           -- JSON list; NULL = all gates
               )
             ''');
             await db.execute('''

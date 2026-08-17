@@ -64,6 +64,12 @@ class TemplateService
             'body'    => "These workers marked IN on {{date}} but never marked OUT:\n\n{{worker_lines}}\n\nCheck the Exceptions page for live status.",
             'vars'    => ['date', 'count', 'worker_lines'],
         ],
+        'deployment_requested' => [
+            'label'   => 'Deployment approval requested',
+            'subject' => 'Approval needed: {{worker_name}} — TrueCrew',
+            'body'    => "{{vendor_name}} requests to deploy {{worker_name}} to {{company_name}} ({{dates}}).\n\nApprove or reject on the Deploy Workers page — you can restrict the worker to specific gates/departments.",
+            'vars'    => ['worker_name', 'vendor_name', 'company_name', 'dates'],
+        ],
         'weekly_report' => [
             'label'   => 'Weekly attendance summary (Enterprise)',
             'subject' => 'TrueCrew weekly report — {{week}}',

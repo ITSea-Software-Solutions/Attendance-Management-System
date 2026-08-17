@@ -114,6 +114,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     // ── Worker Deployments (Assignments) ──────────────────────────────────────
+    Route::get('assignments-pending',  [WorkerAssignmentController::class, 'pending']);
+    Route::post('assignments-approve', [WorkerAssignmentController::class, 'approve']);
+    Route::post('assignments/{assignment}/reject', [WorkerAssignmentController::class, 'reject']);
+    Route::get('companies/{company}/locations', [WorkerAssignmentController::class, 'companyLocations']);
+    Route::put('companies/{company}/settings',  [CompanyController::class, 'saveSettings']);
     Route::apiResource('assignments', WorkerAssignmentController::class);
     Route::get('assignments/company/{company}/today', [WorkerAssignmentController::class, 'todayForCompany']);
     Route::get('assignments/worker/{worker}',         [WorkerAssignmentController::class, 'forWorker']);

@@ -33,6 +33,7 @@ const NAV = [
       { to: "/workers",          icon: UserCheck,    label: "All Workers",    roles: ["all"], end: true },
       { to: "/workers/register", icon: Users,        label: "Register Worker",roles: ["super_admin", "vendor_admin", "vendor_operator"] },
       { to: "/workers/assign",   icon: ClipboardList,label: "Deploy Workers", roles: ["super_admin", "vendor_admin"] },
+      { to: "/workers/assign",   icon: ShieldCheck,  label: "Deployment Approvals", roles: ["company_admin"] },
     ],
   },
   {

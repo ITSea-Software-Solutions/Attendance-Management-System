@@ -281,6 +281,7 @@ class AttendanceController extends Controller
         // Only workers with an active deployment covering today
         $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->pluck('worker_id');
@@ -341,6 +342,7 @@ class AttendanceController extends Controller
 
         $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->pluck('worker_id');
@@ -403,6 +405,7 @@ class AttendanceController extends Controller
 
         $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->pluck('worker_id');
@@ -449,6 +452,7 @@ class AttendanceController extends Controller
         $assignment = WorkerAssignment::where('worker_id', $worker->id)
             ->where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->first();
@@ -481,6 +485,7 @@ class AttendanceController extends Controller
 
         $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->pluck('worker_id');
@@ -571,6 +576,7 @@ class AttendanceController extends Controller
         $deployed = WorkerAssignment::where('worker_id', $data['worker_id'])
             ->where('company_id', $data['company_id'])
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->exists();
@@ -808,6 +814,30 @@ class AttendanceController extends Controller
 
     private function validateAttendanceMark(int $workerId, int $companyId, string $type, string $locationName): ?string
     {
+        // Deployment must be APPROVED, and when the company restricted it to
+        // specific gates/departments, this gate must be one of them.
+        // (Deliberately NOT filtered by approval here — a pending/rejected
+        // deployment must be FOUND so the operator gets the precise reason.)
+        $assignment = WorkerAssignment::where('worker_id', $workerId)
+            ->where('company_id', $companyId)
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('start_date', '<=', today())
+            ->where('end_date', '>=', today())
+            ->orderByDesc('id')
+            ->first();
+        if ($assignment) {
+            if ($assignment->approval_status === 'pending') {
+                return 'This deployment is awaiting the company\'s approval.';
+            }
+            if ($assignment->approval_status === 'rejected') {
+                return 'This deployment was rejected by the company.';
+            }
+            $allowed = $assignment->allowed_locations;
+            if (is_array($allowed) && $allowed !== [] && ! in_array($locationName, $allowed, true)) {
+                return "Worker is not permitted at '{$locationName}'. Allowed: ".implode(', ', $allowed).'.';
+            }
+        }
+
         $lastLog = AttendanceLog::where('worker_id', $workerId)
             ->where('company_id', $companyId)
             ->where('location_name', $locationName)
@@ -851,6 +881,7 @@ class AttendanceController extends Controller
         WorkerAssignment::where('worker_id', $workerId)
             ->where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->where('is_locked', false)

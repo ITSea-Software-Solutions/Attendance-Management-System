@@ -28,9 +28,11 @@ class WorkerAssignment extends Model
     ];
 
     protected $casts = [
-        'start_date' => 'date',
-        'end_date'   => 'date',
-        'is_locked'  => 'boolean',
+        'start_date'        => 'date',
+        'end_date'          => 'date',
+        'is_locked'         => 'boolean',
+        'allowed_locations' => 'array',
+        'approved_at'       => 'datetime',
     ];
 
     // ─── Relationships ─────────────────────────────────────────────────────────

@@ -217,4 +217,21 @@ class CompanyController extends Controller
             abort(403, 'Access denied.');
         }
     }
+
+    /** Company notification/approval settings (company admin own org). */
+    public function saveSettings(Request $request, Company $company): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isSuperAdmin()
+            || ($user->role === 'company_admin' && $user->company_id === $company->id), 403);
+        $data = $request->validate([
+            'require_deployment_approval' => 'required|boolean',
+        ]);
+        $company->forceFill([
+            'settings' => array_merge((array) ($company->settings ?? []), $data),
+        ])->save();
+        $this->audit->log($user->id, 'company_settings_saved', Company::class, $company->id, $data);
+
+        return response()->json(['message' => 'Settings saved.', 'settings' => $company->settings]);
+    }
 }

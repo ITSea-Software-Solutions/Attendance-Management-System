@@ -38,12 +38,13 @@ class SyncController extends Controller
             $assignments = WorkerAssignment::with('company:id,name')
                 ->whereIn('worker_id', $workers->pluck('id'))
                 ->where('status', 'active')
-                ->get();
+                ->get(); // vendors see ALL their deployments incl. pending (status shown in-app)
             $attendance = collect();
         } else {
             // company_admin / company_gate / super_admin
             $assignQ = WorkerAssignment::with('company:id,name')
                 ->where('status', 'active')
+                ->where('approval_status', 'approved')
                 ->whereDate('end_date', '>=', today()->subDays(7));
             if (! $user->isSuperAdmin()) {
                 $assignQ->where('company_id', $user->company_id);
@@ -92,6 +93,8 @@ class SyncController extends Controller
                 'start_date'   => $a->start_date?->toDateString(),
                 'end_date'     => $a->end_date?->toDateString(),
                 'status'       => $a->status,
+                'approval_status'   => $a->approval_status ?? 'approved',
+                'allowed_locations' => $a->allowed_locations,
             ]),
             'attendance'  => $attendance->map(fn ($m) => [
                 'id'                => $m->id,
@@ -269,6 +272,18 @@ class SyncController extends Controller
         $companyId = $assignment?->company_id ?? $user->company_id;
         if (! $companyId) {
             return ['uuid' => $uuid, 'status' => 'error', 'message' => 'No company context for this mark.'];
+        }
+
+        // Deployment approval + gate permission (same rules as direct marks).
+        if ($assignment && ($assignment->approval_status ?? 'approved') !== 'approved') {
+            return ['uuid' => $uuid, 'status' => 'error',
+                'message' => 'Deployment not approved by the company ('.$assignment->approval_status.').'];
+        }
+        $allowedLocs = $assignment?->allowed_locations;
+        $markLoc = $user->location_name ?? 'Main Gate';
+        if (is_array($allowedLocs) && $allowedLocs !== [] && ! in_array($markLoc, $allowedLocs, true)) {
+            return ['uuid' => $uuid, 'status' => 'error',
+                'message' => "Worker not permitted at '{$markLoc}'. Allowed: ".implode(', ', $allowedLocs).'.'];
         }
 
         $log = new AttendanceLog([

@@ -16,6 +16,7 @@ export default function WorkerAssign() {
   const queryClient   = useQueryClient();
   const { user }      = useAuth();
   const isVendorAdmin = ["vendor_admin", "vendor_operator"].includes(user?.role);
+  const isCompanyAdmin = user?.role === "company_admin";
 
   const today = format(new Date(), "yyyy-MM-dd");
   const [form, setForm] = useState({
@@ -53,14 +54,58 @@ export default function WorkerAssign() {
 
   const deploy = useMutation({
     mutationFn: (d) => api.post("/assignments", d),
-    onSuccess: () => {
-      toast.success("Worker deployed successfully.");
+    onSuccess: (r) => {
+      toast.success(r.data?.message ?? "Worker deployed successfully.", { duration: 5000 });
       queryClient.invalidateQueries(["assignments"]);
       setForm({ worker_id: "", company_id: "", start_date: today, end_date: "", shift: "general", notes: "" });
       setShowForm(false);
     },
     onError: (err) => toast.error(err.response?.data?.message ?? "Deployment failed."),
   });
+
+  // ── Company-side approvals (HR): pending list + bulk approve/reject ──
+  const { data: pendingData } = useQuery({
+    queryKey: ["assignments-pending"],
+    queryFn:  () => api.get("/assignments-pending").then(r => r.data.pending),
+    enabled:  isCompanyAdmin || user?.role === "super_admin",
+    refetchInterval: 60000,
+  });
+  const { data: locationsData } = useQuery({
+    queryKey: ["company-locations", user?.company_id],
+    queryFn:  () => api.get(`/companies/${user.company_id}/locations`).then(r => r.data.locations),
+    enabled:  isCompanyAdmin,
+  });
+  const [selIds, setSelIds] = useState([]);
+  const [selLocs, setSelLocs] = useState([]); // empty = all gates
+  const [requireApproval, setRequireApproval] = useState(null);
+
+  const approveBulk = useMutation({
+    mutationFn: () => api.post("/assignments-approve", {
+      ids: selIds, allowed_locations: selLocs.length ? selLocs : null,
+    }),
+    onSuccess: (r) => {
+      toast.success(r.data.message, { duration: 5000 });
+      setSelIds([]); setSelLocs([]);
+      queryClient.invalidateQueries(["assignments-pending"]);
+      queryClient.invalidateQueries(["assignments"]);
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Approve failed."),
+  });
+  const rejectOne = useMutation({
+    mutationFn: ({ id, reason }) => api.post(`/assignments/${id}/reject`, { reason }),
+    onSuccess: () => {
+      toast.success("Deployment rejected.");
+      queryClient.invalidateQueries(["assignments-pending"]);
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Reject failed."),
+  });
+  const saveApprovalSetting = async (v) => {
+    try {
+      await api.put(`/companies/${user.company_id}/settings`, { require_deployment_approval: v });
+      setRequireApproval(v);
+      toast.success(v ? "New deployments now need your approval." : "Deployments auto-approve again.");
+    } catch { toast.error("Could not save the setting."); }
+  };
 
   const cancel = useMutation({
     mutationFn: (id) => api.delete(`/assignments/${id}`),
@@ -85,6 +130,75 @@ export default function WorkerAssign() {
           New Deployment
         </button>
       </div>
+
+      {/* ── Company HR: approval requirement toggle + pending requests ── */}
+      {isCompanyAdmin && (
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-semibold text-gray-900">Deployment approvals</h2>
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <input type="checkbox"
+                     checked={requireApproval ?? false}
+                     onChange={(e) => saveApprovalSetting(e.target.checked)} />
+              Require my approval for new vendor deployments
+            </label>
+          </div>
+          {(pendingData?.length ?? 0) === 0 ? (
+            <p className="text-sm text-gray-400">No deployments waiting for approval.</p>
+          ) : (
+            <>
+              <div className="divide-y divide-gray-100">
+                {pendingData.map((a) => (
+                  <div key={a.id} className="flex items-center gap-3 py-2">
+                    <input type="checkbox"
+                           checked={selIds.includes(a.id)}
+                           onChange={(e) => setSelIds((x) =>
+                             e.target.checked ? [...x, a.id] : x.filter((i) => i !== a.id))} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {a.worker?.name} <span className="text-gray-400 font-normal">· {a.vendor?.name}</span>
+                      </p>
+                      <p className="text-xs text-gray-500">{a.start_date?.slice(0,10)} → {a.end_date?.slice(0,10)}</p>
+                    </div>
+                    <button className="btn-danger text-xs"
+                            onClick={() => {
+                              const reason = window.prompt("Reason for rejecting this deployment:");
+                              if (reason?.trim()) rejectOne.mutate({ id: a.id, reason: reason.trim() });
+                            }}>
+                      Reject
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                <p className="text-xs font-medium text-gray-500 uppercase">Allowed gates / departments for the selected workers</p>
+                <div className="flex flex-wrap gap-2">
+                  {(locationsData ?? []).map((loc) => (
+                    <button key={loc}
+                            onClick={() => setSelLocs((x) =>
+                              x.includes(loc) ? x.filter((l) => l !== loc) : [...x, loc])}
+                            className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                              selLocs.includes(loc)
+                                ? "bg-brand-50 border-brand-500 text-brand-700"
+                                : "border-gray-300 text-gray-500"
+                            }`}>
+                      {loc}
+                    </button>
+                  ))}
+                  <span className="text-xs text-gray-400 self-center">
+                    {selLocs.length === 0 ? "None selected = ALL gates allowed" : `${selLocs.length} gate(s) selected`}
+                  </span>
+                </div>
+                <button className="btn-primary text-sm"
+                        disabled={selIds.length === 0 || approveBulk.isPending}
+                        onClick={() => approveBulk.mutate()}>
+                  Approve {selIds.length || ""} selected
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Create form */}
       {showForm && (
@@ -234,6 +348,11 @@ export default function WorkerAssign() {
                   <span className={`badge ${STATUS_COLORS[a.status] ?? "badge-gray"}`}>
                     {a.status}
                   </span>
+                      {a.approval_status === "pending" && <span className="badge badge-yellow ml-1">awaiting approval</span>}
+                      {a.approval_status === "rejected" && <span className="badge badge-red ml-1">rejected</span>}
+                      {Array.isArray(a.allowed_locations) && a.allowed_locations.length > 0 && (
+                        <span className="badge badge-gray ml-1">gates: {a.allowed_locations.join(", ")}</span>
+                      )}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {a.is_locked ? (

@@ -290,6 +290,10 @@ class AppState extends ChangeNotifier {
         'start_date': a['start_date']?.toString(),
         'end_date': a['end_date']?.toString(),
         'status': a['status'],
+        'approval_status': a['approval_status'] ?? 'approved',
+        'allowed_locations': a['allowed_locations'] == null
+            ? null
+            : jsonEncode(a['allowed_locations']),
       });
     }
 
@@ -536,13 +540,29 @@ class AppState extends ChangeNotifier {
   Future<List<Map<String, Object?>>> deployedWorkers() async {
     final db = await LocalDb.instance();
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    return db.rawQuery('''
-      SELECT DISTINCT w.* FROM workers w
+    final rows = await db.rawQuery('''
+      SELECT DISTINCT w.*, a.allowed_locations FROM workers w
       JOIN assignments a ON a.worker_server_id = w.server_id
-      WHERE a.status = 'active' AND a.start_date <= ? AND a.end_date >= ?
+      WHERE a.status = 'active'
+        AND a.approval_status = 'approved'
+        AND a.start_date <= ? AND a.end_date >= ?
         AND w.status = 'active'
       ORDER BY w.name
     ''', [today, today]);
+    // Gate/department permission: when the deployment is restricted, only
+    // devices AT one of the allowed locations may see/match the worker.
+    final myLoc = user?['location_name'] as String?;
+    return rows.where((r) {
+      final raw = r['allowed_locations'] as String?;
+      if (raw == null || raw.isEmpty) return true; // all gates
+      try {
+        final list = List<String>.from(jsonDecode(raw) as List);
+        if (list.isEmpty) return true;
+        return myLoc != null && list.contains(myLoc);
+      } catch (_) {
+        return true;
+      }
+    }).toList();
   }
 
   /// Last IN/OUT for a worker → suggests the next type.

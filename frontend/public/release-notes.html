@@ -47,7 +47,15 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.20</span> True offline fingerprint matching <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.21</span> Gate permissions <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li>Gate devices honour the company's deployment approvals: pending/rejected workers never appear for matching, and gate-restricted workers only match at their allowed gates/departments.</li>
+      <li>Vendors see the approval status of each deployment; the deploy confirmation says when a deployment is waiting for company approval.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.20</span> True offline fingerprint matching <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>The thumb now matches automatically at the gate.</b> Deployed workers' enrolled fingerprints sync to gate devices (marking roles only), and every scan runs a real 1:N match on the device — Windows via the SecuGen SDK, Android via USB-OTG — fully offline, same threshold as the web gate.</li>
       <li>The "select worker" screen is now a clearly-labelled MANUAL OVERRIDE, used only when no match clears the threshold — recorded with score 0 and the gate photo, so overrides are auditable.</li>
@@ -142,7 +150,16 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.3.1</span> In-portal release notes &amp; richer plans <span class="date">16 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.4.0</span> Deployment approvals &amp; gate permissions <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Company-controlled deployment approval</b> — HR/managers can require approval of vendor deployments (toggle on the Deployment Approvals page). Pending workers cannot mark attendance anywhere until approved; rejections carry a reason back to the vendor.</li>
+      <li><b>Per-gate / per-department permissions</b> — approve one or many workers at once and optionally restrict them to specific gates. The rule is enforced everywhere: web gate, both apps (online and offline), and on the server for every synced mark.</li>
+      <li>Notifications on both sides: company admins get approval requests; vendors get the decision.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.3.1</span> In-portal release notes &amp; richer plans <span class="date">16 Aug 2026</span></h3>
     <ul>
       <li><b>What's New inside the portal</b> — this page now lives in the sidebar for every logged-in user, so admins see each release without leaving the app.</li>
       <li><b>Weekly attendance summary email (Enterprise)</b> — every Monday morning, company admins get the previous week's per-worker days &amp; hours digest. Template editable like all others.</li>
