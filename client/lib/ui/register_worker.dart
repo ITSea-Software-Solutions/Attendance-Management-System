@@ -12,6 +12,7 @@ import 'package:uuid/uuid.dart';
 
 import '../biometric/driver.dart';
 import '../core/scope.dart';
+import 'camera_capture.dart';
 
 /// Full worker registration — details + consent + Aadhaar + FINGERPRINT +
 /// PHOTO, entirely from the app (offline-capable; queues and syncs).
@@ -220,6 +221,13 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
   }
 
   Future<void> _takePhoto(ImageSource source) async {
+    // Desktop (Windows/macOS/Linux): image_picker has no camera UI — use our
+    // own capture screen on the same camera backend the Face tab uses.
+    if (source == ImageSource.camera && !Platform.isAndroid && !Platform.isIOS) {
+      final path = await captureWithCamera(context);
+      if (path != null) await _acceptPhoto(path);
+      return;
+    }
     XFile? x;
     try {
       x = await ImagePicker().pickImage(

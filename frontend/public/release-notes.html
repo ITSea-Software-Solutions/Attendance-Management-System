@@ -47,7 +47,14 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.16</span> Camera photo reliability <span class="date">16 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.17</span> Windows camera capture <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Fixed: "Camera unavailable (cameraDelegate)" on Windows registration.</b> Desktop platforms have no built-in camera dialog — the app now opens its own capture screen (live preview, capture button, camera switch) using the same camera engine as the Face tab.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.16</span> Camera photo reliability <span class="date">16 Aug 2026</span></h3>
     <ul>
       <li><b>Fixed: photo taken but never appearing.</b> Android may close the app while the camera is open; the photo is now recovered automatically when the app returns. This also fixes photos not reaching the server (nothing was saved locally to upload).</li>
       <li><b>Visible photo feedback</b> — a spinner in the Live photo slot while the photo processes, and any rejection ("no face detected") now shows in red right inside the Photos card.</li>
