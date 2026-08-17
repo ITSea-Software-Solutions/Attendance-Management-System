@@ -10,6 +10,12 @@ import 'package:uuid/uuid.dart';
 /// it to the attendance record. Any failure (no camera, no permission, device
 /// busy) returns null — the mark itself must never be blocked by this.
 Future<String?> silentSnap() async {
+  // Windows: headless capture (no rendered preview) exercises the most
+  // crash-prone path of the desktop camera plugin — and a native crash at
+  // the GATE would take the whole app down mid-shift. Skip it there; the
+  // Face flow still provides proof photos on Windows via its visible
+  // pipeline. Android keeps automatic proof capture.
+  if (Platform.isWindows) return null;
   CameraController? cam;
   try {
     final cameras = await availableCameras();

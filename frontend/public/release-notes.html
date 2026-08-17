@@ -47,7 +47,15 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.21</span> Gate permissions <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.22</span> Windows capture stability <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Fixed: crash after taking a registration photo on Windows.</b> The camera was being torn down while Windows' native photo pipeline was still finishing — the capture now settles, saves, and closes the camera in a safe order before leaving the screen.</li>
+      <li>Automatic gate proof photos stay on Android (visible-camera flows cover Windows) — a background capture crash at a live gate is not a risk worth taking on the desktop camera stack.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.21</span> Gate permissions <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li>Gate devices honour the company's deployment approvals: pending/rejected workers never appear for matching, and gate-restricted workers only match at their allowed gates/departments.</li>
       <li>Vendors see the approval status of each deployment; the deploy confirmation says when a deployment is waiting for company approval.</li>

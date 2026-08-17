@@ -1,5 +1,10 @@
+import 'dart:io';
+
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:uuid/uuid.dart';
 
 /// In-app camera capture screen — needed on DESKTOP, where image_picker has
 /// no native camera UI (its Windows/macOS/Linux implementations only open a
@@ -69,16 +74,37 @@ class _CameraCaptureScreenState extends State<_CameraCaptureScreen> {
     if (cam == null || !cam.value.isInitialized || _shooting) return;
     setState(() => _shooting = true);
     try {
-      final shot = await cam.takePicture();
-      if (mounted) Navigator.pop(context, shot.path);
+      final shot =
+          await cam.takePicture().timeout(const Duration(seconds: 12));
+      // Windows (Media Foundation): the native photo sink can still be
+      // finishing when Dart returns — tearing the camera down immediately
+      // hard-crashes the app. Let it settle, copy the file out, THEN
+      // dispose in a controlled order, and only then leave the screen.
+      await Future.delayed(const Duration(milliseconds: 350));
+      final dir = await getApplicationSupportDirectory();
+      final dest = p.join(dir.path, 'captures', '${const Uuid().v4()}.jpg');
+      await Directory(p.dirname(dest)).create(recursive: true);
+      await File(shot.path).copy(dest);
+      if (!mounted) return;
+      setState(() => _cam = null); // detach the preview widget first
+      try { await cam.dispose(); } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 120));
+      if (mounted) Navigator.pop(context, dest);
     } catch (e) {
-      setState(() { _shooting = false; _status = 'Capture failed: $e'; });
+      if (mounted) {
+        setState(() { _shooting = false; _status = 'Capture failed: $e — try again or use Gallery/files.'; });
+      }
     }
   }
 
   @override
   void dispose() {
-    _cam?.dispose();
+    final c = _cam;
+    _cam = null;
+    if (c != null) {
+      // ignore: discarded_futures
+      c.dispose().catchError((_) {});
+    }
     super.dispose();
   }
 
