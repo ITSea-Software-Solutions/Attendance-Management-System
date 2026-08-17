@@ -546,6 +546,14 @@ class WorkerController extends Controller
             'quality'  => 'required|integer|min:0|max:100',
         ]);
 
+        // Enrollment quality floor: a poor enrollment haunts every future
+        // match. SecuGen quality < 30 means smudged/partial — rescan now.
+        if ($data['quality'] < 30 && ! config('biometric.simulation')) {
+            return response()->json([
+                'message' => "Fingerprint image quality too low ({$data['quality']}/100) — clean the sensor and finger, then scan again.",
+            ], 422);
+        }
+
         $worker->forceFill([
             'fingerprint_template'    => encrypt($data['template']),
             'fingerprint_quality'     => $data['quality'],

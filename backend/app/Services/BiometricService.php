@@ -34,70 +34,49 @@ class BiometricService
         return (int) config('biometric.threshold', self::MATCH_THRESHOLD);
     }
 
+    /** Is a real server-side matcher configured? (binary present + executable) */
+    public function matcherAvailable(): bool
+    {
+        $binary = config('biometric.matching_binary');
+
+        return is_string($binary) && $binary !== '' && is_executable($binary);
+    }
+
     /**
      * Compare two ISO 19794-2 FMD templates.
-     * Returns match result with score.
      *
-     * In production: use SecuGen server SDK or NIST NBIS for matching.
-     * This implementation provides the interface contract.
+     * SECURITY: there is NO fallback matcher. Minutiae comparison requires a
+     * real algorithm (SecuGen server SDK / NIST Bozorth3 / SourceAFIS); a
+     * byte-similarity stand-in scores DIFFERENT fingers near the threshold
+     * (ISO headers are largely identical) and must never gate attendance.
+     * When no binary is configured this returns unavailable=true and the
+     * callers refuse with a clear message — real matching then happens
+     * ON-DEVICE in the gate apps (SGFPM), which is the primary path.
      */
     public function matchTemplates(string $probeBase64, string $storedBase64): array
     {
-        // In a real deployment, this would call SecuGen's SGFPLIB or
-        // a fingerprint matching binary via subprocess / PHP FFI.
-        // The implementation below shows the expected interface.
+        $probeBytes  = base64_decode($probeBase64, true);
+        $storedBytes = base64_decode($storedBase64, true);
+        if ($probeBytes === false || $storedBytes === false
+            || strlen($probeBytes) < 30 || strlen($storedBytes) < 30) {
+            return ['matched' => false, 'score' => 0, 'error' => 'Invalid template format'];
+        }
+
+        if (! $this->matcherAvailable()) {
+            return ['matched' => false, 'score' => 0, 'unavailable' => true];
+        }
 
         try {
-            $probeBytes  = base64_decode($probeBase64);
-            $storedBytes = base64_decode($storedBase64);
-
-            // Validate template format (SecuGen FMD starts with specific header)
-            if (strlen($probeBytes) < 30 || strlen($storedBytes) < 30) {
-                return ['matched' => false, 'score' => 0, 'error' => 'Invalid template format'];
-            }
-
-            // === Subprocess-based matching ===
-            // In production, call the matching binary:
-            // $result = $this->callMatchingBinary($probeBase64, $storedBase64);
-
-            // === Placeholder for development ===
-            // Replace this block with real SDK integration
-            $score = $this->developmentMatcher($probeBytes, $storedBytes);
-
-            return [
-                'matched' => $score >= self::MATCH_THRESHOLD,
-                'score'   => $score,
-            ];
-
-        } catch (\Exception $e) {
+            return $this->callMatchingBinary($probeBase64, $storedBase64);
+        } catch (\Throwable $e) {
             \Log::error('Fingerprint matching error', ['error' => $e->getMessage()]);
+
             return ['matched' => false, 'score' => 0, 'error' => 'Matching failed'];
         }
     }
 
     /**
-     * Development placeholder for fingerprint matching.
-     * Replace with real SecuGen SDK call in production.
-     */
-    private function developmentMatcher(string $probe, string $stored): int
-    {
-        // This is NOT a real fingerprint comparison.
-        // It's a placeholder that compares byte similarity.
-        // MUST be replaced with SecuGen FDx SDK or NIST NBIS.
-        if ($probe === $stored) return 100;
-
-        $minLen    = min(strlen($probe), strlen($stored));
-        $sameBytes = 0;
-        for ($i = 0; $i < min($minLen, 100); $i++) {
-            if ($probe[$i] === $stored[$i]) $sameBytes++;
-        }
-
-        return (int)round(($sameBytes / 100) * 100);
-    }
-
-    /**
-     * Call external matching binary via subprocess.
-     * Uncomment and configure for production SecuGen server SDK.
+     * Call the configured matching binary (expects JSON {"score": 0-200}).
      */
     private function callMatchingBinary(string $probe, string $stored): array
     {

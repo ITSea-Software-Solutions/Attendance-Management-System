@@ -144,6 +144,7 @@ delete/deactivate/deregister while deployed or checked IN). Role-facing manuals:
   <a href="#backend">Backend</a>
   <a href="#frontend">Frontend</a>
   <a href="#fingerprint">Fingerprint</a>
+  <a href="#biometrics">Matching Internals</a>
   <a href="#vendor-flow">Vendor Flow</a>
   <a href="#backend-changes">Push Changes</a>
   <a href="#new-feature">New Feature</a>
@@ -922,6 +923,74 @@ frontend/src/
 <!-- ══════════════════════════════════════════════════
      8. VENDOR-COMPANY APPROVAL FLOW
 ══════════════════════════════════════════════════ -->
+<section id="biometrics">
+<h2>Biometric Matching Internals <span style="font-size:.6em;font-weight:600;color:#64748b">(audited 17 Aug 2026 · v1.7.2)</span></h2>
+
+<h3>Fingerprint — SecuGen SGFPM (the manufacturer's own matcher)</h3>
+<p>Templates are <b>ISO 19794-2 FMD</b> (~400 bytes, base64 over the wire), captured on SecuGen
+HU20-series scanners. Matching runs <b>on the gate device</b> with SecuGen's licensed minutiae
+matcher — the same MINEX-lineage algorithm the vendor certifies, which is the best matcher
+available for these devices (no open-source matcher scores ISO templates better on SecuGen
+captures than SecuGen's own):</p>
+<ul>
+  <li><b>Windows app:</b> <code>sgfplib.dll</code> via dart:ffi → <code>SGFPM_GetMatchingScore</code> (auto-discovered driver DLL; offline)</li>
+  <li><b>Android app:</b> FDx SDK Pro (bundled AAR) → <code>matchScore</code> platform channel (USB-OTG; offline)</li>
+  <li><b>Windows station fallback:</b> SGIBIOSRV WebAPI <code>SGIMatchScore</code> (localhost:8443)</li>
+</ul>
+<p><b>Scores &amp; thresholds:</b> SecuGen scale 0–200. Accept at <b>≥ 40</b> (SecuGen's documented
+general-purpose cutoff, FAR ≈ 0.001% per single comparison). Because gate identification is
+<b>1:N</b> (false-accept odds scale with N), v0.9.29 adds an <b>ambiguity margin</b>: if the best and
+second-best <i>different</i> workers score within <b>10 points</b>, the scan is rejected and the guard
+rescans — no guessing between look-alike prints. Enrollment enforces a <b>quality floor of 30/100</b>
+(server-side, non-sim) so bad enrollments can't poison future matching.</p>
+<p><b>Server-side matching is intentionally absent</b> unless a real matcher binary is configured
+(<code>BIOMETRIC_MATCHING_BINARY</code>, e.g. SecuGen server SDK / NIST Bozorth3 / SourceAFIS CLI).
+The old development byte-similarity placeholder was <b>removed in v1.7.2</b> — ISO headers are nearly
+identical across fingers, so byte similarity scores different fingers near the threshold; it must never
+gate attendance. Without a binary, the web endpoints answer <code>501</code> and direct gates to the
+apps; templates synced to marking devices stay the primary, fully-offline path.
+<code>BIOMETRIC_SIM=true</code> (demo) synthesises matches and is clearly flagged.</p>
+
+<h3>Face — InsightFace ArcFace (self-hosted, CPU)</h3>
+<p>The pdf-service loads InsightFace's <b>buffalo_l</b> pack once at startup: <b>SCRFD-10G</b>
+detector (det_size 640) + <b>ArcFace ResNet-50</b> (glint360k-trained) producing <b>512-D embeddings</b>.
+Pinned: <code>insightface 0.7.3</code>, <code>onnxruntime 1.18.1</code>, CPUExecutionProvider — the
+standard self-hosted stack as of 2026; commercial cloud APIs score higher on hard benchmarks but
+require sending worker faces to third parties, which we don't do.</p>
+<ul>
+  <li><b>Enrollment:</b> registration photo → embedding stored in <code>workers.face_descriptor</code> (auto, best-effort)</li>
+  <li><b>Gate 1:N:</b> <code>POST /attendance/identify-face</code> — cosine similarity across today's deployed workers</li>
+  <li><b>Mark-time re-verify:</b> every face mark is re-verified <i>server-side</i> from the submitted photo — a client can never assert a match</li>
+  <li><b>Aadhaar check:</b> registration compares the Aadhaar PDF photo vs the live photo (1:1, advisory)</li>
+</ul>
+<p><b>Scores &amp; thresholds:</b> cosine similarity; same person typically 0.5–0.8, strangers &lt; 0.3.
+Accept at <b>≥ 0.45</b> (<code>FACE_MATCH_THRESHOLD</code>). v1.7.2 adds: a <b>1:N ambiguity margin of
+0.08</b> (<code>face_margin</code> — twins/siblings get "use fingerprint" instead of a guess) and
+<b>detection quality gates</b> in the encoder (det_score ≥ 0.5, face ≥ 60px — blurry/tiny faces return
+"no usable face" rather than a junk embedding).</p>
+
+<h3>Independent cross-check: proof photo vs enrolled face (new v1.7.2)</h3>
+<p>Every gate capture (fingerprint or manual marks too) is <b>asynchronously compared to the worker's
+enrolled face</b> (queued <code>VerifyProofPhoto</code> job → <code>attendance_logs.proof_face_score /
+proof_face_match</code>). Advisory only — never blocks a mark — but the day-detail view flags
+<span style="color:#dc2626">⚠ capture did not match the enrolled face</span>, which catches
+buddy-punching (a borrowed finger AND a borrowed face won't both pass). Marks with no usable face
+(angle/lighting) stay "not checked", never "failed".</p>
+
+<h3>Known limits &amp; roadmap</h3>
+<ul>
+  <li><b>No liveness / anti-spoofing (PAD) yet</b> — a printed photo can pass camera attendance at an
+      unsupervised gate. Mitigations today: gates are staffed, every mark stores a proof photo, and the
+      cross-check flags mismatches. Planned: MiniFASNet-class silent PAD in the pdf-service before any
+      unsupervised deployment.</li>
+  <li><b>onnxruntime 1.18.1 → 1.2x</b> bump pending a droplet rebuild window (CPU EP is stable; no behavior change expected).</li>
+  <li><b>SourceAFIS</b> as an optional vendor-neutral server matcher (would enable web-gate matching and
+      non-SecuGen scanners; on-device SGFPM stays primary).</li>
+  <li><b>Threshold calibration</b> — thresholds are vendor/community defaults; once real gate volume exists,
+      calibrate FAR/FRR from the stored scores (<code>fingerprint_score</code>, <code>face_score</code>) per site.</li>
+</ul>
+</section>
+
 <section id="vendor-flow">
   <div class="sec-title"><span class="num">8</span>Vendor–Company Approval — Code Flow</div>
   <div class="grid2">

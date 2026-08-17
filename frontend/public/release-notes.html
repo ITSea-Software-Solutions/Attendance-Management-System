@@ -47,7 +47,14 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.28</span> Company tools in the app <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.29</span> Smarter fingerprint identification <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>1:N ambiguity guard</b> — when two different workers score within 10 points of each other, the scan is rejected and the guard rescans instead of guessing. Protects against look-alike prints as the worker pool grows.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.28</span> Company tools in the app <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Approvals tab for HR and company admins</b> — pending vendor deployments with requested dates; select many, pick allowed gates/departments (Main Gate preselected, "All gates" chip), approve in bulk or reject with a reason. Same powers as the portal.</li>
       <li><b>Manual OUT from the Inside tab</b> — HR/admin can mark a worker OUT who left without scanning (vendors never see this).</li>
@@ -204,7 +211,17 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.7.1</span> Verified marks on worker analytics <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.7.2</span> Biometric hardening <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Photo identity cross-check</b> — every gate capture is automatically compared to the worker's enrolled face (advisory); the day detail flags captures that don't match. Catches buddy-punching.</li>
+      <li><b>1:N ambiguity margins</b> — fingerprint (10 pts) and face (0.08) identifications are rejected when two workers score too close together; face encoder now rejects blurry/tiny faces instead of producing unreliable matches.</li>
+      <li><b>Removed the development byte-similarity fingerprint matcher</b> — server-side fingerprint verification now requires a real matcher binary and refuses clearly otherwise (the gate apps match on-device and are unaffected). Enrollment quality floor 30/100.</li>
+      <li>Developer Guide gains a full <b>Biometric Matching Internals</b> chapter: exact models, formats, score scales, thresholds, and roadmap.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.7.1</span> Verified marks on worker analytics <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Worker analytics page:</b> every recent mark now shows its gate capture photo and HOW it was verified — thumb (fingerprint + score), photo (face + score), or manual.</li>
     </ul>

@@ -60,7 +60,10 @@ class AttendanceController extends Controller
                 SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN al.type='OUT' AND al.auth_proof_path IS NOT NULL THEN al.id END ORDER BY al.marked_at DESC), ',', 1) as out_proof_id,
                 GROUP_CONCAT(DISTINCT al.method SEPARATOR ', ')                 as methods,
                 MAX(al.fingerprint_score)                                       as best_fp_score,
-                MAX(al.face_score)                                              as best_face_score
+                MAX(al.face_score)                                              as best_face_score,
+                MIN(al.proof_face_match)                                        as proof_face_min,
+                MAX(al.proof_face_match)                                        as proof_face_max,
+                MAX(al.proof_face_score)                                        as best_proof_face_score
             ")
             ->when($companyId,               fn($q) => $q->where('al.company_id', $companyId))
             ->when($gateLoc,                 fn($q, $l) => $q->where('al.location_name', $l))
@@ -432,16 +435,25 @@ class AttendanceController extends Controller
             return response()->json(['message' => 'No face detected in the photo — try again with the worker facing the camera.'], 422);
         }
 
-        $best = ['worker' => null, 'score' => 0.0];
+        $best   = ['worker' => null, 'score' => 0.0];
+        $second = 0.0;
         foreach ($workers as $worker) {
             $score = \App\Services\FaceService::cosine($probe, $worker->face_descriptor);
             if ($score > $best['score']) {
-                $best = ['worker' => $worker, 'score' => $score];
+                $second = $best['score'];
+                $best   = ['worker' => $worker, 'score' => $score];
+            } elseif ($score > $second) {
+                $second = $score;
             }
         }
 
         if (! $best['worker'] || $best['score'] < $this->face->threshold()) {
             return response()->json(['message' => 'No face match found among deployed workers.'], 404);
+        }
+        // 1:N ambiguity margin (siblings / similar faces): when the runner-up
+        // is nearly as close as the winner, don't guess — use fingerprint.
+        if ($second > 0 && ($best['score'] - $second) < (float) config('biometric.face_margin', 0.08)) {
+            return response()->json(['message' => 'Two workers look too similar for a reliable face match — use fingerprint for this worker.'], 409);
         }
 
         $worker       = $best['worker'];
@@ -507,24 +519,43 @@ class AttendanceController extends Controller
             return response()->json(['message' => 'No enrolled workers deployed today.'], 404);
         }
 
-        $best = ['worker' => null, 'score' => 0];
+        $best   = ['worker' => null, 'score' => 0];
+        $second = 0;
 
         if ($this->simulationEnabled()) {
             // Demo only: no real finger, so synthesise an identification.
             $worker = $workers->random();
             $best = ['worker' => $worker, 'score' => 150 + random_int(0, 49)];
         } else {
+            // No fake fallback: refuse when no real matcher binary is
+            // configured — the gate APPS match on-device (SGFPM) instead.
+            if (! $this->biometric->matcherAvailable()) {
+                return response()->json([
+                    'message' => 'Server-side fingerprint matching is not configured on this server. '
+                        .'Use the TrueCrew gate app (matches on the scanner device, works offline), '
+                        .'or install the SecuGen matcher binary for the web gate.',
+                ], 501);
+            }
             $probe = $request->input('probe_template');
             foreach ($workers as $worker) {
                 $result = $this->biometric->matchTemplates($probe, decrypt($worker->fingerprint_template));
-                if (($result['score'] ?? 0) > $best['score']) {
-                    $best = ['worker' => $worker, 'score' => $result['score']];
+                $score  = (int) ($result['score'] ?? 0);
+                if ($score > $best['score']) {
+                    $second = $best['score'];
+                    $best   = ['worker' => $worker, 'score' => $score];
+                } elseif ($score > $second) {
+                    $second = $score;
                 }
             }
         }
 
         if (! $best['worker'] || $best['score'] < $this->biometric->threshold()) {
             return response()->json(['message' => 'No fingerprint match found.'], 404);
+        }
+        // 1:N ambiguity margin — two different workers scoring close together
+        // means the identification can't be trusted; rescan instead.
+        if ($second > 0 && ($best['score'] - $second) < (int) config('biometric.margin', 10)) {
+            return response()->json(['message' => 'Match ambiguous between two workers — place the finger again.'], 404);
         }
 
         $worker       = $best['worker'];
@@ -599,6 +630,14 @@ class AttendanceController extends Controller
             if ($this->simulationEnabled()) {
                 $serverScore = 150 + random_int(0, 49);
             } else {
+                // Web-gate path only. The apps match ON-DEVICE with the real
+                // SGFPM matcher and sync their score; this branch re-verifies
+                // browser-submitted probes and never fakes a comparison.
+                if (! $this->biometric->matcherAvailable()) {
+                    return response()->json([
+                        'message' => 'Server-side fingerprint verification is not configured — use the TrueCrew gate app for fingerprint attendance.',
+                    ], 501);
+                }
                 $worker = Worker::findOrFail($data['worker_id']);
                 abort_unless($worker->fingerprint_template, 422, 'Worker has no enrolled fingerprint.');
                 abort_unless(! empty($data['probe_template']), 422, 'Fingerprint probe required.');
@@ -671,6 +710,20 @@ class AttendanceController extends Controller
         ]);
 
         $this->lockActiveDeployment($data['worker_id'], $data['company_id']);
+
+        // Cross-check the capture against the enrolled face (advisory).
+        // Face marks were ALREADY verified from this exact photo — record
+        // that verdict directly; other methods get the async job.
+        if ($authProofPath) {
+            if ($data['method'] === 'face' && $faceScore !== null) {
+                $log->forceFill([
+                    'proof_face_score' => $faceScore,
+                    'proof_face_match' => true,
+                ])->save();
+            } else {
+                \App\Jobs\VerifyProofPhoto::dispatch($log->id);
+            }
+        }
 
         $this->audit->log($user->id, 'attendance_marked', AttendanceLog::class, $log->id, [
             'worker_id'     => $data['worker_id'],
@@ -915,6 +968,9 @@ class AttendanceController extends Controller
         }
         $path = $request->file('photo')->store('attendance/proofs', 'private');
         $log->forceFill(['auth_proof_path' => $path])->save();
+
+        // Advisory cross-check: does the gate capture match the ENROLLED face?
+        \App\Jobs\VerifyProofPhoto::dispatch($log->id);
 
         return response()->json(['message' => 'Proof photo attached.']);
     }

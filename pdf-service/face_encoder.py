@@ -38,4 +38,16 @@ def encode_face(image_bytes: bytes) -> list | None:
 
     # Multiple faces? Pick the one with the highest detection confidence
     best = max(faces, key=lambda f: f.det_score)
+
+    # Quality gates: a low-confidence detection or a tiny face crop produces
+    # a junk embedding that matches nobody reliably (or worse, everybody a
+    # little). Treat those as "no usable face" so callers ask for a retake.
+    MIN_DET_SCORE = 0.50
+    MIN_FACE_SIDE = 60  # pixels in the source image
+    x1, y1, x2, y2 = best.bbox
+    side = min(abs(x2 - x1), abs(y2 - y1))
+    if best.det_score < MIN_DET_SCORE or side < MIN_FACE_SIDE:
+        logger.info("face rejected by quality gate det=%.2f side=%dpx", best.det_score, side)
+        return None
+
     return best.embedding.tolist()

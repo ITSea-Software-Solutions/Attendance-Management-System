@@ -66,6 +66,13 @@ abstract class BiometricDriver {
   /// Gate threshold — same scale + cutoff as the web gate (score 0–199).
   static const int matchThreshold = 40;
 
+  /// 1:N ambiguity margin: SecuGen's 40 cutoff is calibrated for a SINGLE
+  /// comparison; matching against N workers multiplies the false-accept
+  /// chance. If the best and second-best DIFFERENT workers score within this
+  /// margin, the identification is not trustworthy — treat as no-match and
+  /// rescan rather than pick whoever edged ahead.
+  static const int matchMargin = 10;
+
   static Future<BiometricDriver> best() async {
     if (Platform.isWindows) {
       final direct = SgfpDirectDriver();
@@ -312,6 +319,7 @@ class SgibiosrvDriver implements BiometricDriver {
     if (live == null) return null;
     Map<String, Object?>? best;
     var bestScore = -1;
+    var secondScore = -1;
     for (final w in candidates) {
       final stored = w['fingerprint_template'] as String?;
       if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
@@ -324,12 +332,19 @@ class SgibiosrvDriver implements BiometricDriver {
         final data = r.data is Map ? r.data as Map : {};
         final score = (data['MatchingScore'] as num?)?.toInt() ?? -1;
         if (score > bestScore) {
+          secondScore = bestScore;
           bestScore = score;
           best = w;
+        } else if (score > secondScore) {
+          secondScore = score;
         }
       } catch (_) {/* keep trying others */}
     }
     if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+    if (secondScore >= 0 &&
+        bestScore - secondScore < BiometricDriver.matchMargin) {
+      return null; // ambiguous between two workers — rescan
+    }
     return IdentifyResult(best, bestScore);
   }
 }
@@ -348,17 +363,25 @@ class SgfpDirectDriver implements BiometricDriver {
     if (live == null) return null;
     Map<String, Object?>? best;
     var bestScore = -1;
+    var secondScore = -1;
     for (final w in candidates) {
       final stored = w['fingerprint_template'] as String?;
       // Skip missing/simulated/garbage templates — only real enrollments match.
       if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
       final score = SgfpDirect.instance.matchScore(live, stored);
       if (score > bestScore) {
+        secondScore = bestScore;
         bestScore = score;
         best = w;
+      } else if (score > secondScore) {
+        secondScore = score;
       }
     }
     if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+    if (secondScore >= 0 &&
+        bestScore - secondScore < BiometricDriver.matchMargin) {
+      return null; // ambiguous between two workers — rescan
+    }
     return IdentifyResult(best, bestScore);
   }
 }
@@ -392,6 +415,7 @@ class AndroidSgDriver implements BiometricDriver {
       if (live == null) return null;
       Map<String, Object?>? best;
       var bestScore = -1;
+      var secondScore = -1;
       for (final w in candidates) {
         final stored = w['fingerprint_template'] as String?;
         if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
@@ -400,12 +424,19 @@ class AndroidSgDriver implements BiometricDriver {
               'matchScore', {'t1': live, 't2': stored}) as Map);
           final score = (m['score'] as num?)?.toInt() ?? -1;
           if (score > bestScore) {
+            secondScore = bestScore;
             bestScore = score;
             best = w;
+          } else if (score > secondScore) {
+            secondScore = score;
           }
         } catch (_) {/* try next */}
       }
       if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+      if (secondScore >= 0 &&
+          bestScore - secondScore < BiometricDriver.matchMargin) {
+        return null; // ambiguous between two workers — rescan
+      }
       return IdentifyResult(best, bestScore);
     } catch (_) {
       return null;

@@ -394,6 +394,24 @@ export default function AttendanceList() {
                     {detail.best_face_score ? ` · face ${Number(detail.best_face_score).toFixed(2)}` : ""}
                   </p>
                 </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">Photo identity check</p>
+                  {/* Gate captures are cross-checked against the ENROLLED face
+                      (async, advisory) — catches buddy-punching. */}
+                  {detail.proof_face_min != null && Number(detail.proof_face_min) === 0 ? (
+                    <p className="font-medium text-red-600">
+                      ⚠ a capture did not match the enrolled face
+                      {detail.best_proof_face_score ? ` (best ${Number(detail.best_proof_face_score).toFixed(2)})` : ""}
+                    </p>
+                  ) : detail.proof_face_max != null && Number(detail.proof_face_max) === 1 ? (
+                    <p className="font-medium text-emerald-600">
+                      ✓ matches enrolled face
+                      {detail.best_proof_face_score ? ` (${Number(detail.best_proof_face_score).toFixed(2)})` : ""}
+                    </p>
+                  ) : (
+                    <p className="font-medium text-gray-400">not checked yet</p>
+                  )}
+                </div>
               </div>
             </div>
 

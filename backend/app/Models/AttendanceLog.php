@@ -49,8 +49,10 @@ class AttendanceLog extends Model
     protected $appends = ['has_proof_photo'];
 
     protected $casts = [
-        'marked_at' => 'datetime',
-        'is_valid'  => 'boolean',
+        'marked_at'        => 'datetime',
+        'is_valid'         => 'boolean',
+        'proof_face_match' => 'boolean',
+        'proof_face_score' => 'float',
     ];
 
     // ─── Relationships ─────────────────────────────────────────────────────────
