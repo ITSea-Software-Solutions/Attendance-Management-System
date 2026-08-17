@@ -97,7 +97,7 @@ class WorkerAssignmentController extends Controller
             $assignment->forceFill(['approval_status' => 'pending'])->save();
             $notify = app(\App\Services\NotifyService::class);
             $admins = \App\Models\User::where('company_id', $company->id)
-                ->where('role', 'company_admin')->get();
+                ->whereIn('role', ['company_admin', 'company_hr'])->get();
             $notify->inApp($admins, 'deployment_requested',
                 "Deployment approval needed: {$worker->name}",
                 'Vendor '.(optional($worker->vendor)->name ?? '')." requests {$data['start_date']} → {$data['end_date']}.",
@@ -132,7 +132,7 @@ class WorkerAssignmentController extends Controller
     public function pending(Request $request): JsonResponse
     {
         $user = $request->user();
-        abort_unless($user->isSuperAdmin() || $user->role === 'company_admin', 403);
+        abort_unless($user->isSuperAdmin() || in_array($user->role, ['company_admin', 'company_hr'], true), 403);
         $q = WorkerAssignment::with(['worker:id,name,aadhaar_number_masked', 'vendor:id,name'])
             ->where('approval_status', 'pending')
             ->orderBy('created_at');
@@ -150,7 +150,7 @@ class WorkerAssignmentController extends Controller
     public function approve(Request $request): JsonResponse
     {
         $user = $request->user();
-        abort_unless($user->isSuperAdmin() || $user->role === 'company_admin', 403);
+        abort_unless($user->isSuperAdmin() || in_array($user->role, ['company_admin', 'company_hr'], true), 403);
         $data = $request->validate([
             'ids'                 => 'required|array|min:1',
             'ids.*'               => 'integer',
@@ -196,7 +196,8 @@ class WorkerAssignmentController extends Controller
     {
         $user = $request->user();
         abort_unless($user->isSuperAdmin()
-            || ($user->role === 'company_admin' && $user->company_id === $assignment->company_id), 403);
+            || (in_array($user->role, ['company_admin', 'company_hr'], true)
+                && $user->company_id === $assignment->company_id), 403);
         abort_unless($assignment->approval_status === 'pending', 422, 'Already decided.');
         $data = $request->validate(['reason' => 'required|string|min:3|max:300']);
         $assignment->forceFill([
@@ -223,9 +224,11 @@ class WorkerAssignmentController extends Controller
             ->whereNotNull('location_name')->pluck('location_name');
         $fromLogs = AttendanceLog::where('company_id', $company->id)
             ->whereNotNull('location_name')->distinct()->pluck('location_name');
+        $presets = collect(config('departments.presets', []));
 
         return response()->json([
-            'locations' => $fromUsers->merge($fromLogs)->unique()->sort()->values(),
+            'locations' => $presets->merge($fromUsers)->merge($fromLogs)
+                ->unique()->values(),
         ]);
     }
 

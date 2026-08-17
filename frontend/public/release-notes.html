@@ -47,7 +47,15 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.23</span> Stability + vendor fixes <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.24</span> Always fresh <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Automatic background sync every ~90 seconds</b> while online — newly approved deployments, fingerprints and photos reach every gate device without anyone tapping the sync chip.</li>
+      <li>Supports the new HR role (HR signs into the portal to approve; devices pick the results up automatically).</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.23</span> Stability + vendor fixes <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Fixed: crash after taking a registration photo on Windows.</b> The camera now settles, saves, and closes in a safe order before leaving the capture screen.</li>
       <li><b>Fixed: "no company found" when deploying from the app</b> — the approved-companies list read the wrong field; it now matches the web portal.</li>
@@ -161,7 +169,17 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.4.0</span> Deployment approvals &amp; gate permissions <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.5.0</span> Department HR role &amp; preset departments <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>New role: Department HR</b> — company admins create HR logins (Users page) who approve/reject vendor deployments and choose which departments each worker may enter. HR cannot manage users, settings or billing.</li>
+      <li><b>Preset departments</b> — a standard list (Main Gate, Security, HR, Production, Quality, Stores &amp; Warehouse, Maintenance, Dispatch, Canteen, Admin Office…) appears everywhere departments are picked; custom names still allowed.</li>
+      <li><b>Main Gate preselected</b> when approving — workers can always IN/OUT at the main gate by default; HR adds more departments per worker. An "All gates" option clears the restriction.</li>
+      <li>The approvals panel now explains itself: it says clearly when auto-approval is on and nothing will queue.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.4.0</span> Deployment approvals &amp; gate permissions <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Company-controlled deployment approval</b> — HR/managers can require approval of vendor deployments (toggle on the Deployment Approvals page). Pending workers cannot mark attendance anywhere until approved; rejections carry a reason back to the vendor.</li>
       <li><b>Per-gate / per-department permissions</b> — approve one or many workers at once and optionally restrict them to specific gates. The rule is enforced everywhere: web gate, both apps (online and offline), and on the server for every synced mark.</li>

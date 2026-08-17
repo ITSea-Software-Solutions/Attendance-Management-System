@@ -17,6 +17,7 @@ export default function WorkerAssign() {
   const { user }      = useAuth();
   const isVendorAdmin = ["vendor_admin", "vendor_operator"].includes(user?.role);
   const isCompanyAdmin = user?.role === "company_admin";
+  const isApprover = ["company_admin", "company_hr"].includes(user?.role) || user?.role === "super_admin";
 
   const today = format(new Date(), "yyyy-MM-dd");
   const [form, setForm] = useState({
@@ -67,16 +68,18 @@ export default function WorkerAssign() {
   const { data: pendingData } = useQuery({
     queryKey: ["assignments-pending"],
     queryFn:  () => api.get("/assignments-pending").then(r => r.data.pending),
-    enabled:  isCompanyAdmin || user?.role === "super_admin",
+    enabled:  isApprover,
     refetchInterval: 60000,
   });
   const { data: locationsData } = useQuery({
     queryKey: ["company-locations", user?.company_id],
     queryFn:  () => api.get(`/companies/${user.company_id}/locations`).then(r => r.data.locations),
-    enabled:  isCompanyAdmin,
+    enabled:  ["company_admin", "company_hr"].includes(user?.role),
   });
   const [selIds, setSelIds] = useState([]);
-  const [selLocs, setSelLocs] = useState([]); // empty = all gates
+  // "Main Gate" preselected: workers should always be able to IN/OUT at the
+  // main gate; HR adds more departments as needed. Clearing all = every gate.
+  const [selLocs, setSelLocs] = useState(["Main Gate"]);
   const [requireApproval, setRequireApproval] = useState(null);
 
   const approveBulk = useMutation({
@@ -132,19 +135,26 @@ export default function WorkerAssign() {
       </div>
 
       {/* ── Company HR: approval requirement toggle + pending requests ── */}
-      {isCompanyAdmin && (
+      {isApprover && user?.role !== "super_admin" && (
         <div className="card space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
             <h2 className="font-semibold text-gray-900">Deployment approvals</h2>
-            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-              <input type="checkbox"
-                     checked={requireApproval ?? false}
-                     onChange={(e) => saveApprovalSetting(e.target.checked)} />
-              Require my approval for new vendor deployments
-            </label>
+            {isCompanyAdmin && (
+              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                <input type="checkbox"
+                       checked={requireApproval ?? false}
+                       onChange={(e) => saveApprovalSetting(e.target.checked)} />
+                Require approval for new vendor deployments
+              </label>
+            )}
           </div>
           {(pendingData?.length ?? 0) === 0 ? (
-            <p className="text-sm text-gray-400">No deployments waiting for approval.</p>
+            <p className="text-sm text-gray-400">
+              No deployments waiting for approval.
+              {requireApproval === false || requireApproval === null
+                ? " Note: approval is currently OFF — new vendor deployments activate immediately. Turn the checkbox on to review them here first."
+                : " New vendor deployments will appear here for review."}
+            </p>
           ) : (
             <>
               <div className="divide-y divide-gray-100">
@@ -173,6 +183,14 @@ export default function WorkerAssign() {
               <div className="pt-2 border-t border-gray-100 space-y-2">
                 <p className="text-xs font-medium text-gray-500 uppercase">Allowed gates / departments for the selected workers</p>
                 <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setSelLocs([])}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                            selLocs.length === 0
+                              ? "bg-brand-50 border-brand-500 text-brand-700"
+                              : "border-gray-300 text-gray-500"
+                          }`}>
+                    All gates
+                  </button>
                   {(locationsData ?? []).map((loc) => (
                     <button key={loc}
                             onClick={() => setSelLocs((x) =>
@@ -186,7 +204,7 @@ export default function WorkerAssign() {
                     </button>
                   ))}
                   <span className="text-xs text-gray-400 self-center">
-                    {selLocs.length === 0 ? "None selected = ALL gates allowed" : `${selLocs.length} gate(s) selected`}
+                    {selLocs.length === 0 ? "ALL gates allowed" : `Allowed at: ${selLocs.join(", ")}`}
                   </span>
                 </div>
                 <button className="btn-primary text-sm"

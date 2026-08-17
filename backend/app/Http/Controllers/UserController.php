@@ -76,13 +76,16 @@ class UserController extends Controller
                 'email'         => 'required|email|unique:users',
                 'password'      => ['required', Password::min(8)->letters()->numbers()],
                 'phone'         => 'nullable|string|max:15',
+                'role'          => 'nullable|in:company_gate,company_hr',
                 'location_type' => 'nullable|in:main_gate,department,checkpoint',
                 'location_name' => 'nullable|string|max:100',
             ]);
             if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('company', $auth->company_id), 'users')) {
                 return response()->json($deny, 403);
             }
-            $data['role']       = 'company_gate';
+            // Gate users mark attendance at their location; HR users review
+            // vendor deployments (approve/reject + department permissions).
+            $data['role']       = $request->input('role', 'company_gate');
             $data['company_id'] = $auth->company_id;
             $data['is_active']  = true;
             $user = User::create($data);

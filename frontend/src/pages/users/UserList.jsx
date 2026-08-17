@@ -14,6 +14,7 @@ const ALL_ROLES = [
 ];
 
 const ROLE_BADGE = {
+  company_hr: "bg-purple-100 text-purple-700",
   super_admin:     "bg-purple-100 text-purple-700",
   company_admin:   "bg-blue-100 text-blue-700",
   company_gate:    "bg-cyan-100 text-cyan-700",
@@ -56,12 +57,24 @@ export default function UserList() {
   const isVendorAdmin  = authUser?.role === "vendor_admin";
 
   const availableRoles = isCompanyAdmin
-    ? [{ value: "company_gate",    label: "Company Gate" }]
+    ? [
+        { value: "company_gate", label: "Gate user (marks IN/OUT at a gate)" },
+        { value: "company_hr",   label: "Department HR (approves deployments)" },
+      ]
     : isVendorAdmin
     ? [{ value: "vendor_operator", label: "Vendor Operator" }]
     : ALL_ROLES;
 
-  const isGateRole = form.role === "company_gate" || isCompanyAdmin;
+  const isGateRole = form.role === "company_gate" || (isCompanyAdmin && form.role !== "company_hr");
+  const isHrRole   = form.role === "company_hr";
+
+  // Preset + existing departments for consistent naming (server merges
+  // config presets with this company's known gate/department names).
+  const { data: deptOptions } = useQuery({
+    queryKey: ["company-locations", authUser?.company_id],
+    queryFn:  () => api.get(`/companies/${authUser.company_id}/locations`).then(r => r.data.locations),
+    enabled:  isCompanyAdmin,
+  });
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ["users"],
@@ -274,7 +287,7 @@ export default function UserList() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
               {/* ── 1. Role ── */}
-              {!isCompanyAdmin && !isVendorAdmin && (
+              {!isVendorAdmin && (
                 <div>
                   <label className="label">Role</label>
                   <select className="input" required {...field("role")}>
@@ -328,14 +341,37 @@ export default function UserList() {
                       <label className="label">Location Name</label>
                       <input
                         className="input"
+                        list="dept-presets"
                         placeholder={locTypePlaceholder}
                         {...field("location_name")}
                       />
+                      <datalist id="dept-presets">
+                        {(deptOptions ?? []).map((d) => <option key={d} value={d} />)}
+                      </datalist>
                       <p className="text-xs text-gray-400 mt-1">
-                        Attendance marked by this user will be tagged with this location.
+                        Attendance marked by this user will be tagged with this location. Pick a preset or type a custom name.
                       </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ── 3b. HR department ── */}
+              {isHrRole && (
+                <div>
+                  <label className="label">Department (optional)</label>
+                  <input
+                    className="input"
+                    list="dept-presets"
+                    placeholder="e.g. HR"
+                    {...field("location_name")}
+                  />
+                  <datalist id="dept-presets">
+                    {(deptOptions ?? []).map((d) => <option key={d} value={d} />)}
+                  </datalist>
+                  <p className="text-xs text-gray-400 mt-1">
+                    HR users review vendor deployments: approve/reject and choose which gates/departments each worker may enter.
+                  </p>
                 </div>
               )}
 

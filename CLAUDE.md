@@ -35,6 +35,7 @@ Workers are registered by vendor companies, deployed to client companies, and ma
 |------|--------------|
 | `super_admin` | Platform owner — creates companies/orgs, manages ALL users, Subscriptions page (plans/upgrades) |
 | `company_admin` | **Creates & approves vendors** (auto-approved for own company), creates gate users + vendor-admin logins, views company attendance/workers, Plan & Billing |
+| `company_hr` | **Approves/rejects vendor deployments + assigns allowed departments** (no users/settings/billing) |
 | `company_gate` | Marks IN/OUT fingerprint attendance only |
 | `vendor_admin` | Registers workers, deploys to companies, views worker attendance |
 | `vendor_operator` | Registers workers only |

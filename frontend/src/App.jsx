@@ -108,7 +108,7 @@ export default function App() {
           </PrivateRoute>
         } />
         <Route path="workers/assign" element={
-          <PrivateRoute roles={["super_admin", "vendor_admin", "company_admin"]}>
+          <PrivateRoute roles={["super_admin", "vendor_admin", "company_admin", "company_hr"]}>
             <WorkerAssign />
           </PrivateRoute>
         } />

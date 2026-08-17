@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'dart:async';
+
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart' show FormData, MultipartFile;
 import 'package:flutter/foundation.dart';
@@ -41,6 +43,11 @@ class AppState extends ChangeNotifier {
     online = !now.contains(ConnectivityResult.none);
     notifyListeners();
     if (user != null && online) await sync();
+    // Keep devices fresh without manual taps: newly approved deployments,
+    // templates and photos land within ~90s everywhere that's online.
+    Timer.periodic(const Duration(seconds: 90), (_) {
+      if (user != null && online && !syncing) sync();
+    });
   }
 
   Future<void> login(String server, String email, String password) async {

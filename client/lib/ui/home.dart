@@ -150,6 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
   static String _roleLabel(String role) => switch (role) {
         'super_admin' => 'Super Admin',
         'company_admin' => 'Company Admin',
+        'company_hr' => 'HR',
         'company_gate' => 'Gate',
         'vendor_admin' => 'Vendor',
         'vendor_operator' => 'Vendor Operator',

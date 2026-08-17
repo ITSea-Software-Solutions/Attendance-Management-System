@@ -13,6 +13,7 @@ class User extends Authenticatable
 
     public const ROLE_SUPER_ADMIN    = 'super_admin';
     public const ROLE_COMPANY_ADMIN  = 'company_admin';
+    public const ROLE_COMPANY_HR     = 'company_hr';
     public const ROLE_COMPANY_GATE   = 'company_gate';
     public const ROLE_VENDOR_ADMIN   = 'vendor_admin';
     public const ROLE_VENDOR_OP      = 'vendor_operator';
@@ -20,6 +21,7 @@ class User extends Authenticatable
     public const ROLES = [
         self::ROLE_SUPER_ADMIN,
         self::ROLE_COMPANY_ADMIN,
+        self::ROLE_COMPANY_HR,
         self::ROLE_COMPANY_GATE,
         self::ROLE_VENDOR_ADMIN,
         self::ROLE_VENDOR_OP,
@@ -73,7 +75,7 @@ class User extends Authenticatable
 
     public function isCompanyUser(): bool
     {
-        return in_array($this->role, [self::ROLE_COMPANY_ADMIN, self::ROLE_COMPANY_GATE]);
+        return in_array($this->role, [self::ROLE_COMPANY_ADMIN, self::ROLE_COMPANY_HR, self::ROLE_COMPANY_GATE]);
     }
 
     public function isVendorUser(): bool
@@ -84,6 +86,11 @@ class User extends Authenticatable
     public function isVendorAdmin(): bool
     {
         return $this->role === self::ROLE_VENDOR_ADMIN;
+    }
+
+    public function isHrUser(): bool
+    {
+        return $this->role === self::ROLE_COMPANY_HR;
     }
 
     public function isGateUser(): bool
