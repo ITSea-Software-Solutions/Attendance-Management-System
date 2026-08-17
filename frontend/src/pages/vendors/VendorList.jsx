@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import {
   Search, Plus, Eye, EyeOff, RefreshCw, Copy, Pencil,
   ToggleLeft, ToggleRight, X, MoreVertical,
-  CheckCircle, Clock, PauseCircle, XCircle,
+  CheckCircle, Clock, PauseCircle, XCircle, Download,
 } from "lucide-react";
 
 function CardMenu({ vendor, onEdit, onToggle }) {
