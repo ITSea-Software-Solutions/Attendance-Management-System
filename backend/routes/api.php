@@ -90,6 +90,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('stats',          [WorkerController::class, 'stats']);
         Route::get('photo',          [WorkerController::class, 'servePhoto'])->name('worker.photo');
         Route::post('verify-step',   [WorkerController::class, 'verifyStep']);
+        Route::post('aadhaar-photo', [WorkerController::class, 'uploadAadhaarPhoto']);
+        Route::get('aadhaar-photo',  [WorkerController::class, 'serveAadhaarPhoto']);
         Route::post('fingerprint',   [WorkerController::class, 'storeFingerprint']);
         Route::delete('fingerprint', [WorkerController::class, 'deleteFingerprint']);
         Route::post('photo',         [WorkerController::class, 'uploadPhoto']);
@@ -125,6 +127,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('identify',       [AttendanceController::class, 'identify']);          // server-side 1:N fingerprint match
         Route::post('identify-face',  [AttendanceController::class, 'identifyFace']);      // server-side 1:N camera face match
         Route::post('mark',           [AttendanceController::class, 'mark']);
+        Route::post('{log}/proof',    [AttendanceController::class, 'uploadProof']);
         Route::get('proof/{log}',     [AttendanceController::class, 'proofPhoto']);       // serve proof image
         Route::get('today',           [AttendanceController::class, 'today']);
         Route::get('worker/{worker}', [AttendanceController::class, 'workerHistory']);

@@ -330,6 +330,7 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
       fingerprintSimulated: _fp!.simulated,
       photoPath: _photoPath,
       aadhaarPdfPath: _pdfPath,
+      aadhaarPhotoB64: _aadhaarPhotoB64,
     );
     setState(() => _busy = false);
     if (err != null) {

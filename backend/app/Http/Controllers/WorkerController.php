@@ -364,6 +364,34 @@ class WorkerController extends Controller
     }
 
     /**
+     * Store the photo EXTRACTED from the Aadhaar PDF (uploaded by the app
+     * after sync). Kept separately from the live registration photo so gate
+     * screens can show document-vs-live side by side.
+     */
+    public function uploadAadhaarPhoto(Request $request, Worker $worker): JsonResponse
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        $request->validate(['photo' => 'required|image|max:2048|mimes:jpeg,png,jpg']);
+        if ($worker->aadhaar_photo_path) {
+            Storage::disk('private')->delete($worker->aadhaar_photo_path);
+        }
+        $path = $request->file('photo')->store('workers/aadhaar_photos', 'private');
+        $worker->forceFill(['aadhaar_photo_path' => $path])->save();
+
+        return response()->json(['message' => 'Aadhaar photo stored.']);
+    }
+
+    /** Serve the Aadhaar-document photo (authenticated, role-scoped). */
+    public function serveAadhaarPhoto(Request $request, Worker $worker)
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        abort_unless($worker->aadhaar_photo_path
+            && Storage::disk('private')->exists($worker->aadhaar_photo_path), 404);
+
+        return Storage::disk('private')->response($worker->aadhaar_photo_path);
+    }
+
+    /**
      * Manual verification steps (until OTP providers are wired): mark the
      * worker's email/phone as verified by the vendor. Aadhaar/fingerprint/
      * face steps are set by their own flows.

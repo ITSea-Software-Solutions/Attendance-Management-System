@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:dio/dio.dart' show FormData, MultipartFile;
@@ -188,6 +189,24 @@ class AppState extends ChangeNotifier {
             where: 'client_uuid = ?', whereArgs: [w['client_uuid']]);
       } catch (_) {/* retry next sync */}
     }
+    // Aadhaar DOCUMENT photo (extracted from the PDF at registration):
+    // uploaded once the worker has a server id — gate screens show it
+    // beside the live photos.
+    final aPhotoRows = await db.query('workers',
+        where: 'aadhaar_photo_b64 IS NOT NULL AND aadhaar_photo_synced = 0 AND server_id IS NOT NULL');
+    for (final w in aPhotoRows) {
+      try {
+        final tmp = File('${Directory.systemTemp.path}/aadhaar_photo_${w['server_id']}.png');
+        await tmp.writeAsBytes(base64Decode(w['aadhaar_photo_b64'] as String));
+        final fd = FormData.fromMap({
+          'photo': await MultipartFile.fromFile(tmp.path, filename: 'aadhaar.png'),
+        });
+        await api.post('/workers/${w['server_id']}/aadhaar-photo', data: fd);
+        await db.update('workers', {'aadhaar_photo_synced': 1},
+            where: 'client_uuid = ?', whereArgs: [w['client_uuid']]);
+        try { await tmp.delete(); } catch (_) {}
+      } catch (_) {/* retry next sync */}
+    }
     for (final item in List<Map>.from(res['marks'] as List? ?? [])) {
       final ok = item['status'] == 'created' || item['status'] == 'duplicate_uuid';
       await db.update(
@@ -201,6 +220,21 @@ class AppState extends ChangeNotifier {
               : {'sync_state': 'error', 'sync_error': item['message']},
           where: 'client_uuid = ?',
           whereArgs: [item['uuid']]);
+    }
+
+    // Gate proof photos: attach to their synced marks (best-effort, retried).
+    final proofRows = await db.query('attendance',
+        where: 'proof_path IS NOT NULL AND proof_synced = 0 AND server_id IS NOT NULL');
+    for (final m in proofRows) {
+      try {
+        final fd = FormData.fromMap({
+          'photo': await MultipartFile.fromFile(m['proof_path'] as String,
+              filename: 'proof.jpg'),
+        });
+        await api.post('/attendance/${m['server_id']}/proof', data: fd);
+        await db.update('attendance', {'proof_synced': 1},
+            where: 'client_uuid = ?', whereArgs: [m['client_uuid']]);
+      } catch (_) {/* retry next sync */}
     }
   }
 
@@ -341,6 +375,18 @@ class AppState extends ChangeNotifier {
     return Map<String, dynamic>.from(r.data as Map);
   }
 
+  /// Authenticated URL + headers for the Aadhaar DOCUMENT photo.
+  Future<(String, Map<String, String>)?> aadhaarPhotoRequest(int? serverId) async {
+    if (serverId == null) return null;
+    final server = await LocalDb.getMeta('server');
+    final token = await LocalDb.getMeta('token');
+    if (server == null || token == null) return null;
+    return (
+      '$server/api/workers/$serverId/aadhaar-photo',
+      {'Authorization': 'Bearer $token', 'Accept': 'image/*'}
+    );
+  }
+
   /// Authenticated URL + headers for a worker's photo (gate result card).
   Future<(String, Map<String, String>)?> workerPhotoRequest(
       int? serverId) async {
@@ -443,6 +489,7 @@ class AppState extends ChangeNotifier {
     bool fingerprintSimulated = false,
     String? photoPath,
     String? aadhaarPdfPath,
+    String? aadhaarPhotoB64,
   }) async {
     if (!RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
       return 'Aadhaar must be exactly 12 digits.';
@@ -469,6 +516,8 @@ class AppState extends ChangeNotifier {
       'photo_synced': 0,
       'aadhaar_pdf_path': aadhaarPdfPath,
       'aadhaar_pdf_synced': 0,
+      'aadhaar_photo_b64': aadhaarPhotoB64,
+      'aadhaar_photo_synced': 0,
       'status': fingerprintTemplate != null ? 'active' : 'pending',
       'sync_state': 'pending',
     });
@@ -511,6 +560,7 @@ class AppState extends ChangeNotifier {
     required String method,
     int? score,
     bool simulated = false,
+    String? proofPath,
   }) async {
     final db = await LocalDb.instance();
     await db.insert('attendance', {
@@ -526,6 +576,8 @@ class AppState extends ChangeNotifier {
       'simulated': simulated ? 1 : 0,
       'location_type': user?['location_type'],
       'location_name': user?['location_name'],
+      'proof_path': proofPath,
+      'proof_synced': 0,
       'sync_state': 'pending',
     });
     await _refreshPending();

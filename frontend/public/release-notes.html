@@ -47,7 +47,16 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.17</span> Windows camera capture <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.18</span> Gate proof photos <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Automatic gate photo on fingerprint verification</b> — the moment a worker's thumb verifies, the device camera quietly photographs them; the photo saves with that IN/OUT record and uploads on sync as tamper-evident proof. Best-effort: no camera, no problem — the mark never blocks.</li>
+      <li><b>Three-photo verified screen</b> — every IN/OUT now shows the Aadhaar document photo, the registration photo, and the just-taken gate photo side by side, with a directional IN/OUT animation (green arrow in, amber arrow out).</li>
+      <li>The Aadhaar photo extracted at registration now syncs to the server, so every gate device can display it.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.17</span> Windows camera capture <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Fixed: "Camera unavailable (cameraDelegate)" on Windows registration.</b> Desktop platforms have no built-in camera dialog — the app now opens its own capture screen (live preview, capture button, camera switch) using the same camera engine as the Face tab.</li>
     </ul>

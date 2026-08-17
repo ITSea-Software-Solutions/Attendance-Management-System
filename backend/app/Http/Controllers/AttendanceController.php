@@ -856,4 +856,28 @@ class AttendanceController extends Controller
             ->where('is_locked', false)
             ->update(['is_locked' => true]);
     }
+
+    /**
+     * Attach the gate-capture proof photo to an already-synced mark (the
+     * offline apps push marks as JSON, then upload the photo separately).
+     * Only the org that recorded the mark (or super admin) may attach.
+     */
+    public function uploadProof(Request $request, AttendanceLog $log): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(
+            $user->isSuperAdmin()
+            || ($user->isCompanyUser() && $user->company_id === $log->company_id)
+            || ($user->isVendorUser() && $log->worker && $log->worker->vendor_id === $user->vendor_id),
+            403
+        );
+        $request->validate(['photo' => 'required|image|max:5120|mimes:jpeg,png,jpg']);
+        if ($log->auth_proof_path) {
+            \Illuminate\Support\Facades\Storage::disk('private')->delete($log->auth_proof_path);
+        }
+        $path = $request->file('photo')->store('attendance/proofs', 'private');
+        $log->forceFill(['auth_proof_path' => $path])->save();
+
+        return response()->json(['message' => 'Proof photo attached.']);
+    }
 }

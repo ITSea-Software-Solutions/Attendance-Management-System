@@ -178,6 +178,7 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
         type: type,
         workerServerId: (w['worker_id'] as num?)?.toInt(),
         method: 'face',
+        proofPath: photoPath,
       );
     } catch (e) {
       setState(() { _busy = false; _status = 'Mark failed — ${e.toString().contains("422") ? "face did not re-verify / sequence invalid" : "connection issue"}. Try again.'; });

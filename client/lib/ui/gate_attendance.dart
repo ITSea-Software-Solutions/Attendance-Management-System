@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../biometric/driver.dart';
 import '../core/scope.dart';
 import 'gate_result.dart';
+import 'silent_snap.dart';
 
 /// Gate mode — fingerprint identify → confirm IN/OUT. Works fully offline
 /// (SIM identify against the locally-cached deployed workers; marks queue).
@@ -77,6 +78,9 @@ class _GateAttendanceScreenState extends State<GateAttendanceScreen> {
   Future<void> _confirm(IdentifyResult result) async {
     final app = AppScope.of(context);
     final worker = result.worker;
+    // Fingerprint verified → quietly photograph the person at the gate while
+    // the operator confirms. Proof attaches to the mark; never blocks it.
+    final proofFuture = silentSnap();
     final suggested = await app.nextTypeFor(worker['server_id'] as int? ?? -1);
     if (!mounted) return;
     final type = await showDialog<String>(
@@ -115,16 +119,18 @@ class _GateAttendanceScreenState extends State<GateAttendanceScreen> {
       ),
     );
     if (type == null) return;
+    final proofPath = await proofFuture; // usually already done
     await app.markAttendance(
       worker: worker,
       type: type,
       method: 'fingerprint',
       score: result.score,
       simulated: result.simulated,
+      proofPath: proofPath,
     );
     if (mounted) {
       setState(() => _status = null);
-      // The "verified" moment: animated check + photo + name + greeting.
+      // The "verified" moment: check + all three photos + greeting.
       await showGateResult(
         context,
         name: worker['name'] as String,
@@ -133,6 +139,7 @@ class _GateAttendanceScreenState extends State<GateAttendanceScreen> {
         score: result.score,
         simulated: result.simulated,
         queuedOffline: !app.online,
+        proofPath: proofPath,
       );
     }
   }

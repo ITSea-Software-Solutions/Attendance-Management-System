@@ -203,6 +203,8 @@ GET  /api/vendors-export                           ← CSV (Professional+)
 POST /api/workers/{id}/verify-step                 ← {step: email|phone} manual attest
 PUT  /api/vendors/{id}/settings                    ← {whatsapp_enabled} (Enterprise)
 POST /api/aadhaar/face-verify                      ← Aadhaar-PDF photo vs live photo (ArcFace, advisory)
+POST /api/workers/{id}/aadhaar-photo · GET same    ← Aadhaar DOC photo (app uploads post-sync; gate cards fetch)
+POST /api/attendance/{log}/proof                   ← gate camera proof photo for a synced mark
 GET  /api/attendance/printable                     ← ?month= — print-ready HTML month report
 
 POST /api/auth/forgot-password                     ← PUBLIC, throttle:signup; dev_reset_url only when mailer=log && debug
