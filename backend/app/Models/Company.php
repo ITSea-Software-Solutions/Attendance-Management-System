@@ -43,7 +43,7 @@ class Company extends Model
     public function vendors()
     {
         return $this->belongsToMany(Vendor::class, 'company_vendors')
-            ->withPivot(['status', 'approved_at', 'approved_by', 'rejection_reason'])
+            ->withPivot(['status', 'approved_at', 'approved_by', 'rejection_reason', 'details_consent_at'])
             ->withTimestamps();
     }
 

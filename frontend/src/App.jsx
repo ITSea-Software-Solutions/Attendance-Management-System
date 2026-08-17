@@ -8,6 +8,7 @@ import VendorList from "@/pages/vendors/VendorList";
 import VendorProfile from "@/pages/vendors/VendorProfile";
 import VendorApproval from "@/pages/vendors/VendorApproval";
 import VendorCompanyAccess from "@/pages/vendors/VendorCompanyAccess";
+import VendorDetail from "@/pages/vendors/VendorDetail";
 import WorkerList from "@/pages/workers/WorkerList";
 import WorkerDetail from "@/pages/workers/WorkerDetail";
 import WorkerRegister from "@/pages/workers/WorkerRegister";
@@ -91,6 +92,11 @@ export default function App() {
         <Route path="vendors/company-access" element={
           <PrivateRoute roles={["vendor_admin"]}>
             <VendorCompanyAccess />
+          </PrivateRoute>
+        } />
+        <Route path="vendors/:id" element={
+          <PrivateRoute roles={["company_admin", "company_hr", "company_gate"]}>
+            <VendorDetail />
           </PrivateRoute>
         } />
 

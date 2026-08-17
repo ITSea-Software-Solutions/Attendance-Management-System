@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/axios";
@@ -96,6 +97,7 @@ export default function VendorList() {
 
   const isSuperAdmin  = user?.role === "super_admin";
   const isCompanyUser = ["company_admin", "company_gate"].includes(user?.role);
+  const navigate      = useNavigate();
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -331,7 +333,11 @@ export default function VendorList() {
           : vendors.length === 0
             ? <p className="text-gray-400 text-sm col-span-3 text-center py-10">No vendors in this category.</p>
             : vendors.map(v => (
-              <div key={v.id} className="card hover:shadow-md transition-shadow">
+              <div
+                key={v.id}
+                className={`card hover:shadow-md transition-shadow ${isCompanyUser ? "cursor-pointer" : ""}`}
+                onClick={() => isCompanyUser && navigate(`/vendors/${v.id}`)}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h3 className="font-semibold text-gray-900 truncate">{v.name}</h3>

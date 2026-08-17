@@ -63,9 +63,11 @@ class VendorController extends Controller
         if ($request->user()->role === 'company_admin' && $request->user()->company_id) {
             $vendor->companies()->syncWithoutDetaching([
                 $request->user()->company_id => [
-                    'status'      => 'approved',
-                    'approved_at' => now(),
-                    'approved_by' => $request->user()->id,
+                    'status'             => 'approved',
+                    'approved_at'        => now(),
+                    'approved_by'        => $request->user()->id,
+                    // company onboarded them — details sharing is implicit
+                    'details_consent_at' => now(),
                 ],
             ]);
             // A vendor created BY a company works under that company's umbrella —
@@ -141,10 +143,20 @@ class VendorController extends Controller
             return response()->json($deny, 403);
         }
 
+        // Consent is part of the request: the vendor agrees the company may
+        // view their organisation profile and track the working history
+        // (workers, deployments, attendance) while access is active.
+        if (! $request->boolean('consent')) {
+            return response()->json([
+                'message' => 'Please accept the details-sharing consent — the company needs it to review and track your organisation.',
+            ], 422);
+        }
+
         $vendor->companies()->attach($company->id, [
-            'status'     => 'pending',
-            'created_at' => now(),
-            'updated_at' => now(),
+            'status'             => 'pending',
+            'details_consent_at' => now(),
+            'created_at'         => now(),
+            'updated_at'         => now(),
         ]);
 
         $this->audit->log($user->id, 'vendor_company_request', Company::class, $company->id, [

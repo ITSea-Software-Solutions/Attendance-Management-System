@@ -211,7 +211,15 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.7.2</span> Biometric hardening <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.8.0</span> Vendor detail view + consent <span class="date">18 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Tab-based vendor detail for companies</b> — click any vendor: organisation profile (contacts, GST/PAN), relationship timeline (requested / approved / consent), workers &amp; deployments history with you, and attendance history (man-days, currently inside, daily activity).</li>
+      <li><b>Details-sharing consent</b> — vendors now give explicit consent when requesting company access ("the company may view our profile and track our working history"); company-created vendors consent implicitly. Without consent the company sees only the vendor's name and request status.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.7.2</span> Biometric hardening <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Photo identity cross-check</b> — every gate capture is automatically compared to the worker's enrolled face (advisory); the day detail flags captures that don't match. Catches buddy-punching.</li>
       <li><b>1:N ambiguity margins</b> — fingerprint (10 pts) and face (0.08) identifications are rejected when two workers score too close together; face encoder now rejects blurry/tiny faces instead of producing unreliable matches.</li>

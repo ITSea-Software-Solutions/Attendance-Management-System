@@ -21,6 +21,7 @@ export default function VendorCompanyAccess() {
   const queryClient = useQueryClient();
   const [search, setSearch] = useState("");
   const [sending, setSending] = useState({});
+  const [consent, setConsent] = useState(false);
 
   const vendorId = user?.vendor_id;
 
@@ -31,9 +32,13 @@ export default function VendorCompanyAccess() {
   });
 
   const sendRequest = async (companyId) => {
+    if (!consent) {
+      toast.error("Please tick the details-sharing consent first.");
+      return;
+    }
     setSending(s => ({ ...s, [companyId]: true }));
     try {
-      await api.post(`/vendors/${vendorId}/request-company/${companyId}`);
+      await api.post(`/vendors/${vendorId}/request-company/${companyId}`, { consent: true });
       toast.success("Request sent! Waiting for company approval.");
       queryClient.invalidateQueries(["vendor-available-companies", vendorId]);
     } catch (e) {
@@ -68,6 +73,23 @@ export default function VendorCompanyAccess() {
           <li>View attendance records in the Attendance Log page</li>
         </ol>
       </div>
+
+      {/* Details-sharing consent — sent with every access request */}
+      <label className="card flex items-start gap-3 cursor-pointer">
+        <input
+          type="checkbox"
+          checked={consent}
+          onChange={(e) => setConsent(e.target.checked)}
+          className="mt-1 h-4 w-4 accent-brand-600"
+        />
+        <span className="text-sm text-gray-600">
+          <span className="font-medium text-gray-800">Details-sharing consent.</span>{" "}
+          I agree that companies I request access to may view our organisation profile
+          (contact, GST/PAN) and keep track of our working history with them — workers
+          supplied, deployments, and attendance — while our access is active. Required
+          to send a request.
+        </span>
+      </label>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />

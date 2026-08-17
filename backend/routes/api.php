@@ -60,6 +60,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('companies', CompanyController::class);
     Route::prefix('companies/{company}')->group(function () {
         Route::get('vendors', [CompanyController::class, 'vendors']);
+        Route::get('vendors/{vendor}/detail', [CompanyController::class, 'vendorDetail']);
         Route::post('vendors/{vendor}/approve',  [CompanyController::class, 'approveVendor']);
         Route::post('vendors/{vendor}/reject',   [CompanyController::class, 'rejectVendor']);
         Route::post('vendors/{vendor}/suspend',  [CompanyController::class, 'suspendVendor']);
