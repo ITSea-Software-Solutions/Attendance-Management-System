@@ -54,6 +54,7 @@ export default function WorkerList() {
   });
 
   const canRegister = ["super_admin", "vendor_admin", "vendor_operator"].includes(user?.role);
+  const canDelete   = ["super_admin", "vendor_admin"].includes(user?.role);
   const canActivate = ["super_admin", "company_admin", "vendor_admin"].includes(user?.role);
 
   const downloadDoc = async (workerId, docId, workerName, typeLabel, isAadhaar = false) => {
@@ -85,6 +86,12 @@ export default function WorkerList() {
     mutationFn: (id) => api.post(`/workers/${id}/deactivate`),
     onSuccess:  () => { queryClient.invalidateQueries(["workers"]); toast.success("Worker deactivated."); },
     onError:    () => toast.error("Failed to deactivate worker."),
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.delete(`/workers/${id}`),
+    onSuccess:  (r) => { queryClient.invalidateQueries(["workers"]); toast.success(r.data?.message ?? "Worker deleted.", { duration: 6000 }); },
+    onError:    (e) => toast.error(e.response?.data?.message ?? "Delete failed."),
   });
 
   const exportCsv = async () => {
@@ -352,6 +359,19 @@ export default function WorkerList() {
                           className="text-xs text-green-600 hover:underline disabled:opacity-50"
                         >
                           Activate
+                        </button>
+                      )}
+                      {canDelete && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Delete ${w.name}? Attendance history is kept; plan usage counts only workers who actually worked.`)) {
+                              deleteMutation.mutate(w.id);
+                            }
+                          }}
+                          disabled={deleteMutation.isPending}
+                          className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          Delete
                         </button>
                       )}
                     </div>

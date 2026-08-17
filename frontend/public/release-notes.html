@@ -176,7 +176,16 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.5.0</span> Department HR role &amp; preset departments <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.5.1</span> Worker lifecycle &amp; fair plan counting <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Delete worker</b> — vendors can delete their workers (attendance history is preserved). Deletion is blocked while the worker is checked IN.</li>
+      <li><b>Fair plan counting</b> — a worker consumes plan quota only once they have ACTUALLY WORKED (deployed + first attendance). Registering, importing and deleting workers is free; the quota check happens at first deployment. Deleting a worked worker does not free the slot.</li>
+      <li><b>Manual OUT (company/HR only)</b> — admins and HR can administratively mark a worker OUT (forgotten check-outs, before cancelling a deployment). Vendors deliberately cannot — gate truth belongs to the company. Every manual OUT is audited with who did it.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.5.0</span> Department HR role &amp; preset departments <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>New role: Department HR</b> — company admins create HR logins (Users page) who approve/reject vendor deployments and choose which departments each worker may enter. HR cannot manage users, settings or billing.</li>
       <li><b>Preset departments</b> — a standard list (Main Gate, Security, HR, Production, Quality, Stores &amp; Warehouse, Maintenance, Dispatch, Canteen, Admin Office…) appears everywhere departments are picked; custom names still allowed.</li>

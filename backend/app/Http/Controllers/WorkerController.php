@@ -212,11 +212,6 @@ class WorkerController extends Controller
             return response()->json(['message' => 'vendor_id is required.'], 422);
         }
 
-        // ── SaaS plan limit: workers per vendor org ───────────────────────────
-        if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $data['vendor_id']), 'workers')) {
-            return response()->json($deny, 403);
-        }
-
         // ── Aadhaar mandatory + dedup ─────────────────────────────────────────
         $resolved = $this->resolveAadhaar($data);
         if ($resolved instanceof JsonResponse) {
@@ -322,10 +317,6 @@ class WorkerController extends Controller
             if ($name === '' || strlen($aadhaar) !== 12) {
                 $errors[] = "line {$line}: name and a 12-digit aadhaar_number are required";
                 continue;
-            }
-            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $vendorId), 'workers')) {
-                $errors[] = "line {$line}: {$deny['message']}";
-                break; // limit reached — no point continuing
             }
             $resolved = $this->resolveAadhaar(['aadhaar_number' => $aadhaar]);
             if ($resolved instanceof JsonResponse) {
@@ -499,12 +490,30 @@ class WorkerController extends Controller
 
     public function destroy(Request $request, Worker $worker): JsonResponse
     {
-        $this->authorizeWorkerAccess($request->user(), $worker);
+        $user = $request->user();
+        // Deleting a worker is the OWNING VENDOR's call (or super admin) —
+        // companies interact through deployments, not the worker record.
+        abort_unless($user->isSuperAdmin()
+            || ($user->isVendorUser() && $worker->vendor_id === $user->vendor_id), 403);
 
-        $worker->delete();
-        $this->audit->log($request->user()->id, 'worker_deleted', Worker::class, $worker->id);
+        $lastLog = AttendanceLog::where('worker_id', $worker->id)
+            ->latest('marked_at')->first();
+        if ($lastLog && $lastLog->type === AttendanceLog::TYPE_IN) {
+            return response()->json([
+                'message' => 'Worker is currently checked IN — the company must mark them OUT before deletion.',
+            ], 422);
+        }
 
-        return response()->json(['message' => 'Worker deleted.']);
+        WorkerAssignment::where('worker_id', $worker->id)
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->update(['status' => WorkerAssignment::STATUS_CANCELLED]);
+
+        $worker->delete(); // soft delete — attendance history is preserved
+        $this->audit->log($user->id, 'worker_deleted', Worker::class, $worker->id, [
+            'worker_name' => $worker->name,
+        ]);
+
+        return response()->json(['message' => 'Worker deleted. Attendance history is preserved; plan usage counts only workers who actually worked.']);
     }
 
     // ─── Fingerprint Enrollment ───────────────────────────────────────────────

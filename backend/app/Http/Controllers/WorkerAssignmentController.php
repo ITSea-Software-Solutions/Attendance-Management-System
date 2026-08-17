@@ -81,6 +81,16 @@ class WorkerAssignmentController extends Controller
 
         abort_if($overlap, 422, 'Worker already has an overlapping active deployment at this company.');
 
+        // Plan quota bites HERE, not at registration: a worker counts only
+        // once they actually work. First-ever deployment of a fresh worker
+        // is the moment they are about to consume a slot.
+        $hasWorked = AttendanceLog::where('worker_id', $worker->id)->exists();
+        if (! $hasWorked) {
+            if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $worker->vendor_id), 'workers')) {
+                return response()->json($deny, 403);
+            }
+        }
+
         $data['vendor_id']   = $worker->vendor_id;
         $data['assigned_by'] = $user->id;
         $data['status']      = WorkerAssignment::STATUS_ACTIVE;

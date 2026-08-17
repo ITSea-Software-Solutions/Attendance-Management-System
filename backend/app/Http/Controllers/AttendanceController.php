@@ -911,4 +911,55 @@ class AttendanceController extends Controller
 
         return response()->json(['message' => 'Proof photo attached.']);
     }
+
+    /**
+     * Manual OUT — an administrative correction by the COMPANY side
+     * (admin/HR), e.g. to close a forgotten OUT before cancelling a
+     * deployment. Vendors deliberately cannot do this: attendance truth
+     * belongs to the company whose gate it is.
+     */
+    public function manualOut(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isSuperAdmin()
+            || in_array($user->role, ['company_admin', 'company_hr'], true), 403,
+            'Only the company (admin/HR) may mark a manual OUT.');
+        $data = $request->validate([
+            'worker_id'  => 'required|integer|exists:workers,id',
+            'company_id' => 'nullable|integer|exists:companies,id',
+            'note'       => 'nullable|string|max:200',
+        ]);
+        $companyId = $user->isSuperAdmin()
+            ? ($data['company_id'] ?? null)
+            : $user->company_id;
+        abort_unless($companyId, 422, 'company_id required.');
+
+        $lastIn = AttendanceLog::where('worker_id', $data['worker_id'])
+            ->where('company_id', $companyId)
+            ->latest('marked_at')
+            ->first();
+        if (! $lastIn || $lastIn->type !== AttendanceLog::TYPE_IN) {
+            return response()->json(['message' => 'Worker is not currently checked IN at your company.'], 422);
+        }
+
+        $log = AttendanceLog::create([
+            'worker_id'       => $data['worker_id'],
+            'company_id'      => $companyId,
+            'assignment_id'   => $lastIn->assignment_id,
+            'type'            => AttendanceLog::TYPE_OUT,
+            'marked_at'       => now(),
+            'marked_by'       => $user->id,
+            'method'          => 'manual',
+            'override_reason' => 'Manual OUT by '.$user->role.($data['note'] ?? null ? ': '.$data['note'] : ''),
+            'location_type'   => $lastIn->location_type ?? AttendanceLog::LOCATION_MAIN_GATE,
+            'location_name'   => $lastIn->location_name ?? AttendanceLog::DEFAULT_LOCATION_NAME,
+            'ip_address'      => $request->ip(),
+            'is_valid'        => true,
+        ]);
+        $this->audit->log($user->id, 'manual_out', AttendanceLog::class, $log->id, [
+            'worker_id' => $data['worker_id'],
+        ]);
+
+        return response()->json(['message' => 'Manual OUT recorded.', 'log' => $log]);
+    }
 }

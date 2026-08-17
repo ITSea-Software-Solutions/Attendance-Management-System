@@ -63,7 +63,12 @@ class PlanService
         }
         return [
             'users'   => User::where('vendor_id', $orgId)->count(),
-            'workers' => Worker::where('vendor_id', $orgId)->count(),
+            // A worker consumes quota only once they have ACTUALLY WORKED
+            // (deployed + at least one attendance event). Registering and
+            // deleting workers is free; deleting a worked worker does NOT
+            // free the slot (withTrashed) — no delete-to-reset gaming.
+            'workers' => Worker::withTrashed()->where('vendor_id', $orgId)
+                ->whereHas('attendanceLogs')->count(),
             'links'   => DB::table('company_vendors')
                 ->where('vendor_id', $orgId)->where('status', 'approved')->count(),
         ];

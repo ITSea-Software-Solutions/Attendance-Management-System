@@ -110,6 +110,15 @@ export default function WorkerAssign() {
     } catch { toast.error("Could not save the setting."); }
   };
 
+  const manualOut = useMutation({
+    mutationFn: (workerId) => api.post("/attendance/manual-out", { worker_id: workerId }),
+    onSuccess: (r) => {
+      toast.success(r.data?.message ?? "Manual OUT recorded.");
+      queryClient.invalidateQueries(["assignments"]);
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Manual OUT failed."),
+  });
+
   const cancel = useMutation({
     mutationFn: (id) => api.delete(`/assignments/${id}`),
     onSuccess: () => {
@@ -384,15 +393,32 @@ export default function WorkerAssign() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {a.status === "active" && (
-                    <button
-                      onClick={() => cancel.mutate(a.id)}
-                      disabled={cancel.isPending}
-                      className="text-xs text-red-500 hover:text-red-700 font-medium"
-                    >
-                      Cancel
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3 justify-end">
+                    {/* Company/HR only: administrative OUT for a forgotten
+                        check-out (vendors deliberately cannot). */}
+                    {a.status === "active" && ["company_admin", "company_hr", "super_admin"].includes(user?.role) && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Mark ${a.worker?.name ?? "this worker"} OUT manually? Use when they left without scanning.`)) {
+                            manualOut.mutate(a.worker_id);
+                          }
+                        }}
+                        disabled={manualOut.isPending}
+                        className="text-xs text-amber-600 hover:text-amber-800 font-medium"
+                      >
+                        Manual OUT
+                      </button>
+                    )}
+                    {a.status === "active" && (
+                      <button
+                        onClick={() => cancel.mutate(a.id)}
+                        disabled={cancel.isPending}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

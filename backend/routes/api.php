@@ -133,6 +133,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('identify-face',  [AttendanceController::class, 'identifyFace']);      // server-side 1:N camera face match
         Route::post('mark',           [AttendanceController::class, 'mark']);
         Route::post('{log}/proof',    [AttendanceController::class, 'uploadProof']);
+        Route::post('manual-out',     [AttendanceController::class, 'manualOut']);
         Route::get('proof/{log}',     [AttendanceController::class, 'proofPhoto']);       // serve proof image
         Route::get('today',           [AttendanceController::class, 'today']);
         Route::get('worker/{worker}', [AttendanceController::class, 'workerHistory']);
