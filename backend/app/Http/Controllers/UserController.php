@@ -20,7 +20,7 @@ class UserController extends Controller
             ->with(['company:id,name', 'vendor:id,name'])
             // company_admin sees only their own gate users
             ->when($auth->role === 'company_admin', fn($q) =>
-                $q->where('company_id', $auth->company_id)->where('role', 'company_gate')
+                $q->where('company_id', $auth->company_id)->whereIn('role', ['company_gate', 'company_hr'])
             )
             // vendor_admin sees only their own operators
             ->when($auth->role === 'vendor_admin', fn($q) =>
@@ -166,7 +166,7 @@ class UserController extends Controller
         $auth = $request->user();
 
         if ($auth->role === 'company_admin') {
-            if ($user->company_id !== $auth->company_id || $user->role !== 'company_gate') {
+            if ($user->company_id !== $auth->company_id || ! in_array($user->role, ['company_gate', 'company_hr'], true)) {
                 abort(403, 'You can only edit gate users for your own company.');
             }
 
@@ -225,7 +225,7 @@ class UserController extends Controller
             return response()->json(['message' => 'Cannot delete your own account.'], 422);
         }
 
-        if ($auth->role === 'company_admin' && ($user->company_id !== $auth->company_id || $user->role !== 'company_gate')) {
+        if ($auth->role === 'company_admin' && ($user->company_id !== $auth->company_id || ! in_array($user->role, ['company_gate', 'company_hr'], true))) {
             abort(403, 'You can only delete gate users for your own company.');
         }
 
