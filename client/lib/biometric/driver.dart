@@ -63,10 +63,19 @@ abstract class BiometricDriver {
   Future<bool> available();
   Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates);
 
+  /// Gate threshold — same scale + cutoff as the web gate (score 0–199).
+  static const int matchThreshold = 40;
+
   static Future<BiometricDriver> best() async {
     if (Platform.isWindows) {
+      final direct = SgfpDirectDriver();
+      if (await direct.available()) return direct;
       final sg = SgibiosrvDriver();
       if (await sg.available()) return sg;
+    }
+    if (Platform.isAndroid) {
+      final droid = AndroidSgDriver();
+      if (await droid.available()) return droid;
     }
     return SimDriver();
   }
@@ -299,9 +308,106 @@ class SgibiosrvDriver implements BiometricDriver {
 
   @override
   Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates) async {
-    // Real 1:N on-device matching arrives with the SDK matcher integration.
-    // Until then the UI routes real captures through server identify (online)
-    // or manual selection; SimDriver covers offline demo behaviour.
-    return null;
+    final live = await captureTemplate();
+    if (live == null) return null;
+    Map<String, Object?>? best;
+    var bestScore = -1;
+    for (final w in candidates) {
+      final stored = w['fingerprint_template'] as String?;
+      if (stored == null || stored.isEmpty) continue;
+      try {
+        final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIMatchScore',
+            data: 'template1=${Uri.encodeComponent(live)}'
+                '&template2=${Uri.encodeComponent(stored)}'
+                '&licstr=&templateFormat=ISO',
+            options: Options(contentType: 'text/plain;charset=UTF-8'));
+        final data = r.data is Map ? r.data as Map : {};
+        final score = (data['MatchingScore'] as num?)?.toInt() ?? -1;
+        if (score > bestScore) {
+          bestScore = score;
+          best = w;
+        }
+      } catch (_) {/* keep trying others */}
+    }
+    if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+    return IdentifyResult(best, bestScore);
+  }
+}
+
+/// Windows DIRECT-SDK driver: capture + true on-device 1:N matching via
+/// SGFPM_GetMatchingScore — fully offline, no service.
+class SgfpDirectDriver implements BiometricDriver {
+  @override
+  Future<bool> available() async =>
+      Platform.isWindows && SgfpDirect.instance.ensureReady() == null;
+
+  @override
+  Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates) async {
+    final cap = SgfpDirect.instance.captureTemplate();
+    final live = cap.template;
+    if (live == null) return null;
+    Map<String, Object?>? best;
+    var bestScore = -1;
+    for (final w in candidates) {
+      final stored = w['fingerprint_template'] as String?;
+      if (stored == null || stored.isEmpty) continue;
+      final score = SgfpDirect.instance.matchScore(live, stored);
+      if (score > bestScore) {
+        bestScore = score;
+        best = w;
+      }
+    }
+    if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+    return IdentifyResult(best, bestScore);
+  }
+}
+
+/// Android USB-OTG driver: capture + match through the native SecuGen SDK
+/// channel — fully offline.
+class AndroidSgDriver implements BiometricDriver {
+  static const _ch = MethodChannel('truecrew/sgfp');
+
+  @override
+  Future<bool> available() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final st = Map<String, dynamic>.from(await _ch.invokeMethod('status') as Map);
+      if (st['deviceAttached'] != true || st['sdkPresent'] != true) return false;
+      if (st['permission'] != true) {
+        return await _ch.invokeMethod('requestPermission') as bool? ?? false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates) async {
+    try {
+      final r = Map<String, dynamic>.from(
+          await _ch.invokeMethod('capture', {'timeoutMs': 10000}) as Map);
+      final live = r['template'] as String?;
+      if (live == null) return null;
+      Map<String, Object?>? best;
+      var bestScore = -1;
+      for (final w in candidates) {
+        final stored = w['fingerprint_template'] as String?;
+        if (stored == null || stored.isEmpty) continue;
+        try {
+          final m = Map<String, dynamic>.from(await _ch.invokeMethod(
+              'matchScore', {'t1': live, 't2': stored}) as Map);
+          final score = (m['score'] as num?)?.toInt() ?? -1;
+          if (score > bestScore) {
+            bestScore = score;
+            best = w;
+          }
+        } catch (_) {/* try next */}
+      }
+      if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+      return IdentifyResult(best, bestScore);
+    } catch (_) {
+      return null;
+    }
   }
 }

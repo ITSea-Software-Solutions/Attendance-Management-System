@@ -264,6 +264,9 @@ class AppState extends ChangeNotifier {
         'phone': w['phone'],
         'status': w['status'],
         'vendor_id': w['vendor_id'],
+        // Enrolled template (marking-capable roles only — server decides):
+        // enables OFFLINE 1:N fingerprint matching at this gate device.
+        'fingerprint_template': w['fingerprint_template'],
         'sync_state': 'synced',
         'sync_error': null,
         'updated_at': w['updated_at']?.toString(),

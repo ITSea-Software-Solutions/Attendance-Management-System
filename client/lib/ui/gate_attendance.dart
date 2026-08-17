@@ -32,9 +32,16 @@ class _GateAttendanceScreenState extends State<GateAttendanceScreen> {
       }
       final driver = await BiometricDriver.best();
       var result = await driver.identify(candidates);
-      if (result == null && driver is SgibiosrvDriver) {
-        // Real capture succeeded but on-device matching isn't in v0.9:
-        // record the capture and let the operator confirm the worker.
+      if (result == null && driver is! SimDriver) {
+        // Real capture but NO match ≥ threshold (or candidates lack synced
+        // templates). Operator may still record manually — proof photo and
+        // score 0 make the manual override auditable.
+        final withTpl = candidates
+            .where((w) => (w['fingerprint_template'] as String?)?.isNotEmpty ?? false)
+            .length;
+        setState(() => _status = withTpl == 0
+            ? 'No fingerprint templates on this device yet — Sync first, then rescan.'
+            : 'No match ≥ ${BiometricDriver.matchThreshold} among $withTpl enrolled worker(s).');
         final picked = await _pickWorker(candidates);
         if (picked == null) return;
         result = IdentifyResult(picked, 0, simulated: false);
@@ -60,7 +67,7 @@ class _GateAttendanceScreenState extends State<GateAttendanceScreen> {
         children: [
           const Padding(
             padding: EdgeInsets.all(16),
-            child: Text('Capture recorded — select the worker:',
+            child: Text('MANUAL OVERRIDE — no automatic match. Select the worker (recorded with score 0 + gate photo):',
                 style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           for (final w in candidates)

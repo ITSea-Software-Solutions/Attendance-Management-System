@@ -42,6 +42,7 @@ class SgfpDirect {
   late final int Function(Pointer<Void>, Pointer<Uint32>) _getMaxTemplateSize;
   late final int Function(Pointer<Void>, Pointer<_SGFingerInfo>, Pointer<Uint8>, Pointer<Uint8>) _createTemplate;
   late final int Function(Pointer<Void>, Pointer<Uint8>, Pointer<Uint32>) _getTemplateSize;
+  late final int Function(Pointer<Void>, Pointer<Uint8>, Pointer<Uint8>, Pointer<Uint32>) _getMatchingScore;
 
   bool _bound = false;
 
@@ -158,6 +159,9 @@ class SgfpDirect {
       _getTemplateSize = lib.lookupFunction<
           Uint32 Function(Pointer<Void>, Pointer<Uint8>, Pointer<Uint32>),
           int Function(Pointer<Void>, Pointer<Uint8>, Pointer<Uint32>)>('SGFPM_GetTemplateSize');
+      _getMatchingScore = lib.lookupFunction<
+          Uint32 Function(Pointer<Void>, Pointer<Uint8>, Pointer<Uint8>, Pointer<Uint32>),
+          int Function(Pointer<Void>, Pointer<Uint8>, Pointer<Uint8>, Pointer<Uint32>)>('SGFPM_GetMatchingScore');
       _bound = true;
       return true;
     } catch (e) {
@@ -271,6 +275,32 @@ class SgfpDirect {
     } finally {
       calloc.free(img);
       calloc.free(q);
+    }
+  }
+
+  /// 1:1 match score between two base64 ISO templates (0–199; same scale as
+  /// the web gate, which accepts ≥ 40). Returns -1 on any SDK failure.
+  int matchScore(String liveB64, String storedB64) {
+    final err = ensureReady();
+    if (err != null) return -1;
+    Pointer<Uint8>? p1, p2;
+    final score = calloc<Uint32>();
+    try {
+      final b1 = base64Decode(liveB64);
+      final b2 = base64Decode(storedB64);
+      p1 = calloc<Uint8>(b1.length);
+      p2 = calloc<Uint8>(b2.length);
+      p1.asTypedList(b1.length).setAll(0, b1);
+      p2.asTypedList(b2.length).setAll(0, b2);
+      final rc = _getMatchingScore(_h, p1, p2, score);
+      if (rc != 0) return -1;
+      return score.value;
+    } catch (_) {
+      return -1;
+    } finally {
+      if (p1 != null) calloc.free(p1);
+      if (p2 != null) calloc.free(p2);
+      calloc.free(score);
     }
   }
 

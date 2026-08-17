@@ -47,7 +47,16 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.19</span> Desktop-friendly layout <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.20</span> True offline fingerprint matching <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>The thumb now matches automatically at the gate.</b> Deployed workers' enrolled fingerprints sync to gate devices (marking roles only), and every scan runs a real 1:N match on the device — Windows via the SecuGen SDK, Android via USB-OTG — fully offline, same threshold as the web gate.</li>
+      <li>The "select worker" screen is now a clearly-labelled MANUAL OVERRIDE, used only when no match clears the threshold — recorded with score 0 and the gate photo, so overrides are auditable.</li>
+      <li>Clear status when templates haven't synced to the device yet ("Sync first, then rescan").</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.19</span> Desktop-friendly layout <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Responsive on Windows</b> — wide windows get a proper side navigation rail (labels expand on large screens) instead of the phone-style bottom tabs, forms widen to use the space, and lists center at a readable width. Phones keep the familiar layout.</li>
     </ul>

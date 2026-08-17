@@ -59,6 +59,12 @@ class SyncController extends Controller
             $attendance = $attQ->orderByDesc('marked_at')->limit(500)->get();
         }
 
+        // Marking-capable devices (gate/company/super) need the enrolled
+        // templates locally for OFFLINE 1:N matching at the gate — the exact
+        // mirror of the web gate's /attendance/worker-templates. Decrypted
+        // here just like there; vendors don't mark, so they don't get them.
+        $withTemplates = ! $user->isVendorUser();
+
         return response()->json([
             'server_time' => now()->toIso8601String(),
             'workers'     => $workers->map(fn ($w) => [
@@ -72,6 +78,11 @@ class SyncController extends Controller
                 'status'                => $w->status,
                 'vendor_id'             => $w->vendor_id,
                 'updated_at'            => $w->updated_at?->toIso8601String(),
+                'fingerprint_template'  => $withTemplates && $w->fingerprint_template
+                    ? (function () use ($w) {
+                        try { return decrypt($w->fingerprint_template); } catch (\Throwable) { return null; }
+                    })()
+                    : null,
             ]),
             'assignments' => $assignments->map(fn ($a) => [
                 'id'           => $a->id,

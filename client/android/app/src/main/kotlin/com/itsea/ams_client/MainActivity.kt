@@ -49,6 +49,11 @@ class MainActivity : FlutterActivity() {
                         val timeout = (call.argument<Int>("timeoutMs") ?: 10000)
                         Thread { captureReflect(timeout, result) }.start()
                     }
+                    "matchScore" -> {
+                        val t1 = call.argument<String>("t1")
+                        val t2 = call.argument<String>("t2")
+                        Thread { matchReflect(t1, t2, result) }.start()
+                    }
                     else -> result.notImplemented()
                 }
             }
@@ -166,6 +171,37 @@ class MainActivity : FlutterActivity() {
             runOnUiThread { result.success(mapOf("template" to b64, "quality" to q[0])) }
         } catch (e: Throwable) {
             fail("SDK reflection error: ${e.javaClass.simpleName} ${e.message ?: ""} — check bundled SecuGen SDK version")
+        }
+    }
+
+    /** 1:1 match score via reflected JSGFPLib.GetMatchingScore (0–199). */
+    private fun matchReflect(t1b64: String?, t2b64: String?, result: MethodChannel.Result) {
+        fun reply(map: Map<String, Any?>) = runOnUiThread { result.success(map) }
+        if (t1b64 == null || t2b64 == null) { reply(mapOf("error" to "missing templates")); return }
+        if (!sdkPresent()) { reply(mapOf("error" to "no-sdk")); return }
+        try {
+            val libCls = Class.forName("SecuGen.FDxSDKPro.JSGFPLib")
+            val lib = try {
+                libCls.getConstructor(android.content.Context::class.java, UsbManager::class.java)
+                    .newInstance(this, usbManager())
+            } catch (_: NoSuchMethodException) {
+                libCls.getConstructor(UsbManager::class.java).newInstance(usbManager())
+            }
+            (libCls.getMethod("Init", java.lang.Long.TYPE).invoke(lib, 255L) as Number).toLong()
+            // ISO templates (same format both sides — enrollment + gate).
+            val fmtCls = Class.forName("SecuGen.FDxSDKPro.SGFDxTemplateFormat")
+            val iso = (fmtCls.getField("TEMPLATE_FORMAT_ISO19794").get(null) as Number).toShort()
+            libCls.getMethod("SetTemplateFormat", java.lang.Short.TYPE).invoke(lib, iso)
+            val t1 = Base64.decode(t1b64, Base64.DEFAULT)
+            val t2 = Base64.decode(t2b64, Base64.DEFAULT)
+            val score = IntArray(1)
+            val rc = (libCls.getMethod("GetMatchingScore",
+                    ByteArray::class.java, ByteArray::class.java, IntArray::class.java)
+                .invoke(lib, t1, t2, score) as Number).toLong()
+            if (rc != 0L) { reply(mapOf("error" to "match rc $rc")); return }
+            reply(mapOf("score" to score[0]))
+        } catch (e: Throwable) {
+            reply(mapOf("error" to "match reflection: ${e.javaClass.simpleName}"))
         }
     }
 }
