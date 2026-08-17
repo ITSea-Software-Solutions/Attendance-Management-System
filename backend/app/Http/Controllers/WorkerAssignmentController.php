@@ -98,11 +98,15 @@ class WorkerAssignmentController extends Controller
 
         $assignment = WorkerAssignment::create($data);
 
-        // Company-controlled approval: when the target company requires it,
-        // the deployment WAITS for HR/manager approval (who may restrict it
-        // to specific gates/departments). Off by default — nothing changes
-        // for companies that don't opt in.
-        $requiresApproval = (bool) (((array) ($company->settings ?? []))['require_deployment_approval'] ?? false);
+        // Company-controlled approval: every vendor deployment WAITS for
+        // HR/manager approval (who may restrict it to specific
+        // gates/departments) — ON by default; a company can opt out in
+        // Settings. Deployments made by the company's own staff (or the
+        // platform owner) are self-approval and skip the queue.
+        $requiresApproval = (bool) (((array) ($company->settings ?? []))['require_deployment_approval'] ?? true);
+        if ($user->isSuperAdmin()) {
+            $requiresApproval = false; // platform owner deploys are self-approved
+        }
         if ($requiresApproval) {
             $assignment->forceFill(['approval_status' => 'pending'])->save();
             $notify = app(\App\Services\NotifyService::class);

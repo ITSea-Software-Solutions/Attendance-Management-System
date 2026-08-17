@@ -82,6 +82,19 @@ export default function WorkerAssign() {
   const [selLocs, setSelLocs] = useState(["Main Gate"]);
   const [requireApproval, setRequireApproval] = useState(null);
 
+  // Load the saved setting — approval is ON by default (v1.7); a company can
+  // opt out. `null` means "not loaded yet", so fall back to the default.
+  useQuery({
+    queryKey: ["company-settings", user?.company_id],
+    queryFn:  async () => {
+      const r = await api.get(`/companies/${user.company_id}`);
+      const v = r.data?.settings?.require_deployment_approval;
+      setRequireApproval(v === undefined || v === null ? true : !!v);
+      return r.data;
+    },
+    enabled: !!user?.company_id && isApprover,
+  });
+
   const approveBulk = useMutation({
     mutationFn: () => api.post("/assignments-approve", {
       ids: selIds, allowed_locations: selLocs.length ? selLocs : null,
@@ -151,7 +164,7 @@ export default function WorkerAssign() {
             {isCompanyAdmin && (
               <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
                 <input type="checkbox"
-                       checked={requireApproval ?? false}
+                       checked={requireApproval ?? true}
                        onChange={(e) => saveApprovalSetting(e.target.checked)} />
                 Require approval for new vendor deployments
               </label>
@@ -160,9 +173,9 @@ export default function WorkerAssign() {
           {(pendingData?.length ?? 0) === 0 ? (
             <p className="text-sm text-gray-400">
               No deployments waiting for approval.
-              {requireApproval === false || requireApproval === null
-                ? " Note: approval is currently OFF — new vendor deployments activate immediately. Turn the checkbox on to review them here first."
-                : " New vendor deployments will appear here for review."}
+              {requireApproval === false
+                ? " Note: approval is OFF — new vendor deployments activate immediately. Turn the checkbox on to review them here first (with gate/department selection)."
+                : " New vendor deployments will appear here for review (approval is on by default)."}
             </p>
           ) : (
             <>

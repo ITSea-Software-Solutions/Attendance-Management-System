@@ -47,7 +47,17 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.27</span> Worker actions from the app <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.28</span> Company tools in the app <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Approvals tab for HR and company admins</b> — pending vendor deployments with requested dates; select many, pick allowed gates/departments (Main Gate preselected, "All gates" chip), approve in bulk or reject with a reason. Same powers as the portal.</li>
+      <li><b>Manual OUT from the Inside tab</b> — HR/admin can mark a worker OUT who left without scanning (vendors never see this).</li>
+      <li><b>Attendance detail sheet</b> — tap any Activity row: all three photos (Aadhaar · registration · that mark's gate capture) plus time, gate, method, score and sync state. Camera icon marks rows that carry a gate photo.</li>
+      <li>Worker list rows now show the worker's photo.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.27</span> Worker actions from the app <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Edit / Activate / Deactivate / Delete on the worker sheet</b> — vendors manage workers without the portal. Edit covers name, phone, DOB, gender.</li>
       <li><b>Engagement lock</b> — while a worker is deployed to a company (or still checked IN) delete, deactivate and fingerprint removal are refused with a clear reason; cancel the deployment first. Editing stays allowed.</li>
@@ -194,7 +204,16 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.6.1</span> Worker engagement lock <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.7.0</span> Approval by default + photo-verified logs <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Deployment approval is now ON by default</b> — every vendor deployment waits for HR/admin review (with gate/department selection) unless the company turns it off in the approvals panel. The toggle now loads its real saved value.</li>
+      <li><b>Attendance log shows the live gate photo</b> on every row (falls back to the registration photo). Click a row for the day detail: registration + Aadhaar + gate IN/OUT captures side by side, with times, duration, events, gates, method and match scores.</li>
+      <li>Daily summary API now carries proof-photo ids, methods and best scores.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.6.1</span> Worker engagement lock <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Once a worker is engaged with a company — deployed, or currently checked IN — the vendor cannot delete, deactivate, or remove the fingerprint.</b> The API refuses with the company name and end date; cancel the deployment first. Editing details stays allowed.</li>
       <li>Activate/deactivate now require admin roles (gate users can no longer change worker status); only the owning vendor can remove a fingerprint.</li>

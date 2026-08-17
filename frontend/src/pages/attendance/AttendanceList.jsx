@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/axios";
 import { useAuth } from "@/contexts/AuthContext";
-import { Download, Printer } from "lucide-react";
+import { Download, Printer, X, User } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { LogIn, LogOut, MapPin, Building2, Search } from "lucide-react";
 
@@ -20,6 +20,45 @@ function duration(firstIn, lastOut) {
   return `${h}h ${m}m`;
 }
 
+/** Private-disk images need the Bearer token, so <img src> can't load them
+ *  directly — fetch as a blob and render an object URL instead. */
+function AuthImg({ url, alt, className, fallback = null }) {
+  const [src, setSrc] = useState(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let obj; let alive = true;
+    setSrc(null); setFailed(false);
+    if (!url) { setFailed(true); return undefined; }
+    api.get(url, { responseType: "blob" })
+      .then((r) => { if (alive) { obj = URL.createObjectURL(r.data); setSrc(obj); } })
+      .catch(() => { if (alive) setFailed(true); });
+    return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
+  }, [url]);
+  if (failed || !url) return fallback;
+  if (!src) return <div className={`${className} bg-gray-100 animate-pulse`} />;
+  return <img src={src} alt={alt} className={className} />;
+}
+
+/** One photo tile in the day-detail dialog. */
+function PhotoTile({ url, label }) {
+  return (
+    <div className="flex-1 min-w-[140px]">
+      <AuthImg
+        url={url}
+        alt={label}
+        className="w-full h-40 object-cover rounded-lg border border-gray-200"
+        fallback={
+          <div className="w-full h-40 rounded-lg border border-dashed border-gray-200 flex flex-col items-center justify-center text-gray-300">
+            <User size={28} />
+            <span className="text-[11px] mt-1">not available</span>
+          </div>
+        }
+      />
+      <p className="text-[11px] text-gray-500 text-center mt-1">{label}</p>
+    </div>
+  );
+}
+
 export default function AttendanceList() {
   const navigate = useNavigate();
   const [date, setDate]     = useState(format(new Date(), "yyyy-MM-dd"));
@@ -28,6 +67,7 @@ export default function AttendanceList() {
   const [tab, setTab]       = useState("all"); // all | current | previous
   const { user } = useAuth();
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [detail, setDetail] = useState(null); // clicked daily-summary row
 
   const downloadCsv = async (type) => {
     const r = await api.get("/attendance/export", {
@@ -131,6 +171,7 @@ export default function AttendanceList() {
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
+              <th className="text-left px-5 py-3 font-medium text-gray-500 w-14">Photo</th>
               <th className="text-left px-5 py-3 font-medium text-gray-500">Worker</th>
               <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">
                 <span className="flex items-center gap-1"><Building2 size={13} />Company</span>
@@ -151,7 +192,7 @@ export default function AttendanceList() {
           <tbody className="divide-y divide-gray-50">
             {isLoading && SKELETON_KEYS.map((k) => (
               <tr key={k}>
-                <td colSpan={7} className="py-3 px-5">
+                <td colSpan={8} className="py-3 px-5">
                   <div className="h-4 bg-gray-100 rounded animate-pulse w-3/4" />
                 </td>
               </tr>
@@ -159,7 +200,7 @@ export default function AttendanceList() {
 
             {!isLoading && data?.data?.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-center py-12 text-gray-400">
+                <td colSpan={8} className="text-center py-12 text-gray-400">
                   No attendance records for this date.
                 </td>
               </tr>
@@ -169,13 +210,32 @@ export default function AttendanceList() {
               const stillInside  = row.first_in && !row.last_out;
               const missedOut    = row.in_count > row.out_count && row.last_out;
               const dur          = duration(row.first_in, row.last_out);
+              // Live gate photo of the day when one exists, else the
+              // registration photo, else an initial.
+              const thumbUrl = row.in_proof_id
+                ? `/attendance/proof/${row.in_proof_id}`
+                : (Number(row.has_photo) ? `/workers/${row.worker_id}/photo` : null);
 
               return (
                 <tr
                   key={`${row.worker_id}-${row.work_date}`}
-                  onClick={() => navigate(`/workers/${row.worker_id}`)}
+                  onClick={() => setDetail(row)}
                   className="hover:bg-gray-50/50 transition-colors cursor-pointer"
                 >
+                  {/* Live photo */}
+                  <td className="pl-5 pr-1 py-2">
+                    <AuthImg
+                      url={thumbUrl}
+                      alt={row.worker_name}
+                      className="w-10 h-10 rounded-full object-cover border border-gray-200"
+                      fallback={
+                        <div className="w-10 h-10 rounded-full bg-brand-50 text-brand-700 flex items-center justify-center font-semibold">
+                          {(row.worker_name ?? "?").charAt(0).toUpperCase()}
+                        </div>
+                      }
+                    />
+                  </td>
+
                   {/* Worker */}
                   <td className="px-5 py-3">
                     <p className="font-medium text-gray-900 leading-tight">{row.worker_name}</p>
@@ -267,6 +327,106 @@ export default function AttendanceList() {
           </div>
         )}
       </div>
+
+      {/* ── Day detail: identity vs live photos + the full story of the day ── */}
+      {detail && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setDetail(null)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between px-6 pt-5 pb-3 border-b border-gray-100">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">{detail.worker_name}</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  {detail.vendor_name && <>{detail.vendor_name} · </>}
+                  {detail.company_name && <>{detail.company_name} · </>}
+                  {format(new Date(detail.work_date), "dd MMM yyyy")}
+                </p>
+              </div>
+              <button className="text-gray-400 hover:text-gray-600" onClick={() => setDetail(null)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="px-6 py-4 space-y-4">
+              <div className="flex flex-wrap gap-3">
+                <PhotoTile
+                  label="Registration photo"
+                  url={Number(detail.has_photo) ? `/workers/${detail.worker_id}/photo` : null}
+                />
+                <PhotoTile
+                  label="Aadhaar photo"
+                  url={Number(detail.has_aadhaar_photo) ? `/workers/${detail.worker_id}/aadhaar-photo` : null}
+                />
+                <PhotoTile
+                  label={`Gate photo — IN${detail.first_in ? " " + format(new Date(detail.first_in), "hh:mm a") : ""}`}
+                  url={detail.in_proof_id ? `/attendance/proof/${detail.in_proof_id}` : null}
+                />
+                {detail.out_proof_id && (
+                  <PhotoTile
+                    label={`Gate photo — OUT${detail.last_out ? " " + format(new Date(detail.last_out), "hh:mm a") : ""}`}
+                    url={`/attendance/proof/${detail.out_proof_id}`}
+                  />
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">First IN</p>
+                  <p className="font-medium text-green-700">
+                    {detail.first_in ? format(new Date(detail.first_in), "hh:mm a") : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">Last OUT</p>
+                  <p className="font-medium text-blue-700">
+                    {detail.last_out ? format(new Date(detail.last_out), "hh:mm a") : "—"}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">Duration</p>
+                  <p className="font-medium text-gray-800">
+                    {duration(detail.first_in, detail.last_out) ??
+                      (detail.first_in && !detail.last_out ? "still inside" : "—")}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">Events</p>
+                  <p className="font-medium text-gray-800">
+                    {detail.in_count} IN · {detail.out_count} OUT
+                  </p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">Gate(s)</p>
+                  <p className="font-medium text-gray-800">{detail.locations || "—"}</p>
+                </div>
+                <div>
+                  <p className="text-[11px] uppercase tracking-wide text-gray-400">Method</p>
+                  <p className="font-medium text-gray-800">
+                    {detail.methods || "—"}
+                    {detail.best_fp_score ? ` · fp ${detail.best_fp_score}` : ""}
+                    {detail.best_face_score ? ` · face ${Number(detail.best_face_score).toFixed(2)}` : ""}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100">
+              <button className="btn-secondary text-sm" onClick={() => setDetail(null)}>Close</button>
+              <button
+                className="btn-primary text-sm"
+                onClick={() => navigate(`/workers/${detail.worker_id}`)}
+              >
+                Full analytics →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

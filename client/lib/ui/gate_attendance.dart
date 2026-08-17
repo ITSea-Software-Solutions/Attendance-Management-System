@@ -201,8 +201,45 @@ class _GateAttendanceScreenState extends State<GateAttendanceScreen> {
 }
 
 /// Workers currently inside (last event IN) — from local data.
-class ExceptionsScreen extends StatelessWidget {
+class ExceptionsScreen extends StatefulWidget {
   const ExceptionsScreen({super.key});
+
+  @override
+  State<ExceptionsScreen> createState() => _ExceptionsScreenState();
+
+  static String fmt(Object? iso) => _ExceptionsScreenState.fmt(iso);
+}
+
+class _ExceptionsScreenState extends State<ExceptionsScreen> {
+  Future<void> _manualOut(Map<String, Object?> r) async {
+    final app = AppScope.of(context);
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('Mark ${r['worker_name']} OUT?'),
+        content: const Text(
+            'Records a manual OUT now (for workers who left without scanning). The log shows it was manual and by whom.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Mark OUT')),
+        ],
+      ),
+    );
+    if (sure != true) return;
+    String msg;
+    try {
+      msg = await app.manualOut(r['worker_server_id'] as int);
+    } catch (e) {
+      msg = AppState.apiMessage(e, 'Manual OUT failed — retry.');
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    setState(() {});
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -223,6 +260,16 @@ class ExceptionsScreen extends StatelessWidget {
               leading: const Icon(Icons.login, color: Colors.teal),
               title: Text('${r['worker_name']}'),
               subtitle: Text('IN since ${fmt(r['last_at'])}'),
+              // Company HR/admin only — vendors never get manual OUT.
+              trailing: (app.isApprover &&
+                      app.online &&
+                      r['worker_server_id'] != null)
+                  ? TextButton.icon(
+                      onPressed: () => _manualOut(r),
+                      icon: const Icon(Icons.logout, size: 16),
+                      label: const Text('Mark OUT'),
+                    )
+                  : null,
             );
           },
         );

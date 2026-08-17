@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import '../core/scope.dart';
@@ -120,9 +122,14 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
                   itemBuilder: (context, i) {
                     final w = rows[i];
                     final state = w['sync_state'] as String;
+                    final photoPath = w['photo_path'] as String?;
                     return ListTile(
                       onTap: () => _showDetail(w),
                       leading: CircleAvatar(
+                          foregroundImage: photoPath != null &&
+                                  File(photoPath).existsSync()
+                              ? FileImage(File(photoPath))
+                              : null,
                           child: Text((w['name'] as String).isEmpty
                               ? '?'
                               : (w['name'] as String)[0].toUpperCase())),

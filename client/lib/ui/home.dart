@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import '../core/scope.dart';
 import 'dart:io' show Platform;
 
+import 'approvals_screen.dart';
+import 'attendance_detail.dart';
 import 'diagnostics.dart';
 import 'notifications_screen.dart';
 import 'face_attendance.dart';
@@ -53,6 +55,12 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'Face',
           icon: Icons.face_retouching_natural,
           body: const FaceAttendanceScreen()
+        ),
+      if (app.isApprover)
+        (
+          label: 'Approvals',
+          icon: Icons.approval,
+          body: const ApprovalsScreen()
         ),
       (label: 'Inside', icon: Icons.meeting_room, body: const ExceptionsScreen()),
       (label: 'Activity', icon: Icons.receipt_long, body: const _ActivityScreen()),
@@ -208,8 +216,11 @@ class _ActivityScreen extends StatelessWidget {
           itemBuilder: (context, i) {
             final m = rows[i];
             final isIn = m['type'] == 'IN';
+            final hasProof = m['proof_path'] != null ||
+                (m['server_id'] != null && m['proof_synced'] == 1);
             return ListTile(
               dense: true,
+              onTap: () => showAttendanceDetail(context, m),
               leading: Icon(isIn ? Icons.login : Icons.logout,
                   color: isIn ? Colors.teal : Colors.orange),
               title: Text('${m['worker_name'] ?? 'Worker #${m['worker_server_id']}'}'
@@ -218,14 +229,22 @@ class _ActivityScreen extends StatelessWidget {
                   '${ExceptionsScreen.fmt(m['marked_at'])}'
                   '${m['location_name'] != null ? ' · ${m['location_name']}' : ''}'
                   '${m['simulated'] == 1 ? ' · simulated' : ''}'),
-              trailing: switch (m['sync_state'] as String? ?? 'synced') {
-                'pending' => const Icon(Icons.cloud_upload,
-                    size: 18, color: Colors.amber),
-                'error' =>
-                    const Icon(Icons.error, size: 18, color: Colors.red),
-                _ => const Icon(Icons.cloud_done,
-                    size: 18, color: Colors.teal),
-              },
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (hasProof)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 6),
+                    child: Icon(Icons.photo_camera,
+                        size: 16, color: Colors.blueGrey),
+                  ),
+                switch (m['sync_state'] as String? ?? 'synced') {
+                  'pending' => const Icon(Icons.cloud_upload,
+                      size: 18, color: Colors.amber),
+                  'error' =>
+                      const Icon(Icons.error, size: 18, color: Colors.red),
+                  _ => const Icon(Icons.cloud_done,
+                      size: 18, color: Colors.teal),
+                },
+              ]),
             );
           },
         );

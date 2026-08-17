@@ -25,8 +25,12 @@ class AppState extends ChangeNotifier {
   bool get isVendor => role == 'vendor_admin' || role == 'vendor_operator';
   bool get isGate => role == 'company_gate';
   bool get isCompanyAdmin => role == 'company_admin';
+  bool get isHr => role == 'company_hr';
   bool get isSuperAdmin => role == 'super_admin';
   bool get canMark => isGate || isCompanyAdmin || isSuperAdmin;
+
+  /// Company HR/admin (or the platform owner): approve deployments, manual OUT.
+  bool get isApprover => isCompanyAdmin || isHr || isSuperAdmin;
 
   Future<void> bootstrap() async {
     final u = await LocalDb.getMeta('user');
@@ -414,6 +418,70 @@ class AppState extends ChangeNotifier {
       '$server/api/workers/$serverId/photo',
       {'Authorization': 'Bearer $token', 'Accept': 'image/*'}
     );
+  }
+
+  /// Authenticated URL + headers for a synced mark's gate proof photo.
+  Future<(String, Map<String, String>)?> proofPhotoRequest(
+      int? logServerId) async {
+    if (logServerId == null) return null;
+    final server = await LocalDb.getMeta('server');
+    final token = await LocalDb.getMeta('token');
+    if (server == null || token == null) return null;
+    return (
+      '$server/api/attendance/proof/$logServerId',
+      {'Authorization': 'Bearer $token', 'Accept': 'image/*'}
+    );
+  }
+
+  // ── Company HR/admin: deployment approvals + manual OUT (online) ──────────
+
+  /// Deployments waiting for this company's approval.
+  Future<List<Map<String, dynamic>>> pendingAssignments() async {
+    final api = await Api.client();
+    final r = await api.get('/assignments-pending');
+    final rows = (r.data is Map ? r.data['pending'] ?? [] : r.data) as List;
+    return List<Map>.from(rows).map(Map<String, dynamic>.from).toList();
+  }
+
+  /// This company's gate/department list (presets + custom).
+  Future<List<String>> companyLocations() async {
+    final api = await Api.client();
+    final companyId = user?['company_id'];
+    if (companyId == null) return const [];
+    final r = await api.get('/companies/$companyId/locations');
+    final rows = (r.data is Map ? r.data['locations'] ?? [] : r.data) as List;
+    return rows.map((e) => '$e').toList();
+  }
+
+  /// Approve one or many deployments, optionally restricted to gates.
+  Future<String> approveAssignments(List<int> ids,
+      {List<String>? locations}) async {
+    final api = await Api.client();
+    final r = await api.post('/assignments-approve', data: {
+      'ids': ids,
+      'allowed_locations':
+          (locations == null || locations.isEmpty) ? null : locations,
+    });
+    await sync();
+    return (r.data is Map ? (r.data['message'] ?? 'Approved.') : 'Approved.')
+        .toString();
+  }
+
+  Future<String> rejectAssignment(int id, String reason) async {
+    final api = await Api.client();
+    await api.post('/assignments/$id/reject', data: {'reason': reason});
+    await sync();
+    return 'Deployment rejected.';
+  }
+
+  /// Company-side manual OUT for a worker who left without scanning.
+  Future<String> manualOut(int workerServerId) async {
+    final api = await Api.client();
+    final r = await api
+        .post('/attendance/manual-out', data: {'worker_id': workerServerId});
+    await sync();
+    return (r.data is Map ? (r.data['message'] ?? 'Manual OUT recorded.') : 'Manual OUT recorded.')
+        .toString();
   }
 
   // ── Vendor: online admin actions (deploy, stats, companies) ───────────────

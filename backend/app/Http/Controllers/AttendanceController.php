@@ -53,7 +53,14 @@ class AttendanceController extends Controller
                 COUNT(*)                                                        as total_events,
                 SUM(CASE WHEN al.type='IN'  THEN 1 ELSE 0 END)                 as in_count,
                 SUM(CASE WHEN al.type='OUT' THEN 1 ELSE 0 END)                 as out_count,
-                GROUP_CONCAT(DISTINCT al.location_name SEPARATOR ', ')          as locations
+                GROUP_CONCAT(DISTINCT al.location_name SEPARATOR ', ')          as locations,
+                (w.photo_path IS NOT NULL)                                      as has_photo,
+                (w.aadhaar_photo_path IS NOT NULL)                              as has_aadhaar_photo,
+                SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN al.type='IN'  AND al.auth_proof_path IS NOT NULL THEN al.id END ORDER BY al.marked_at ASC), ',', 1)  as in_proof_id,
+                SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN al.type='OUT' AND al.auth_proof_path IS NOT NULL THEN al.id END ORDER BY al.marked_at DESC), ',', 1) as out_proof_id,
+                GROUP_CONCAT(DISTINCT al.method SEPARATOR ', ')                 as methods,
+                MAX(al.fingerprint_score)                                       as best_fp_score,
+                MAX(al.face_score)                                              as best_face_score
             ")
             ->when($companyId,               fn($q) => $q->where('al.company_id', $companyId))
             ->when($gateLoc,                 fn($q, $l) => $q->where('al.location_name', $l))
