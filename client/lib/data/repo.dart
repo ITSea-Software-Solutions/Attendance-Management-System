@@ -301,6 +301,8 @@ class AppState extends ChangeNotifier {
         'allowed_locations': a['allowed_locations'] == null
             ? null
             : jsonEncode(a['allowed_locations']),
+        'created_at': a['created_at']?.toString(),
+        'approved_at': a['approved_at']?.toString(),
       });
     }
 
@@ -651,5 +653,47 @@ class AppState extends ChangeNotifier {
     }
     return db.query('workers',
         where: 'name LIKE ?', whereArgs: ['%$search%'], orderBy: 'name');
+  }
+
+  /// Vendor list rows WITH their best current/upcoming deployment — all from
+  /// the local store, so the summary works offline.
+  Future<List<Map<String, Object?>>> workersWithDeployment(
+      {String? search}) async {
+    final db = await LocalDb.instance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT w.*,
+             a.company_name  AS dep_company,
+             a.end_date      AS dep_end,
+             a.start_date    AS dep_start,
+             a.approval_status AS dep_approval
+      FROM workers w
+      LEFT JOIN assignments a ON a.server_id = (
+        SELECT a2.server_id FROM assignments a2
+        WHERE a2.worker_server_id = w.server_id
+          AND a2.status = 'active' AND a2.end_date >= ?
+        ORDER BY a2.start_date ASC LIMIT 1
+      )
+      ${search != null && search.isNotEmpty ? "WHERE w.name LIKE ?" : ""}
+      ORDER BY w.name
+    ''', search != null && search.isNotEmpty ? [today, '%$search%'] : [today]);
+  }
+
+  /// In-app notification center (online): same feed as the web bell.
+  Future<(List<Map<String, dynamic>>, int)> notifications() async {
+    final api = await Api.client();
+    final r = await api.get('/notifications');
+    final d = Map<String, dynamic>.from(r.data as Map);
+    return (
+      List<Map>.from(d['notifications'] as List? ?? [])
+          .map(Map<String, dynamic>.from)
+          .toList(),
+      (d['unread'] as num?)?.toInt() ?? 0
+    );
+  }
+
+  Future<void> markNotificationsRead() async {
+    final api = await Api.client();
+    await api.post('/notifications/read', data: {});
   }
 }

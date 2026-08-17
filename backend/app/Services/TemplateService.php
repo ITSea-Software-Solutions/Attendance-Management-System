@@ -64,6 +64,12 @@ class TemplateService
             'body'    => "These workers marked IN on {{date}} but never marked OUT:\n\n{{worker_lines}}\n\nCheck the Exceptions page for live status.",
             'vars'    => ['date', 'count', 'worker_lines'],
         ],
+        'deployment_expiring' => [
+            'label'   => 'Deployments nearing expiry (vendor)',
+            'subject' => '{{count}} deployment(s) ending within 3 days — TrueCrew',
+            'body'    => "These deployments end soon:\n\n{{lines}}\n\nExtend them (deploy again) or plan the exit on the Deploy Workers page / app.",
+            'vars'    => ['count', 'lines'],
+        ],
         'deployment_requested' => [
             'label'   => 'Deployment approval requested',
             'subject' => 'Approval needed: {{worker_name}} — TrueCrew',

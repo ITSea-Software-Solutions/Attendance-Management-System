@@ -76,6 +76,19 @@ class WorkerController extends Controller
                     ORDER BY al.marked_at DESC LIMIT 1
                 ) = 'IN'");
             })
+            // Deployment-state filter: undeployed | expiring (≤3 days) | deployed
+            ->when($request->deploy_state === 'undeployed', fn($q) =>
+                $q->whereDoesntHave('assignments', fn($a) => $a
+                    ->where('status', 'active')->where('approval_status', 'approved')
+                    ->where('end_date', '>=', today())))
+            ->when($request->deploy_state === 'deployed', fn($q) =>
+                $q->whereHas('assignments', fn($a) => $a
+                    ->where('status', 'active')->where('approval_status', 'approved')
+                    ->where('start_date', '<=', today())->where('end_date', '>=', today())))
+            ->when($request->deploy_state === 'expiring', fn($q) =>
+                $q->whereHas('assignments', fn($a) => $a
+                    ->where('status', 'active')->where('approval_status', 'approved')
+                    ->whereBetween('end_date', [today(), today()->addDays(3)])))
             // "Present today": any attendance event today
             ->when($request->boolean('present_today'), function ($q) use ($user) {
                 $q->whereHas('attendanceLogs', fn($lq) => $lq

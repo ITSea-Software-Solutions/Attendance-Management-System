@@ -12,6 +12,55 @@ class VendorWorkersScreen extends StatefulWidget {
 
 class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
   String _search = '';
+  String _filter = 'all'; // all | deployed | benched | expiring
+
+  bool _matchesFilter(Map<String, Object?> w) {
+    final end = '${w['dep_end'] ?? ''}';
+    final start = '${w['dep_start'] ?? ''}';
+    final approval = '${w['dep_approval'] ?? ''}';
+    final today = DateTime.now();
+    final endD = DateTime.tryParse(end);
+    final startD = DateTime.tryParse(start);
+    final deployedNow = endD != null &&
+        approval == 'approved' &&
+        startD != null &&
+        !startD.isAfter(today) &&
+        !endD.isBefore(DateTime(today.year, today.month, today.day));
+    switch (_filter) {
+      case 'deployed':
+        return deployedNow;
+      case 'benched':
+        return w['dep_end'] == null;
+      case 'expiring':
+        if (!deployedNow) return false;
+        return endD.difference(today).inDays <= 3;
+      default:
+        return true;
+    }
+  }
+
+  /// One-line deployment summary + its color for a list row.
+  (String, Color) _depSummary(Map<String, Object?> w) {
+    if (w['dep_end'] == null) {
+      return ('Not deployed', Colors.grey);
+    }
+    final company = '${w['dep_company'] ?? 'Company'}';
+    final end = '${w['dep_end']}'.substring(0, 10);
+    final approval = '${w['dep_approval'] ?? 'approved'}';
+    if (approval == 'pending') {
+      return ('→ $company · awaiting approval', Colors.amber.shade800);
+    }
+    if (approval == 'rejected') {
+      return ('→ $company · rejected', Colors.red);
+    }
+    final endD = DateTime.tryParse('${w['dep_end']}');
+    final daysLeft = endD?.difference(DateTime.now()).inDays;
+    if (daysLeft != null && daysLeft <= 3) {
+      return ('→ $company · ends $end (${daysLeft <= 0 ? "today" : "in ${daysLeft}d"})',
+          Colors.orange.shade800);
+    }
+    return ('→ $company · till $end', Colors.teal);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,11 +79,37 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
               onChanged: (v) => setState(() => _search = v),
             ),
           ),
+          SizedBox(
+            height: 44,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+              children: [
+                for (final f in const [
+                  ('all', 'All'),
+                  ('deployed', 'Deployed'),
+                  ('benched', 'Not deployed'),
+                  ('expiring', 'Expiring ≤3d'),
+                ])
+                  Padding(
+                    padding: const EdgeInsets.only(right: 8),
+                    child: ChoiceChip(
+                      label: Text(f.$2),
+                      selected: _filter == f.$1,
+                      onSelected: (_) => setState(() => _filter = f.$1),
+                    ),
+                  ),
+              ],
+            ),
+          ),
           Expanded(
             child: FutureBuilder(
-              future: app.workers(search: _search),
+              future: app.workersWithDeployment(search: _search),
               builder: (context, snap) {
-                final rows = snap.data ?? const [];
+                final rows =
+                    (snap.data ?? const <Map<String, Object?>>[])
+                        .where(_matchesFilter)
+                        .toList();
                 if (snap.connectionState == ConnectionState.done && rows.isEmpty) {
                   return const Center(
                       child: Text('No workers yet — tap Register.'));
@@ -52,10 +127,21 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
                               ? '?'
                               : (w['name'] as String)[0].toUpperCase())),
                       title: Text(w['name'] as String),
-                      subtitle: Text(
-                          '${w['aadhaar_masked'] ?? 'no Aadhaar'} · ${w['status']}'
-                          '${state == 'error' ? '\n⚠ ${w['sync_error']}' : ''}'),
-                      isThreeLine: state == 'error',
+                      subtitle: Builder(builder: (context) {
+                        final (dep, color) = _depSummary(w);
+                        return Text.rich(TextSpan(children: [
+                          TextSpan(
+                              text:
+                                  '${w['aadhaar_masked'] ?? 'no Aadhaar'} · ${w['status']}\n'),
+                          TextSpan(
+                              text: dep,
+                              style: TextStyle(
+                                  color: color, fontWeight: FontWeight.w600)),
+                          if (state == 'error')
+                            TextSpan(text: '\n⚠ ${w['sync_error']}'),
+                        ]));
+                      }),
+                      isThreeLine: true,
                       trailing: switch (state) {
                         'pending' => const Tooltip(
                             message: 'Waiting to sync',

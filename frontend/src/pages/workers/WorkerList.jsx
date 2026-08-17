@@ -23,16 +23,18 @@ export default function WorkerList() {
   // Default to CURRENT deployments — "who is on shift now" is the everyday view.
   const [tab, setTab]        = useState("current"); // all | current | previous
   const [vendorId, setVendorId] = useState("");
+  const [deployState, setDeployState] = useState("");
   const [inside, setInside]     = useState(false);       // last event today = IN
   const [presentToday, setPresentToday] = useState(false); // any event today
 
   const deploymentParam = tab !== "all" ? tab : undefined;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["workers", search, status, page, tab, vendorId, inside, presentToday],
+    queryKey: ["workers", search, status, page, tab, vendorId, inside, presentToday, deployState],
     queryFn:  () => api.get("/workers", { params: {
       search, status, page, deployment: deploymentParam,
       vendor_id: vendorId || undefined,
+      deploy_state: deployState || undefined,
       inside: inside ? 1 : undefined,
       present_today: presentToday ? 1 : undefined,
     } }).then((r) => r.data),
@@ -218,6 +220,17 @@ export default function WorkerList() {
         >
           ✓ Present today
         </button>
+        <select
+          value={deployState}
+          onChange={(e) => { setDeployState(e.target.value); setPage(1); }}
+          className="input w-auto"
+          title="Deployment state"
+        >
+          <option value="">Any deployment state</option>
+          <option value="deployed">Deployed now</option>
+          <option value="undeployed">Not deployed (benched)</option>
+          <option value="expiring">Expiring in 3 days</option>
+        </select>
         <select
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(1); }}

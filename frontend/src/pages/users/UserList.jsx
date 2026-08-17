@@ -194,7 +194,7 @@ export default function UserList() {
                 {!isCompanyAdmin && !isVendorAdmin && <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>}
                 {!isCompanyAdmin && !isVendorAdmin && <th className="text-left px-4 py-3 font-medium text-gray-600">Linked To</th>}
                 {!isVendorAdmin && <th className="text-left px-4 py-3 font-medium text-gray-600">Location</th>}
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                <th className="px-4 py-3 text-left font-medium">Added</th><th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -230,6 +230,9 @@ export default function UserList() {
                       )}
                     </td>
                   )}
+                  <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                    {u.created_at?.slice(0, 10) ?? "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleMutation.mutate({ id: u.id, is_active: !u.is_active })}
@@ -257,7 +260,7 @@ export default function UserList() {
               ))}
               {!users.length && (
                 <tr>
-                  <td colSpan={isVendorAdmin ? 4 : isCompanyAdmin ? 5 : 7} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={isVendorAdmin ? 5 : isCompanyAdmin ? 6 : 8} className="px-4 py-8 text-center text-gray-400">
                     {isVendorAdmin
                       ? "No operators yet. Add one to allow attendance scanning."
                       : isCompanyAdmin

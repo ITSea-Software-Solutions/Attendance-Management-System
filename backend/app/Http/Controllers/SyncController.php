@@ -95,6 +95,8 @@ class SyncController extends Controller
                 'status'       => $a->status,
                 'approval_status'   => $a->approval_status ?? 'approved',
                 'allowed_locations' => $a->allowed_locations,
+                'created_at'        => $a->created_at?->toIso8601String(),
+                'approved_at'       => $a->approved_at?->toIso8601String(),
             ]),
             'attendance'  => $attendance->map(fn ($m) => [
                 'id'                => $m->id,

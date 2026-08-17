@@ -16,7 +16,7 @@ class UserController extends Controller
     {
         $auth = $request->user();
 
-        $users = User::select(['id','name','email','role','company_id','vendor_id','phone','is_active','location_type','location_name'])
+        $users = User::select(['id','name','email','role','company_id','vendor_id','phone','is_active','location_type','location_name','created_at'])
             ->with(['company:id,name', 'vendor:id,name'])
             // company_admin sees only their own gate users
             ->when($auth->role === 'company_admin', fn($q) =>

@@ -47,7 +47,16 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.25</span> Scanner session hardening <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.26</span> Vendor app-first <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Deployment info on every worker row</b> — where they're deployed and until when, color-coded: teal (deployed), amber (ends ≤3 days / awaiting approval), grey (not deployed). Works offline.</li>
+      <li><b>Filter chips</b> — All / Deployed / Not deployed / Expiring ≤3d, computed on-device.</li>
+      <li><b>Notifications in the app</b> — a bell with unread badge opens the same feed as the portal: approvals, rejections, benched-worker and expiring-deployment digests. Vendors no longer need the website for day-to-day work.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.25</span> Scanner session hardening <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Fixed: "Capture failed (SDK code 2)" after gate matching.</b> Old demo workers carry simulated fingerprints; feeding those into the real matcher could sour the scanner session. Simulated/invalid templates are now filtered out before matching, and the scanner session auto-recovers (re-initialises and retries once) if it ever degrades.</li>
     </ul>
@@ -176,7 +185,16 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.5.1</span> Worker lifecycle &amp; fair plan counting <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.6.0</span> Deployment awareness <span class="date">17 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Daily vendor digests</b> — workers ready but not deployed, and deployments ending within 3 days (in-app for all plans; email on Professional+).</li>
+      <li><b>Deployment-state filter</b> on the Workers page: Deployed now / Not deployed / Expiring in 3 days.</li>
+      <li><b>Timestamps where they matter</b> — user accounts show when they were added; deployments show when they were requested and decided.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.5.1</span> Worker lifecycle &amp; fair plan counting <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Delete worker</b> — vendors can delete their workers (attendance history is preserved). Deletion is blocked while the worker is checked IN.</li>
       <li><b>Fair plan counting</b> — a worker consumes plan quota only once they have ACTUALLY WORKED (deployed + first attendance). Registering, importing and deleting workers is free; the quota check happens at first deployment. Deleting a worked worker does not free the slot.</li>

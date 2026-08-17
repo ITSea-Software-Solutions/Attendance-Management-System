@@ -380,6 +380,10 @@ export default function WorkerAssign() {
                       {Array.isArray(a.allowed_locations) && a.allowed_locations.length > 0 && (
                         <span className="badge badge-gray ml-1">gates: {a.allowed_locations.join(", ")}</span>
                       )}
+                      <span className="block text-[11px] text-gray-400 mt-0.5">
+                        requested {a.created_at?.slice(0, 10)}
+                        {a.approved_at ? ` · decided ${a.approved_at.slice(0, 10)}` : ""}
+                      </span>
                 </td>
                 <td className="px-4 py-3 text-center">
                   {a.is_locked ? (

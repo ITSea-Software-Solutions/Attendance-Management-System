@@ -4,6 +4,7 @@ import '../core/scope.dart';
 import 'dart:io' show Platform;
 
 import 'diagnostics.dart';
+import 'notifications_screen.dart';
 import 'face_attendance.dart';
 import 'gate_attendance.dart';
 import 'vendor_workers.dart';
@@ -17,6 +18,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
+  int _unread = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshUnread();
+  }
+
+  Future<void> _refreshUnread() async {
+    final app = AppScope.of(context);
+    if (!app.online) return;
+    try {
+      final (_, unread) = await app.notifications();
+      if (mounted) setState(() => _unread = unread);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,6 +99,19 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+          ),
+          IconButton(
+            tooltip: 'Notifications',
+            icon: Badge(
+              isLabelVisible: _unread > 0,
+              label: Text('$_unread'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            onPressed: () async {
+              await Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+              _refreshUnread();
+            },
           ),
           IconButton(
             tooltip: 'Diagnostics — device & connection status',
