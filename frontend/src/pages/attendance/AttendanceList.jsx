@@ -1,7 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/axios";
+import AuthImg from "@/components/AuthImg";
 import { useAuth } from "@/contexts/AuthContext";
 import { Download, Printer, X, User } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
@@ -18,25 +19,6 @@ function duration(firstIn, lastOut) {
   if (h === 0) return `${m}m`;
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
-}
-
-/** Private-disk images need the Bearer token, so <img src> can't load them
- *  directly — fetch as a blob and render an object URL instead. */
-function AuthImg({ url, alt, className, fallback = null }) {
-  const [src, setSrc] = useState(null);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    let obj; let alive = true;
-    setSrc(null); setFailed(false);
-    if (!url) { setFailed(true); return undefined; }
-    api.get(url, { responseType: "blob" })
-      .then((r) => { if (alive) { obj = URL.createObjectURL(r.data); setSrc(obj); } })
-      .catch(() => { if (alive) setFailed(true); });
-    return () => { alive = false; if (obj) URL.revokeObjectURL(obj); };
-  }, [url]);
-  if (failed || !url) return fallback;
-  if (!src) return <div className={`${className} bg-gray-100 animate-pulse`} />;
-  return <img src={src} alt={alt} className={className} />;
 }
 
 /** One photo tile in the day-detail dialog. */

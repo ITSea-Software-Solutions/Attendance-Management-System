@@ -7,8 +7,9 @@ import { format } from "date-fns";
 import toast from "react-hot-toast";
 import {
   ArrowLeft, Calendar, LogIn, LogOut, MapPin, Building2,
-  Fingerprint, User, Clock, ChevronDown,
+  Fingerprint, User, Clock, ChevronDown, Camera, PenLine,
 } from "lucide-react";
+import AuthImg from "@/components/AuthImg";
 
 const STATUS_BADGE = {
   active:   "badge-green",
@@ -16,6 +17,32 @@ const STATUS_BADGE = {
   inactive: "badge-gray",
   blocked:  "badge-red",
 };
+
+/** How the mark was verified: thumb (fingerprint), photo (face), or manual. */
+function MethodBadge({ log }) {
+  if (log.method === "face") {
+    return (
+      <span className="badge badge-blue text-[10px] whitespace-nowrap">
+        <Camera size={9} className="mr-0.5 inline" />
+        photo{log.face_score ? ` ${Number(log.face_score).toFixed(2)}` : ""}
+      </span>
+    );
+  }
+  if (log.method === "manual") {
+    return (
+      <span className="badge badge-yellow text-[10px] whitespace-nowrap">
+        <PenLine size={9} className="mr-0.5 inline" />
+        manual
+      </span>
+    );
+  }
+  return (
+    <span className="badge badge-gray text-[10px] whitespace-nowrap">
+      <Fingerprint size={9} className="mr-0.5 inline" />
+      thumb{log.fingerprint_score ? ` ${log.fingerprint_score}` : ""}
+    </span>
+  );
+}
 
 const DEPLOYMENT_COLORS = {
   active:    "badge-green",
@@ -268,20 +295,34 @@ export default function WorkerDetail() {
               <p className="text-center text-gray-400 py-10 text-sm">No attendance records.</p>
             )}
             {!isLoading && recent_logs?.map((log) => (
-              <div key={log.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {format(new Date(log.marked_at), "dd MMM yyyy")}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                    {log.location_name
-                      ? <><MapPin size={10} />{log.location_name}</>
-                      : log.company?.name
-                        ? <><Building2 size={10} />{log.company.name}</>
-                        : null}
-                  </p>
+              <div key={log.id} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-gray-50/50">
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Gate capture of THIS mark (when the device took one) */}
+                  <AuthImg
+                    url={log.has_proof_photo ? `/attendance/proof/${log.id}` : null}
+                    alt="gate capture"
+                    className="w-9 h-9 rounded-lg object-cover border border-gray-200 shrink-0"
+                    fallback={
+                      <div className="w-9 h-9 rounded-lg bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center shrink-0">
+                        <Camera size={13} className="text-gray-300" />
+                      </div>
+                    }
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">
+                      {format(new Date(log.marked_at), "dd MMM yyyy")}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 truncate">
+                      {log.location_name
+                        ? <><MapPin size={10} />{log.location_name}</>
+                        : log.company?.name
+                          ? <><Building2 size={10} />{log.company.name}</>
+                          : null}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
+                  <MethodBadge log={log} />
                   <span className={`badge text-xs ${log.type === "IN" ? "badge-green" : "badge-blue"}`}>
                     {log.type === "IN"
                       ? <LogIn size={9} className="mr-0.5 inline" />
