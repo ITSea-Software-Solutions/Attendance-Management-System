@@ -431,10 +431,14 @@ class WorkerController extends Controller
             ], 422);
         }
 
-        $dupe = Worker::withTrashed()
-            ->where('aadhaar_hash', $hash)
-            ->when($ignoreWorkerId, fn ($q) => $q->where('id', '!=', $ignoreWorkerId))
-            ->first();
+        // Test environments may disable dedup (AADHAAR_DEDUP=false) to allow
+        // the same Aadhaar on multiple demo workers. ALWAYS on in production.
+        $dupe = config('biometric.aadhaar_dedup', true)
+            ? Worker::withTrashed()
+                ->where('aadhaar_hash', $hash)
+                ->when($ignoreWorkerId, fn ($q) => $q->where('id', '!=', $ignoreWorkerId))
+                ->first()
+            : null;
 
         if ($dupe) {
             return response()->json([

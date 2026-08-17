@@ -196,7 +196,8 @@ class SyncController extends Controller
         $hash   = AadhaarService::hashNumber($num);
         $masked = 'XXXX-XXXX-' . substr($num, -4);
 
-        if (Worker::withTrashed()->where('aadhaar_hash', $hash)->exists()) {
+        if (config('biometric.aadhaar_dedup', true)
+            && Worker::withTrashed()->where('aadhaar_hash', $hash)->exists()) {
             return ['uuid' => $uuid, 'status' => 'error', 'message' => 'A worker with this Aadhaar number is already registered.'];
         }
 

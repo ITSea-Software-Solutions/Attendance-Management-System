@@ -168,7 +168,63 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
                   ]);
                 },
               ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
+            // Deployments (local store — shows even offline)
+            FutureBuilder<List<Map<String, Object?>>>(
+              future: app.workerDeployments(serverId),
+              builder: (context, snap) {
+                final rows = snap.data ?? const [];
+                if (rows.isEmpty) {
+                  return const Padding(
+                    padding: EdgeInsets.only(bottom: 4),
+                    child: Text('No deployments yet.',
+                        style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                  );
+                }
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('DEPLOYMENTS',
+                        style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.grey)),
+                    const SizedBox(height: 4),
+                    for (final d in rows.take(4))
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Row(children: [
+                          Icon(
+                            switch ('${d['approval_status'] ?? 'approved'}') {
+                              'pending' => Icons.hourglass_top,
+                              'rejected' => Icons.block,
+                              _ => Icons.check_circle,
+                            },
+                            size: 15,
+                            color: switch ('${d['approval_status'] ?? 'approved'}') {
+                              'pending' => Colors.amber,
+                              'rejected' => Colors.red,
+                              _ => Colors.teal,
+                            },
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              '${d['company_name'] ?? 'Company ${d['company_id']}'} · '
+                              '${'${d['start_date']}'.substring(0, 10)} → ${'${d['end_date']}'.substring(0, 10)}'
+                              '${d['approval_status'] == 'pending' ? '  (awaiting approval)' : ''}'
+                              '${d['approval_status'] == 'rejected' ? '  (rejected)' : ''}',
+                              style: const TextStyle(fontSize: 12.5),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ]),
+                      ),
+                    const SizedBox(height: 6),
+                  ],
+                );
+              },
+            ),
             Row(children: [
               Expanded(
                 child: FilledButton.icon(

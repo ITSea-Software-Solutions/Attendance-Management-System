@@ -17,6 +17,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Aadhaar duplicate check
+    |--------------------------------------------------------------------------
+    | When true (DEFAULT — keep in production), a given Aadhaar can register
+    | exactly one worker across ALL vendors. Set AADHAAR_DEDUP=false only on
+    | demo/test environments to allow the same Aadhaar on multiple test
+    | workers.
+    */
+    'aadhaar_dedup' => env('AADHAAR_DEDUP', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Match threshold (SecuGen scale 0–200)
     |--------------------------------------------------------------------------
     | 40 is SecuGen's recommended default for the HU20-AP. Raise for stricter

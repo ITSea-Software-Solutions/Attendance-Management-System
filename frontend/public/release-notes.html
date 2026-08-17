@@ -47,10 +47,13 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.22</span> Windows capture stability <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.23</span> Stability + vendor fixes <span class="date">17 Aug 2026 · current</span></h3>
     <ul>
-      <li><b>Fixed: crash after taking a registration photo on Windows.</b> The camera was being torn down while Windows' native photo pipeline was still finishing — the capture now settles, saves, and closes the camera in a safe order before leaving the screen.</li>
-      <li>Automatic gate proof photos stay on Android (visible-camera flows cover Windows) — a background capture crash at a live gate is not a risk worth taking on the desktop camera stack.</li>
+      <li><b>Fixed: crash after taking a registration photo on Windows.</b> The camera now settles, saves, and closes in a safe order before leaving the capture screen.</li>
+      <li><b>Fixed: "no company found" when deploying from the app</b> — the approved-companies list read the wrong field; it now matches the web portal.</li>
+      <li><b>Worker detail shows deployments</b> — company, dates and approval status (approved / awaiting approval / rejected), offline too.</li>
+      <li>Aadhaar duplicate-check now follows the server's setting — test servers can allow the same Aadhaar on multiple demo workers (production keeps it enforced).</li>
+      <li>Automatic gate proof photos stay on Android; Windows keeps proof photos via the Face flow (desktop camera stability).</li>
     </ul>
   </div>
 

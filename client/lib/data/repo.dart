@@ -417,7 +417,9 @@ class AppState extends ChangeNotifier {
         (r.data is Map ? r.data['companies'] ?? r.data['data'] ?? [] : r.data) as List);
     return rows
         .map(Map<String, dynamic>.from)
-        .where((c) => (c['status'] ?? c['pivot_status'] ?? '') == 'approved')
+        .where((c) =>
+            (c['request_status'] ?? c['status'] ?? c['pivot_status'] ?? '') ==
+            'approved')
         .toList();
   }
 
@@ -502,12 +504,9 @@ class AppState extends ChangeNotifier {
       return 'Aadhaar must be exactly 12 digits.';
     }
     final db = await LocalDb.instance();
-    final dupe = await db.query('workers',
-        where: 'aadhaar_masked = ? OR aadhaar_number = ?',
-        whereArgs: ['XXXX-XXXX-${aadhaar.substring(8)}', aadhaar]);
-    if (dupe.isNotEmpty) {
-      return 'A worker with this Aadhaar already exists on this device.';
-    }
+    // No local Aadhaar-dedup block: the SERVER enforces uniqueness when
+    // enabled (AADHAAR_DEDUP, default on) and reports it as a per-row sync
+    // error — test environments may allow duplicates.
     await db.insert('workers', {
       'client_uuid': _uuid.v4(),
       'name': name,
@@ -563,6 +562,16 @@ class AppState extends ChangeNotifier {
         return true;
       }
     }).toList();
+  }
+
+  /// This worker's deployments from the local store (works offline).
+  Future<List<Map<String, Object?>>> workerDeployments(int? serverId) async {
+    if (serverId == null) return const [];
+    final db = await LocalDb.instance();
+    return db.query('assignments',
+        where: 'worker_server_id = ?',
+        whereArgs: [serverId],
+        orderBy: 'start_date DESC');
   }
 
   /// Last IN/OUT for a worker → suggests the next type.
