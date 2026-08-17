@@ -20,14 +20,37 @@ export default function WorkerList() {
   const [search, setSearch]  = useState("");
   const [status, setStatus]  = useState("");
   const [page, setPage]      = useState(1);
-  const [tab, setTab]        = useState("all"); // all | current | previous
+  // Default to CURRENT deployments — "who is on shift now" is the everyday view.
+  const [tab, setTab]        = useState("current"); // all | current | previous
+  const [vendorId, setVendorId] = useState("");
+  const [inside, setInside]     = useState(false);       // last event today = IN
+  const [presentToday, setPresentToday] = useState(false); // any event today
 
   const deploymentParam = tab !== "all" ? tab : undefined;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["workers", search, status, page, tab],
-    queryFn:  () => api.get("/workers", { params: { search, status, page, deployment: deploymentParam } }).then((r) => r.data),
+    queryKey: ["workers", search, status, page, tab, vendorId, inside, presentToday],
+    queryFn:  () => api.get("/workers", { params: {
+      search, status, page, deployment: deploymentParam,
+      vendor_id: vendorId || undefined,
+      inside: inside ? 1 : undefined,
+      present_today: presentToday ? 1 : undefined,
+    } }).then((r) => r.data),
     keepPreviousData: true,
+  });
+
+  // Vendor filter options — company users: their approved vendors; super: all.
+  const isVendorUser = ["vendor_admin", "vendor_operator"].includes(user?.role);
+  const { data: vendorOpts } = useQuery({
+    queryKey: ["vendor-options", user?.role, user?.company_id],
+    enabled: !isVendorUser,
+    queryFn: async () => {
+      const r = user?.role === "super_admin"
+        ? await api.get("/vendors")
+        : await api.get(`/companies/${user.company_id}/vendors`);
+      const rows = r.data?.data ?? r.data?.vendors ?? r.data ?? [];
+      return (Array.isArray(rows) ? rows : []).map((v) => ({ id: v.id, name: v.name }));
+    },
   });
 
   const canRegister = ["super_admin", "vendor_admin", "vendor_operator"].includes(user?.role);
@@ -128,9 +151,9 @@ export default function WorkerList() {
       {/* Deployment tabs */}
       <div className="flex gap-1 border-b border-gray-200">
         {[
-          { key: "all",      label: "All Workers" },
-          { key: "current",  label: "Current" },
+          { key: "current",  label: "Current (on deployment)" },
           { key: "previous", label: "Previous" },
+          { key: "all",      label: "All Workers" },
         ].map((t) => (
           <button
             key={t.key}
@@ -158,6 +181,36 @@ export default function WorkerList() {
             className="input pl-9"
           />
         </div>
+        {!isVendorUser && (vendorOpts?.length ?? 0) > 0 && (
+          <select
+            value={vendorId}
+            onChange={(e) => { setVendorId(e.target.value); setPage(1); }}
+            className="input w-auto"
+          >
+            <option value="">All Vendors</option>
+            {vendorOpts.map((v) => (
+              <option key={v.id} value={v.id}>{v.name}</option>
+            ))}
+          </select>
+        )}
+        <button
+          onClick={() => { setInside(!inside); setPage(1); }}
+          className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+            inside ? "bg-green-50 border-green-500 text-green-700" : "border-gray-300 text-gray-500 hover:bg-gray-50"
+          }`}
+          title="Workers whose last event today is IN — on shift right now"
+        >
+          ● Inside now
+        </button>
+        <button
+          onClick={() => { setPresentToday(!presentToday); setPage(1); }}
+          className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+            presentToday ? "bg-brand-50 border-brand-500 text-brand-700" : "border-gray-300 text-gray-500 hover:bg-gray-50"
+          }`}
+          title="Any attendance event today"
+        >
+          ✓ Present today
+        </button>
         <select
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(1); }}

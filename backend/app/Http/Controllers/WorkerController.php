@@ -63,6 +63,25 @@ class WorkerController extends Controller
             })
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
             ->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%"))
+            // Vendor filter (company/super users narrowing a mixed list)
+            ->when($request->vendor_id, fn($q, $v) => $q->where('vendor_id', $v))
+            // "Inside now": the worker's LATEST event is an IN with no OUT yet
+            // (date-agnostic so night shifts crossing midnight stay visible —
+            // same semantics as the Exceptions page).
+            ->when($request->boolean('inside'), function ($q) use ($user) {
+                $q->whereRaw("(
+                    SELECT al.type FROM attendance_logs al
+                    WHERE al.worker_id = workers.id"
+                    .($user->isCompanyUser() ? ' AND al.company_id = '.((int) $user->company_id) : '')."
+                    ORDER BY al.marked_at DESC LIMIT 1
+                ) = 'IN'");
+            })
+            // "Present today": any attendance event today
+            ->when($request->boolean('present_today'), function ($q) use ($user) {
+                $q->whereHas('attendanceLogs', fn($lq) => $lq
+                    ->whereDate('marked_at', today())
+                    ->when($user->isCompanyUser(), fn($c) => $c->where('company_id', $user->company_id)));
+            })
             ->orderByDesc('created_at');
 
         return response()->json($query->paginate(20));
