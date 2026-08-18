@@ -140,6 +140,7 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('worker/{worker}', [AttendanceController::class, 'workerHistory']);
         Route::get('report',          [AttendanceController::class, 'report']);
         Route::get('exceptions',      [AttendanceController::class, 'exceptions']);
+        Route::get('live-board',      [AttendanceController::class, 'liveBoard']);   // glanceable who-is-where
         Route::get('export',          [AttendanceController::class, 'export']);      // CSV: ?month=YYYY-MM&type=daily|monthly
         Route::get('printable',       [AttendanceController::class, 'printable']);   // print-friendly month report
     });

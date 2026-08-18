@@ -812,6 +812,126 @@ class AttendanceController extends Controller
 
     // ─── Exceptions ───────────────────────────────────────────────────────────
 
+    /**
+     * Live Board — one glanceable payload: who is inside right now, per
+     * gate/department, today's flow, and the latest events. Role-scoped:
+     * company users see their company (gate users only their gate), vendors
+     * see their own workers, super admin sees everything (?company_id= to
+     * focus). "Inside" = the worker's LATEST valid log is IN (date-agnostic,
+     * so night shifts past midnight stay visible).
+     */
+    public function liveBoard(Request $request): JsonResponse
+    {
+        $user      = $request->user();
+        $companyId = $user->isCompanyUser() ? $user->company_id : $request->integer('company_id');
+        $gateLoc   = ($user->isGateUser() && $user->location_name) ? $user->location_name : null;
+
+        $scope = fn ($q) => $q
+            ->when($companyId, fn ($qq) => $qq->where('al.company_id', $companyId))
+            ->when($gateLoc, fn ($qq) => $qq->where('al.location_name', $gateLoc))
+            ->when($user->isVendorUser(), fn ($qq) => $qq->whereIn('al.worker_id',
+                fn ($s) => $s->select('id')->from('workers')->where('vendor_id', $user->vendor_id)));
+
+        // Latest valid log per worker(+company) → inside when it's an IN
+        $latestIds = \DB::table('attendance_logs as al')
+            ->selectRaw('MAX(al.id) as id')
+            ->where('al.is_valid', true)
+            ->tap($scope)
+            ->groupBy('al.worker_id', 'al.company_id')
+            ->pluck('id');
+
+        $inside = AttendanceLog::with(['worker:id,name,vendor_id,photo_path', 'worker.vendor:id,name', 'company:id,name'])
+            ->whereIn('id', $latestIds)
+            ->where('type', AttendanceLog::TYPE_IN)
+            ->orderByDesc('marked_at')
+            ->get()
+            ->map(fn ($l) => [
+                'worker_id' => $l->worker_id,
+                'name'      => optional($l->worker)->name,
+                'vendor'    => optional(optional($l->worker)->vendor)->name,
+                'company'   => optional($l->company)->name,
+                'gate'      => $l->location_name ?: 'Main Gate',
+                'in_at'     => $l->marked_at?->toIso8601String(),
+                'has_photo' => ! empty(optional($l->worker)->photo_path),
+                'method'    => $l->method,
+            ]);
+
+        // Gates: known locations (company presets + settings) + any gate seen
+        $gateNames = collect();
+        if ($companyId && ($company = \App\Models\Company::find($companyId))) {
+            $gateNames = collect(config('departments.presets', []))
+                ->merge((array) (((array) ($company->settings ?? []))['locations'] ?? []))
+                ->unique()->values();
+        }
+        $gates = $inside->groupBy('gate')->map(fn ($rows, $gate) => [
+            'name'    => $gate,
+            'count'   => $rows->count(),
+            'last_at' => $rows->max('in_at'),
+            'workers' => $rows->take(14)->values(),
+        ])->values();
+        foreach ($gateNames as $g) {
+            if ($gateLoc && $g !== $gateLoc) {
+                continue;
+            }
+            if (! $gates->contains(fn ($x) => $x['name'] === $g)) {
+                $gates->push(['name' => $g, 'count' => 0, 'last_at' => null, 'workers' => []]);
+            }
+        }
+        $gates = $gates->sortByDesc('count')->values();
+
+        // Today's flow + recent events
+        $todayBase = \DB::table('attendance_logs as al')
+            ->where('al.is_valid', true)
+            ->whereDate('al.marked_at', today())
+            ->tap($scope);
+        $inToday  = (clone $todayBase)->where('al.type', 'IN')->count();
+        $outToday = (clone $todayBase)->where('al.type', 'OUT')->count();
+        $hourly   = (clone $todayBase)
+            ->selectRaw("HOUR(al.marked_at) as h,
+                SUM(CASE WHEN al.type='IN' THEN 1 ELSE 0 END) as ins,
+                SUM(CASE WHEN al.type='OUT' THEN 1 ELSE 0 END) as outs")
+            ->groupBy('h')->orderBy('h')->get();
+
+        $recent = AttendanceLog::with(['worker:id,name,photo_path'])
+            ->where('is_valid', true)
+            ->whereDate('marked_at', today())
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->when($gateLoc, fn ($q) => $q->where('location_name', $gateLoc))
+            ->when($user->isVendorUser(), fn ($q) => $q->whereIn('worker_id',
+                fn ($s) => $s->select('id')->from('workers')->where('vendor_id', $user->vendor_id)))
+            ->orderByDesc('marked_at')->limit(20)->get()
+            ->map(fn ($l) => [
+                'id'        => $l->id,
+                'worker_id' => $l->worker_id,
+                'name'      => optional($l->worker)->name,
+                'type'      => $l->type,
+                'gate'      => $l->location_name ?: 'Main Gate',
+                'at'        => $l->marked_at?->toIso8601String(),
+                'method'    => $l->method,
+                'has_photo' => ! empty(optional($l->worker)->photo_path),
+            ]);
+
+        // Expected today: approved active deployments covering today (scoped)
+        $expected = WorkerAssignment::where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
+            ->where('start_date', '<=', today())->where('end_date', '>=', today())
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->when($user->isVendorUser(), fn ($q) => $q->where('vendor_id', $user->vendor_id))
+            ->distinct('worker_id')->count('worker_id');
+
+        return response()->json([
+            'inside_total' => $inside->count(),
+            'expected'     => $expected,
+            'in_today'     => $inToday,
+            'out_today'    => $outToday,
+            'gates'        => $gates,
+            'recent'       => $recent,
+            'hourly'       => $hourly,
+            'gate_scope'   => $gateLoc,
+            'generated_at' => now()->toIso8601String(),
+        ]);
+    }
+
     public function exceptions(Request $request): JsonResponse
     {
         $user = $request->user();

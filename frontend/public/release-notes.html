@@ -47,7 +47,16 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.29</span> Smarter fingerprint identification <span class="date">17 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.30</span> Mantra support + scanner intelligence <span class="date">18 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Mantra MFS100/MFS500 driver built-in</b> (Android) — capture and on-device matching through Mantra's own SDK, same ISO templates as SecuGen, so workers enrolled on either brand match at either gate. Activates in the official APK once the Mantra SDK is bundled.</li>
+      <li><b>Every scanner explained</b> — Diagnostics now lists all attached USB devices and tells you exactly where you stand per brand: SecuGen ready, Mantra ready-to-activate, and Aadhaar L1 devices (e.g. <b>MFS110</b>) clearly marked as unusable for attendance — they encrypt fingerprints inside the sensor by UIDAI design; no app can read them.</li>
+      <li>Morpho/IDEMIA, Startek, Tatvik, Precision and other Indian brands are detected and named with next steps.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.29</span> Smarter fingerprint identification <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>1:N ambiguity guard</b> — when two different workers score within 10 points of each other, the scan is rejected and the guard rescans instead of guessing. Protects against look-alike prints as the worker pool grows.</li>
     </ul>
@@ -211,7 +220,15 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.8.0</span> Vendor detail view + consent <span class="date">18 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.9.0</span> Live Board <span class="date">18 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>The whole site at a glance</b> — new Live Board page for every role: how many are inside right now (with occupancy vs expected), per gate and department with worker photos, today's hour-by-hour IN/OUT flow, and a live activity feed. Auto-refreshes every 10 seconds.</li>
+      <li>Role-aware: companies see their site, gate users their own gate, vendors their own workers. Night-shift safe — workers who checked in before midnight stay on the board until they check out.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.8.0</span> Vendor detail view + consent <span class="date">18 Aug 2026</span></h3>
     <ul>
       <li><b>Tab-based vendor detail for companies</b> — click any vendor: organisation profile (contacts, GST/PAN), relationship timeline (requested / approved / consent), workers &amp; deployments history with you, and attendance history (man-days, currently inside, daily activity).</li>
       <li><b>Details-sharing consent</b> — vendors now give explicit consent when requesting company access ("the company may view our profile and track our working history"); company-created vendors consent implicitly. Without consent the company sees only the vendor's name and request status.</li>
