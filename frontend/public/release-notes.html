@@ -47,7 +47,15 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.30</span> Mantra support + scanner intelligence <span class="date">18 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.31</span> Windows: true plug-and-play <span class="date">18 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>SecuGen runtime bundled in the Windows zip</b> — sgfplib.dll and all companion libraries now ship beside truecrew.exe. Unzip, plug the scanner in, scan — no SecuGen software installation on gate machines. (The USB driver itself auto-installs from Windows Update on first plug.)</li>
+      <li>Android has been plug-and-play since v0.9.13 (SDK inside the APK, USB auto-grant) — both platforms are now zero-setup.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.30</span> Mantra support + scanner intelligence <span class="date">18 Aug 2026</span></h3>
     <ul>
       <li><b>Mantra MFS100/MFS500 driver built-in</b> (Android) — capture and on-device matching through Mantra's own SDK, same ISO templates as SecuGen, so workers enrolled on either brand match at either gate. Activates in the official APK once the Mantra SDK is bundled.</li>
       <li><b>Every scanner explained</b> — Diagnostics now lists all attached USB devices and tells you exactly where you stand per brand: SecuGen ready, Mantra ready-to-activate, and Aadhaar L1 devices (e.g. <b>MFS110</b>) clearly marked as unusable for attendance — they encrypt fingerprints inside the sensor by UIDAI design; no app can read them.</li>
