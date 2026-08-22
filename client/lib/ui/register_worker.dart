@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mlkit_face_detection/google_mlkit_face_detection.dart';
@@ -383,16 +384,28 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                       const SizedBox(height: 8),
-                      FilledButton.tonalIcon(
-                        onPressed: _pdfBusy ? null : _importAadhaarPdf,
-                        icon: _pdfBusy
-                            ? const SizedBox(width: 14, height: 14,
-                                child: CircularProgressIndicator(strokeWidth: 2))
-                            : const Icon(Icons.upload_file),
-                        label: Text(_pdfPath == null
-                            ? (_pdfBusy ? 'Extracting…' : 'Pick PDF & extract')
-                            : 'Re-import'),
-                      ),
+                      Wrap(spacing: 8, runSpacing: 6, children: [
+                        // Same link as the web wizard: worker downloads their
+                        // masked e-Aadhaar from UIDAI, then imports it here.
+                        OutlinedButton.icon(
+                          onPressed: () => launchUrl(
+                              Uri.parse(
+                                  'https://myaadhaar.uidai.gov.in/genricDownloadAadhaar/en'),
+                              mode: LaunchMode.externalApplication),
+                          icon: const Icon(Icons.open_in_new, size: 18),
+                          label: const Text('Get PDF from UIDAI'),
+                        ),
+                        FilledButton.tonalIcon(
+                          onPressed: _pdfBusy ? null : _importAadhaarPdf,
+                          icon: _pdfBusy
+                              ? const SizedBox(width: 14, height: 14,
+                                  child: CircularProgressIndicator(strokeWidth: 2))
+                              : const Icon(Icons.upload_file),
+                          label: Text(_pdfPath == null
+                              ? (_pdfBusy ? 'Extracting…' : 'Pick PDF & extract')
+                              : 'Re-import'),
+                        ),
+                      ]),
                       if (_pdfNote != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 6),
