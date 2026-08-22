@@ -9,6 +9,14 @@
  */
 return [
 
+    // Numeric monthly prices (INR) — power Razorpay order amounts and the
+    // Billing page. Set the real numbers in .env; null hides online payment
+    // amounts until priced.
+    'prices_inr' => [
+        'professional' => env('PRICE_PROFESSIONAL_INR') !== null ? (int) env('PRICE_PROFESSIONAL_INR') : null,
+        'enterprise'   => env('PRICE_ENTERPRISE_INR') !== null ? (int) env('PRICE_ENTERPRISE_INR') : null,
+    ],
+
     // Shown to org admins on the Billing page — how to pay offline.
     // Fill the real details in .env at launch; placeholders keep the demo honest.
     'payment' => [

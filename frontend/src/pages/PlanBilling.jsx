@@ -61,6 +61,43 @@ export default function PlanBilling() {
       e.response?.data?.message ?? "Could not record the payment."),
   });
 
+  // Razorpay checkout: load their script on demand, create the order
+  // server-side (amount is never client-decided), verify the signature
+  // server-side — success activates the licence instantly.
+  const payOnline = async (req) => {
+    try {
+      if (!window.Razorpay) {
+        await new Promise((resolve, reject) => {
+          const s = document.createElement("script");
+          s.src = "https://checkout.razorpay.com/v1/checkout.js";
+          s.onload = resolve; s.onerror = () => reject(new Error("gateway script failed"));
+          document.body.appendChild(s);
+        });
+      }
+      const order = await api.post(`/plan/requests/${req.id}/razorpay-order`).then((r) => r.data);
+      new window.Razorpay({
+        key: order.key_id,
+        amount: order.amount,
+        currency: order.currency,
+        name: order.name,
+        description: order.description,
+        order_id: order.order_id,
+        handler: async (resp) => {
+          try {
+            const v = await api.post(`/plan/requests/${req.id}/razorpay-verify`, resp).then((r) => r.data);
+            toast.success(v.message, { duration: 7000 });
+            qc.invalidateQueries(["plan"]);
+          } catch (e) {
+            toast.error(e.response?.data?.message ?? "Verification failed — contact support with your payment id.");
+          }
+        },
+        theme: { color: "#10685A" },
+      }).open();
+    } catch (e) {
+      toast.error(e.response?.data?.message ?? "Could not start online payment — use offline payment below.");
+    }
+  };
+
   if (isLoading) return <div className="text-gray-400 p-8">Loading…</div>;
   const org = data?.org;
   const plans = data?.plans ?? {};
@@ -182,10 +219,21 @@ export default function PlanBilling() {
               {pending.has_payment_proof && " · proof attached"} — awaiting verification by the platform team.
             </div>
           ) : (
-            <PaymentForm
-              onSubmit={(form) => recordPayment.mutate({ id: pending.id, form })}
-              busy={recordPayment.isPending}
-            />
+            <>
+              {/* Online payment — appears only when the gateway is configured */}
+              {data?.razorpay?.enabled && data?.prices_inr?.[pending.requested_plan] && (
+                <div className="mb-4 flex items-center gap-3">
+                  <button className="btn-primary" onClick={() => payOnline(pending)}>
+                    Pay online — ₹{(data.prices_inr[pending.requested_plan] * (pending.months ?? 1)).toLocaleString("en-IN")}
+                  </button>
+                  <span className="text-xs text-gray-400">UPI / card / netbanking via Razorpay — activates instantly. Or pay offline below.</span>
+                </div>
+              )}
+              <PaymentForm
+                onSubmit={(form) => recordPayment.mutate({ id: pending.id, form })}
+                busy={recordPayment.isPending}
+              />
+            </>
           )}
         </div>
       )}

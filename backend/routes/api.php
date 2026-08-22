@@ -43,6 +43,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('plan',                  [\App\Http\Controllers\PlanController::class, 'show']);
     Route::post('plan/upgrade-request', [\App\Http\Controllers\PlanController::class, 'requestUpgrade']);
     Route::post('plan/requests/{planRequest}/payment', [\App\Http\Controllers\PlanController::class, 'recordPayment']);
+    Route::post('plan/requests/{planRequest}/razorpay-order',  [\App\Http\Controllers\PlanController::class, 'razorpayOrder']);
+    Route::post('plan/requests/{planRequest}/razorpay-verify', [\App\Http\Controllers\PlanController::class, 'razorpayVerify']);
     Route::get('plan/requests/{planRequest}/proof',    [\App\Http\Controllers\PlanController::class, 'paymentProof']);
     Route::get('admin/subscriptions',   [\App\Http\Controllers\PlanController::class, 'index']);
     Route::post('admin/subscriptions/set-plan', [\App\Http\Controllers\PlanController::class, 'setPlan']);

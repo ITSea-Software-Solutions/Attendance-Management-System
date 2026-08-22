@@ -67,6 +67,17 @@ class NotifyService
         $token   = config('services.whatsapp.token', env('WHATSAPP_TOKEN'));
         $phoneId = config('services.whatsapp.phone_id', env('WHATSAPP_PHONE_ID'));
         if (! $phone || ! $token || ! $phoneId) {
+            // Dev visibility: the message that WOULD go out lands in the log,
+            // so WhatsApp-dependent flows are testable before credentials.
+            if ($phone && config('app.debug')) {
+                try {
+                    $r = $this->templates->render($templateKey, $vars, $orgType, $orgId, 'whatsapp');
+                    \Log::info("WHATSAPP (dev, NOT sent) to {$phone}: ".$r['body']);
+                } catch (\Throwable $e) {
+                    report($e);
+                }
+            }
+
             return; // provider not configured yet
         }
         if ($orgPlan !== null && ! PlanService::hasFeature($orgPlan, 'whatsapp_notifications')) {

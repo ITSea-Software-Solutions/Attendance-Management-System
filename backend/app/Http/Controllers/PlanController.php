@@ -50,8 +50,121 @@ class PlanController extends Controller
             ],
             'pending_request' => $pending,
             'payment'         => config('plans.payment'),
+            'prices_inr'      => config('plans.prices_inr'),
+            'razorpay'        => [
+                'enabled' => (bool) (env('RAZORPAY_KEY_ID') && env('RAZORPAY_KEY_SECRET')),
+                'key_id'  => env('RAZORPAY_KEY_ID'), // publishable key — safe for the browser
+            ],
             'plans'           => config('plans.plans'),
             'feature_labels'  => config('plans.feature_labels'),
+        ]);
+    }
+
+    // ── Razorpay (online payment) — dormant until keys are configured ────────
+
+    private function razorpayReady(): bool
+    {
+        return (bool) (env('RAZORPAY_KEY_ID') && env('RAZORPAY_KEY_SECRET'));
+    }
+
+    /**
+     * Create a Razorpay order for the org's pending request. Amount comes
+     * from server-side prices (never the client): price × months.
+     */
+    public function razorpayOrder(Request $request, PlanUpgradeRequest $planRequest): JsonResponse
+    {
+        abort_unless($this->razorpayReady(), 503, 'Online payment is not enabled — use offline payment below.');
+        $ctx = PlanService::orgFor($request->user());
+        abort_unless($ctx && $planRequest->org_type === $ctx['type']
+            && $planRequest->org_id === $ctx['org']->id, 403);
+        abort_unless(in_array($request->user()->role, ['company_admin', 'vendor_admin'], true), 403);
+        abort_unless($planRequest->status === 'pending', 422, 'This request was already decided.');
+
+        $monthly = config('plans.prices_inr.'.$planRequest->requested_plan);
+        abort_unless($monthly, 422, 'This plan is not priced for online payment yet — use offline payment.');
+        $amountPaise = (int) ($monthly * max(1, (int) $planRequest->months) * 100);
+
+        $r = \Illuminate\Support\Facades\Http::withBasicAuth(env('RAZORPAY_KEY_ID'), env('RAZORPAY_KEY_SECRET'))
+            ->timeout(10)
+            ->post('https://api.razorpay.com/v1/orders', [
+                'amount'   => $amountPaise,
+                'currency' => 'INR',
+                'receipt'  => 'tc-req-'.$planRequest->id,
+                'notes'    => ['org' => $ctx['org']->name, 'plan' => $planRequest->requested_plan, 'months' => $planRequest->months],
+            ]);
+        abort_unless($r->successful(), 502, 'Payment gateway error — try again or pay offline.');
+
+        return response()->json([
+            'order_id' => $r->json('id'),
+            'amount'   => $amountPaise,
+            'currency' => 'INR',
+            'key_id'   => env('RAZORPAY_KEY_ID'),
+            'name'     => 'TrueCrew',
+            'description' => ucfirst($planRequest->requested_plan)." plan · {$planRequest->months} month(s)",
+        ]);
+    }
+
+    /**
+     * Verify Razorpay's checkout signature and ACTIVATE the licence — a
+     * cryptographically verified gateway payment needs no manual step; super
+     * admins are notified for the record.
+     */
+    public function razorpayVerify(Request $request, PlanUpgradeRequest $planRequest): JsonResponse
+    {
+        abort_unless($this->razorpayReady(), 503);
+        $ctx = PlanService::orgFor($request->user());
+        abort_unless($ctx && $planRequest->org_type === $ctx['type']
+            && $planRequest->org_id === $ctx['org']->id, 403);
+        abort_unless($planRequest->status === 'pending', 422, 'This request was already decided.');
+        $data = $request->validate([
+            'razorpay_order_id'   => 'required|string',
+            'razorpay_payment_id' => 'required|string',
+            'razorpay_signature'  => 'required|string',
+        ]);
+
+        $expected = hash_hmac('sha256',
+            $data['razorpay_order_id'].'|'.$data['razorpay_payment_id'],
+            env('RAZORPAY_KEY_SECRET'));
+        if (! hash_equals($expected, $data['razorpay_signature'])) {
+            $this->audit->log($request->user()->id, 'razorpay_signature_mismatch', PlanUpgradeRequest::class, $planRequest->id);
+
+            return response()->json(['message' => 'Payment could not be verified — contact support with your payment id.'], 422);
+        }
+
+        $monthly = config('plans.prices_inr.'.$planRequest->requested_plan) ?? 0;
+        $months  = max(1, (int) $planRequest->months);
+        $planRequest->forceFill([
+            'payment_method'    => 'razorpay',
+            'payment_reference' => $data['razorpay_payment_id'],
+            'amount'            => $monthly * $months,
+            'paid_at'           => now(),
+            'status'            => 'approved',
+            'decided_by'        => $request->user()->id,
+            'decided_at'        => now(),
+        ])->save();
+
+        $orgModel = $planRequest->org();
+        if ($orgModel) {
+            $base = ($orgModel->plan === $planRequest->requested_plan
+                    && $orgModel->plan_expires_at && $orgModel->plan_expires_at->isFuture())
+                ? $orgModel->plan_expires_at : now();
+            $orgModel->forceFill([
+                'plan'            => $planRequest->requested_plan,
+                'plan_started_at' => now(),
+                'plan_expires_at' => $base->copy()->addMonths($months),
+            ])->save();
+        }
+
+        $notify = app(\App\Services\NotifyService::class);
+        $notify->inApp(\App\Models\User::where('role', 'super_admin')->get(), 'plan_payment_recorded',
+            "ONLINE payment verified: {$ctx['org']->name} → {$planRequest->requested_plan}",
+            "Razorpay {$data['razorpay_payment_id']} · activated automatically for {$months} month(s).");
+        $this->audit->log($request->user()->id, 'plan_paid_online', PlanUpgradeRequest::class, $planRequest->id, [
+            'payment_id' => $data['razorpay_payment_id'], 'months' => $months,
+        ]);
+
+        return response()->json([
+            'message' => 'Payment verified — your '.$planRequest->requested_plan.' licence is ACTIVE.',
         ]);
     }
 
