@@ -244,6 +244,8 @@
   <a href="#plans">Plans</a>
   <a href="#approvals">Approvals</a>
   <a href="#workers">Workers</a>
+  <a href="#verification">Photo proof</a>
+  <a href="#visitors">Visitors</a>
   <a href="#notifications">Notifications</a>
   <a href="#oversight">Oversight</a>
   <a href="#apps">Apps</a>
@@ -255,9 +257,9 @@
   <h1>Super Admin Guide</h1>
   <p>Run the TrueCrew platform: organisations, plans, users, and oversight</p>
   <div class="badges">
-    <span class="pill">Platform v1.7.0</span>
-    <span class="pill">Apps v0.9.28</span>
-    <span class="pill">Updated 17 Aug 2026</span>
+    <span class="pill">Platform v1.10.0</span>
+    <span class="pill">Apps v0.9.34</span>
+    <span class="pill">Updated 22 Aug 2026</span>
   </div>
 </div>
 
@@ -271,7 +273,7 @@
     <p><strong>The whole system in four steps:</strong></p>
     <ul class="flow">
       <li><span class="n">1</span><strong>Vendors register workers</strong> Each worker is enrolled with their Aadhaar (verified identity) and a fingerprint. A photo enables face attendance too.</li>
-      <li><span class="n">2</span><strong>Vendors deploy workers to companies</strong> A deployment says which worker goes to which company, and for which dates. The company can require approval first.</li>
+      <li><span class="n">2</span><strong>Vendors deploy workers to companies</strong> A deployment says which worker goes to which company, and for which dates. It waits for the company's approval by default, and can be limited to specific gates.</li>
       <li><span class="n">3</span><strong>Workers mark IN / OUT at the gate</strong> A fingerprint or face scan identifies the worker in seconds — on the web gate or on the Android / Windows apps, even offline.</li>
       <li><span class="n">4</span><strong>Everyone sees role-scoped attendance</strong> Companies see attendance at their site. Vendors see their own workers. You, the Super Admin, see everything.</li>
     </ul>
@@ -322,6 +324,13 @@
       <strong>Company admins can create their own vendors.</strong>
       A company can add a vendor it already works with. That vendor is auto-approved for the company and inherits the company's plan. You will see these vendors on your global Vendors page like any other.
     </div>
+
+    <h3>Vendor detail &amp; sharing consent (new in v1.8)</h3>
+    <p>Companies can click any vendor in their list to open a <strong>vendor detail view</strong> — the organisation's profile and contacts, the relationship timeline, the workers and deployments that vendor has with them, and the vendor's attendance history at their site.</p>
+    <ul class="plain">
+      <li><strong>Consent is collected on the access request.</strong> When a vendor asks for access to a company, it explicitly consents to sharing these details. Vendors a company creates itself consent implicitly.</li>
+      <li><strong>No consent, no details.</strong> Without it, the company sees only the vendor's name and the request status.</li>
+    </ul>
   </div>
 </section>
 
@@ -347,12 +356,12 @@
           <tr>
             <td><span class="tag tag-blue">Department HR</span></td>
             <td>Company</td>
-            <td>Approves or rejects vendor deployments and chooses which departments or gates each worker may use. Can mark a manual OUT. Nothing else — no users, settings, or billing.</td>
+            <td>Approves or rejects vendor deployments and chooses which departments or gates each worker may use. Can mark a manual OUT, and maintains the visitor Hosts list. Nothing else — no users, settings, or billing.</td>
           </tr>
           <tr>
             <td><span class="tag tag-blue">Gate User</span></td>
             <td>Company</td>
-            <td>Marks IN / OUT attendance only, by fingerprint or face, at their gate.</td>
+            <td>Marks IN / OUT attendance, by fingerprint or face, at their gate — and creates visitor gate passes. Nothing else.</td>
           </tr>
           <tr>
             <td><span class="tag tag-amber">Vendor Admin</span></td>
@@ -426,13 +435,17 @@
   <div class="card">
     <h2>6. Deployment approvals &amp; permissions</h2>
     <p>This is a company-side feature, but you should know how it works — it changes who can pass a gate.</p>
-    <p>By default, a deployment from an approved vendor works immediately. A company can instead <strong>require approval for every deployment</strong>. When that switch is on:</p>
+    <p><strong>Approval is required by default</strong> (since v1.7) for every company: each new vendor deployment waits for the company's HR or admin to review it. A company that prefers instant deployments can switch the requirement off in its approvals panel. While approval is required:</p>
     <ul class="plain">
       <li>Each new deployment waits in a <strong>pending</strong> queue for the company's HR or admin.</li>
       <li>A pending worker <strong>cannot mark attendance anywhere</strong> at that company until approved.</li>
       <li>Rejections carry a reason back to the vendor.</li>
       <li>On approval, the company can <strong>restrict the worker to specific gates or departments</strong>. The rule is enforced everywhere — web gate, both apps (even offline), and on the server for every synced mark.</li>
     </ul>
+    <div class="callout info">
+      <strong>Your own deployments skip the queue.</strong>
+      A deployment you create yourself as Super Admin is approved automatically — handy for demos and corrections. Vendor deployments always follow the company's setting.
+    </div>
 
     <h3>Preset departments</h3>
     <p>Wherever departments are picked, a standard list is offered. <strong>Main Gate</strong> is preselected, so workers can always enter and exit at the main gate unless HR says otherwise. Custom names are also allowed, and an "All gates" option clears the restriction.</p>
@@ -493,10 +506,50 @@
   </div>
 </section>
 
-<!-- ═══════════ 8. NOTIFICATIONS & DIGESTS ═══════════ -->
+<!-- ═══════════ 8. PHOTO-VERIFIED ATTENDANCE ═══════════ -->
+<section id="verification">
+  <div class="card">
+    <h2>8. Photo-verified attendance</h2>
+    <p>Since v1.7, an attendance mark is more than a time — it is a picture. The moment a fingerprint or face scan verifies at the gate, the device quietly photographs the person and saves the capture with that IN / OUT record. This works on Android and Windows gate machines alike, and it is best-effort: a missing camera never blocks a mark.</p>
+
+    <h3>Where the photos show up</h3>
+    <ul class="plain">
+      <li><strong>Attendance Log</strong> — every row carries the day's live gate photo (falling back to the registration photo). Click the row for the day detail: the registration photo, the Aadhaar photo, and the gate IN and OUT captures side by side, with times, gates, methods, and match scores.</li>
+      <li><strong>Worker analytics</strong> — every recent mark shows its own gate capture and exactly how it was verified: thumb (fingerprint + score), photo (face + score), or manual.</li>
+    </ul>
+
+    <h3>The automatic face cross-check</h3>
+    <p>Every gate capture is automatically compared against the worker's enrolled face. A capture that does not match is <strong>flagged in the day detail</strong>. The flag is advisory — the mark still stands — but it is the buddy-punching alarm: if worker A scanned and worker B stood at the camera, the mismatch shows.</p>
+    <div class="callout info">
+      <strong>Identification is conservative, too.</strong>
+      When two different workers score too close together on a fingerprint or face scan, the scan is rejected and retried rather than guessed — the system never picks a winner from an ambiguous match.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 9. VISITORS & GATE PASSES ═══════════ -->
+<section id="visitors">
+  <div class="card">
+    <h2>9. Visitors &amp; gate passes</h2>
+    <p>New in v1.10, TrueCrew handles the <em>other</em> people at the gate — guests, couriers, candidates — with the same discipline as workers: a photo, a named approver, and a full decision trail. No visitor enters without an approval on record.</p>
+    <ol class="steps">
+      <li><strong>HR maintains the Hosts list.</strong> On the Visitors page, the company's HR keeps the list of people allowed to receive visitors — name, mobile, position, department. Only listed hosts can be picked at the gate.</li>
+      <li><strong>The gate creates the pass.</strong> From the gate app's Visitors tab, the gate user enters the guest's name and phone, takes a live photo, and picks the host the guest came to meet — done in seconds.</li>
+      <li><strong>The host decides.</strong> Where the organisation's WhatsApp Business connection is configured, the host is asked on WhatsApp and replies <strong>YES</strong> or <strong>NO</strong>. Otherwise — or when the host answers by phone — the gate records the decision manually with a <strong>mandatory note</strong>, and it is audited.</li>
+      <li><strong>Entry only after approval.</strong> The pass moves waiting → approved (or denied) → inside → left, with entry and exit times stamped along the way.</li>
+    </ol>
+    <p>The portal's <strong>Visitors</strong> page shows the company's passes — guest photos, status, the WhatsApp or manual decision trail, and entry / exit times.</p>
+    <div class="callout info">
+      <strong>WhatsApp is optional.</strong>
+      The reply-to-approve loop activates once the organisation's WhatsApp Business connection is set up. Until then, manual decisions with the audited note keep gates moving — nothing is blocked.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 10. NOTIFICATIONS & DIGESTS ═══════════ -->
 <section id="notifications">
   <div class="card">
-    <h2>8. Notifications &amp; digests</h2>
+    <h2>10. Notifications &amp; digests</h2>
 
     <h3>Channels by plan</h3>
     <div class="table-wrap">
@@ -539,10 +592,10 @@
   </div>
 </section>
 
-<!-- ═══════════ 9. MONITORING & OVERSIGHT ═══════════ -->
+<!-- ═══════════ 11. MONITORING & OVERSIGHT ═══════════ -->
 <section id="oversight">
   <div class="card">
-    <h2>9. Monitoring &amp; oversight</h2>
+    <h2>11. Monitoring &amp; oversight</h2>
     <p>You see the same views every organisation uses — but across the whole platform.</p>
     <div class="table-wrap">
       <table>
@@ -553,12 +606,16 @@
             <td>Today's numbers at a glance — who is in, marks so far, and key totals.</td>
           </tr>
           <tr>
+            <td><strong>Live Board</strong> <span class="tag tag-purple">v1.9</span></td>
+            <td>Who is inside <em>right now</em>: occupancy against how many are expected, every gate and department with the workers' photos, the day's hour-by-hour IN / OUT flow, and a live ticker of the latest marks. Refreshes itself every 10 seconds. Every role gets it, scoped to their own view — and it is night-shift safe: a worker who checked IN before midnight stays on the board until they check OUT.</td>
+          </tr>
+          <tr>
             <td><strong>Attendance Log</strong></td>
-            <td>A daily summary: one row per worker per day, with first IN, last OUT, total duration, and status (Inside / Done / Incomplete). Filter by date, name, or deployment tab.</td>
+            <td>A daily summary: one row per worker per day, with first IN, last OUT, total duration, and status (Inside / Done / Incomplete). Filter by date, name, or deployment tab. Every row carries the day's live gate photo — click through for the full photo detail.</td>
           </tr>
           <tr>
             <td><strong>Worker Detail</strong></td>
-            <td>Click any worker row anywhere to open their analytics — days worked, average hours, a monthly breakdown with missed OUTs, deployments, and recent events.</td>
+            <td>Click any worker row anywhere to open their analytics — days worked, average hours, a monthly breakdown with missed OUTs, deployments, and recent events. Every recent mark shows its gate capture and how it was verified.</td>
           </tr>
           <tr>
             <td><strong>Exceptions</strong></td>
@@ -582,18 +639,50 @@
   </div>
 </section>
 
-<!-- ═══════════ 10. APPS & DOWNLOADS ═══════════ -->
+<!-- ═══════════ 12. APPS & DOWNLOADS ═══════════ -->
 <section id="apps">
   <div class="card">
-    <h2>10. Apps &amp; downloads</h2>
+    <h2>12. Apps &amp; downloads</h2>
     <p>TrueCrew ships two apps alongside the web portal — an <strong>Android app (APK)</strong> and a <strong>Windows app (zip)</strong>. Both are on the <strong>Downloads</strong> page in the portal, together with the user documents.</p>
     <p><strong>What the apps do that the browser cannot:</strong></p>
     <ul class="plain">
       <li><strong>Offline worker registration</strong> — details, Aadhaar PDF import, fingerprint, and photo, all without a connection. Everything uploads when the device is back online.</li>
       <li><strong>Offline fingerprint matching at the gate</strong> — enrolled fingerprints sync to gate devices, and every scan is matched on the device itself. The gate keeps working when the internet does not.</li>
-      <li><strong>Photos and proof</strong> — a gate photo is taken automatically the moment a scan verifies, and saved with that IN / OUT record as tamper-evident proof. The verified screen shows the Aadhaar photo, the registration photo, and the gate photo side by side.</li>
+      <li><strong>Photos and proof</strong> — a gate photo is taken automatically the moment a scan verifies, and saved with that IN / OUT record as tamper-evident proof — on Android and, since v0.9.34, on Windows gate machines too (internal or USB webcam). The verified screen shows the Aadhaar photo, the registration photo, and the gate photo side by side.</li>
+      <li><strong>Hands-free auto scan</strong> — flip the switch on the gate screen and the scanner stays armed: a worker just places a finger and the mark happens automatically (IN or OUT by their last state), with the verified card showing and clearing itself. A 90-second per-worker cooldown prevents double-marks.</li>
+      <li><strong>In-app Aadhaar tools</strong> — a "Get PDF from UIDAI" button opens the official myAadhaar download page right inside registration, and the worker's phone number auto-fills from the e-Aadhaar PDF (a manually typed number is never overwritten).</li>
+      <li><strong>Zero-setup Windows install</strong> — the fingerprint-scanner runtime ships inside the Windows app: unzip, plug the scanner in, scan. Nothing to install on gate machines. Android is just as simple — connect the scanner over USB and tap Allow.</li>
       <li><strong>Auto-sync every 90 seconds</strong> — while online, devices quietly pull new approvals, fingerprints, and photos, and push their marks. Nobody has to press a sync button.</li>
     </ul>
+
+    <h3>Which fingerprint scanners work</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Scanner</th><th>Where it stands</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>SecuGen HP20</strong></td>
+            <td><span class="tag tag-green">Fully supported</span> on Android and Windows — zero setup on both.</td>
+          </tr>
+          <tr>
+            <td><strong>Mantra MFS100 / MFS500</strong></td>
+            <td><span class="tag tag-blue">Driver built in</span> (Android) — capture and matching through Mantra's own kit, with templates that match across brands, so a worker enrolled on one scanner verifies on the other. Activates once the Mantra SDK ships with the app.</td>
+          </tr>
+          <tr>
+            <td><strong>Aadhaar L1 devices (e.g. Mantra MFS110)</strong></td>
+            <td><span class="tag tag-red">Never usable</span> for attendance — see the warning below.</td>
+          </tr>
+          <tr>
+            <td><strong>Other brands</strong> (Morpho / IDEMIA, Startek, Tatvik, Precision…)</td>
+            <td><span class="tag tag-gray">Detected &amp; named</span> — the app's Diagnostics screen identifies each attached device and states the next step.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <strong>Buying scanners? Never buy an L1 device for attendance.</strong>
+      Aadhaar L1 scanners (such as the Mantra MFS110) encrypt every fingerprint inside the sensor itself — a UIDAI design requirement for Aadhaar authentication. No attendance app can read them, TrueCrew included, and no software update can change that. When in doubt, plug the device in: the Diagnostics screen explains exactly where it stands.
+    </div>
     <div class="callout info">
       <strong>What's New.</strong>
       The portal's What's New page lists every release of the platform and the apps, so admins can see what changed without leaving TrueCrew.
@@ -601,10 +690,10 @@
   </div>
 </section>
 
-<!-- ═══════════ 11. FAQ ═══════════ -->
+<!-- ═══════════ 13. FAQ ═══════════ -->
 <section id="faq">
   <div class="card" style="background:transparent; border:none; box-shadow:none; padding:0 0 8px;">
-    <h2>11. FAQ / Troubleshooting</h2>
+    <h2>13. FAQ / Troubleshooting</h2>
   </div>
 
   <details>
@@ -643,6 +732,21 @@
   </details>
 
   <details>
+    <summary>Which fingerprint scanners should organisations buy?</summary>
+    <div><strong>SecuGen HP20</strong> is fully supported on Android and Windows with zero setup. <strong>Mantra MFS100 / MFS500</strong> have a built-in driver (Android) that activates once the Mantra SDK ships with the app. <strong>Never buy Aadhaar L1 devices</strong> (such as the Mantra MFS110) for attendance — UIDAI's design encrypts fingerprints inside the sensor, so no attendance app can read them, and no update can change that. When in doubt, plug the scanner in: the app's Diagnostics screen explains exactly where each attached device stands.</div>
+  </details>
+
+  <details>
+    <summary>What does a photo-mismatch flag on a mark mean?</summary>
+    <div>Every gate capture is automatically compared with the worker's enrolled face. When they do not match, the day detail flags the capture. The flag is <strong>advisory</strong> — the mark still stands — but it is the buddy-punching alarm: someone other than the enrolled worker may have been at the camera. Open the day detail, compare the photos, and follow up with the gate.</div>
+  </details>
+
+  <details>
+    <summary>Do visitor approvals need WhatsApp?</summary>
+    <div>No. Where the WhatsApp Business connection is configured, hosts approve gate passes by replying YES or NO on WhatsApp. Without it, the gate records the host's decision manually — with a mandatory note — and every decision is audited either way. Entry is only ever allowed after an approval is on record.</div>
+  </details>
+
+  <details>
     <summary>Where does technical setup live (servers, scanners, configuration)?</summary>
     <div>In the <a href="developer-guide.html">Developer Guide</a> — the technical companion to this document. It covers installation, configuration, and integrations. This guide stays focused on running the platform.</div>
   </details>
@@ -652,7 +756,7 @@
 
 <!-- FOOTER -->
 <footer>
-  TrueCrew · Platform v1.7.0 · Apps v0.9.28-preview · 17 August 2026 · Technical companion: <a href="developer-guide.html">Developer Guide</a>
+  TrueCrew · Platform v1.10.0 · Apps v0.9.34-preview · 22 August 2026 · Technical companion: <a href="developer-guide.html">Developer Guide</a>
 </footer>
 
 </body>

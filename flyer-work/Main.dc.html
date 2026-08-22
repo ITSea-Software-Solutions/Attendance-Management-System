@@ -1,0 +1,100 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Archivo:wght@400;600;700&display=swap">
+  <style>
+    body { margin: 0; font-family: 'Archivo', system-ui, -apple-system, 'Segoe UI', sans-serif; }
+    a { color: #B07310; } a:hover { color: #92400e; }
+  </style>
+</helmet>
+<div style="width: 559px; height: 794px; background: #FAF9F6; color: #1D2833; display: flex; flex-direction: column; overflow: hidden; position: relative;">
+
+  <!-- Brand band -->
+  <div style="background: #10685A; color: #FAF9F6; padding: 18px 28px 16px 28px; display: flex; align-items: center; gap: 12px;">
+    <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#FAF9F6" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 11c0 3.5-.5 6.5-2 9"></path><path d="M8.5 20.5c1.2-2.2 1.5-5 1.5-9.5a2 2 0 0 1 4 0c0 1 0 2-.1 3"></path><path d="M15.5 17.5c.3-1.5.5-3.5.5-6.5a4 4 0 0 0-7-2.7"></path><path d="M5.3 10.4A6 6 0 0 1 18 11c0 1.5 0 3-.2 4.4"></path><path d="M3.5 8A8 8 0 0 1 20.5 9.5"></path></svg>
+    <div style="display: flex; flex-direction: column; gap: 1px;">
+      <div style="font-family: 'Archivo Black', 'Arial Black', system-ui, sans-serif; font-size: 25px; letter-spacing: .5px;">TRUECREW</div>
+      <div style="font-size: 10.5px; letter-spacing: 2.6px; opacity: .85; font-weight: 600;">VERIFIED WORKFORCE ATTENDANCE</div>
+    </div>
+  </div>
+
+  <!-- Hero -->
+  <div style="padding: 30px 28px 0 28px; position: relative;">
+    <div style="font-family: 'Archivo Black', 'Arial Black', system-ui, sans-serif; font-size: 56px; line-height: 1.02; letter-spacing: -.5px;">
+      Every worker.<br><span style="color: #10685A;">Verified.</span>
+    </div>
+    <div style="margin-top: 14px; font-size: 17px; line-height: 1.5; font-weight: 600; max-width: 420px;">
+      Thumb in. Thumb out. Photo proof of every entry — even without internet.
+    </div>
+    <!-- Big fingerprint watermark -->
+    <svg width="300" height="300" viewBox="0 0 24 24" fill="none" stroke="#10685A" stroke-width="0.9" stroke-linecap="round" stroke-linejoin="round" style="position: absolute; right: -70px; top: 8px; opacity: .12;"><path d="M12 11c0 3.5-.5 6.5-2 9"></path><path d="M8.5 20.5c1.2-2.2 1.5-5 1.5-9.5a2 2 0 0 1 4 0c0 1 0 2-.1 3"></path><path d="M15.5 17.5c.3-1.5.5-3.5.5-6.5a4 4 0 0 0-7-2.7"></path><path d="M5.3 10.4A6 6 0 0 1 18 11c0 1.5 0 3-.2 4.4"></path><path d="M3.5 8A8 8 0 0 1 20.5 9.5"></path></svg>
+  </div>
+
+  <!-- Verified card mock -->
+  <div style="margin: 22px 28px 0 28px; background: #ffffff; border: 2px solid #10685A; border-radius: 14px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; box-shadow: 6px 6px 0 #E3EFEC;">
+    <div style="width: 52px; height: 52px; border-radius: 10px; background: #E3EFEC; display: flex; align-items: center; justify-content: center;">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#10685A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"></path></svg>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 2px; flex: 1;">
+      <div style="font-weight: 700; font-size: 17px;">Ramesh Kumar</div>
+      <div style="font-size: 13px; color: #5A6470; font-weight: 600;">Fingerprint matched · photo taken</div>
+    </div>
+    <div style="display: flex; flex-direction: column; align-items: center; gap: 2px;">
+      <div style="background: #10685A; color: #fff; font-weight: 700; font-size: 15px; border-radius: 999px; padding: 5px 16px; display: flex; align-items: center; gap: 6px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"></path></svg>
+        IN 08:02
+      </div>
+    </div>
+  </div>
+
+  <!-- 3 punch benefits -->
+  <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 22px 28px 0 28px;">
+    <div style="display: flex; flex-direction: column; gap: 7px; align-items: flex-start;">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B07310" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 1l22 22"></path><path d="M16.7 11.7a10 10 0 0 0-11.4 0"></path><path d="M5 12.5a15 15 0 0 1 14 0" opacity=".35"></path><path d="M8.5 16a6 6 0 0 1 7 0"></path><circle cx="12" cy="20" r="1" fill="#B07310"></circle></svg>
+      <div style="font-weight: 700; font-size: 14.5px; line-height: 1.3;">Works without internet</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 7px; align-items: flex-start;">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B07310" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>
+      <div style="font-weight: 700; font-size: 14.5px; line-height: 1.3;">Photo proof of every entry</div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 7px; align-items: flex-start;">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#B07310" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path><path d="m9 12 2 2 4-4"></path></svg>
+      <div style="font-weight: 700; font-size: 14.5px; line-height: 1.3;">Aadhaar-verified identity</div>
+    </div>
+  </div>
+
+  <!-- Spacer -->
+  <div style="flex: 1;"></div>
+
+  <!-- Act band -->
+  <div style="background: #1D2833; color: #FAF9F6; padding: 20px 28px 22px 28px; display: flex; flex-direction: column; gap: 10px;">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <div style="background: #B07310; color: #1D2833; font-weight: 800; font-size: 13px; letter-spacing: 1.2px; border-radius: 999px; padding: 4px 14px;">FREE TRIAL</div>
+      <div style="font-weight: 700; font-size: 16px;">Live demo at your gate in 30 minutes</div>
+    </div>
+    <div style="display: flex; align-items: center; gap: 18px; font-size: 16px; font-weight: 700;">
+      <div style="display: flex; align-items: center; gap: 7px;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#FAF9F6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.7 2z"></path></svg>
+        [+91 XXXXX XXXXX]
+      </div>
+      <div style="display: flex; align-items: center; gap: 7px; color: #E3EFEC;">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#E3EFEC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20z"></path></svg>
+        [www.truecrew.in]
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script data-dc-script data-props='{"$preview":{"width":559,"height":794}}'>
+class Component extends DCLogic {
+  renderVals() { return {}; }
+}
+</script>
+</body>
+</html>

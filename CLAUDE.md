@@ -131,6 +131,8 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `Signup` | `/signup` | PUBLIC | SaaS signup wizard: org type → details → plan cards; auto-login |
 | `ForgotPassword` | `/forgot-password` | PUBLIC | Self-service reset step 1; shows dev link when mailer=log AND debug |
 | `ResetPassword` | `/reset-password` | PUBLIC | Step 2 (from emailed link); revokes all tokens on success |
+| `LiveBoard` | `/live` | all | Real-time who-is-where: occupancy, gate cards w/ photos, hourly flow, ticker (10s refresh) |
+| `Visitors` | `/visitors` | super_admin, company_admin, company_hr, company_gate | Gate passes (photos, WhatsApp/manual decisions, entry/exit) + Hosts tab (HR CRUD) |
 | `Downloads` | `/downloads` | all | Apps + docs; public twin at /download.html (static) |
 | `PlanBilling` | `/billing` | company_admin, vendor_admin | Current plan, usage meters, upgrade request |
 | `Subscriptions` | `/subscriptions` | super_admin | All orgs' plans/usage; approve/reject requests; set plan |
@@ -323,7 +325,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 
 ---
 
-## Feature Status (as of 2026-08-18 — web v1.9.0, apps v0.9.30)
+## Feature Status (as of 2026-08-22 — web v1.10.0, apps v0.9.34)
 
 ### Implemented & Working
 - [x] Multi-company, multi-vendor architecture with pivot approval flow
@@ -379,6 +381,10 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] **v1.8.0: consent-based vendor detail for companies** — company_vendors.details_consent_at (migration 030; required consent:true on POST request-company, 422 otherwise; implicit for company-created vendors; backfilled for pre-existing approved links); GET /companies/{c}/vendors/{v}/detail (profile+relationship+stats+deployments+daily, minimal payload when not consented); VendorDetail.jsx tabs (Overview/Workers&Deployments/Attendance) at /vendors/:id for company users; VendorList rows clickable; consent checkbox on VendorCompanyAccess
 - [x] **v1.9.0: Live Board** — GET /attendance/live-board (role-scoped: company/gate-location/vendor; inside = latest valid log is IN, date-agnostic for night shifts; gates merge presets+settings; hourly flow; recent 20; expected = approved deployments today); LiveBoard.jsx at /live (nav: all roles): hero tiles + occupancy bar + occupied-gate cards w/ AuthImg avatar stacks + empty-gate chip strip + windowed SVG hourly chart + live ticker, 10s auto-refresh
 - [x] **App v0.9.30: Mantra MFS100 driver + scanner intelligence** — MantraAndroidDriver (reflection on com.mantra.mfs100: AutoCapture→ISO 19794-2, MatchISO raw 0-100000 accept>=14000 margin 7000, normalised to 0-200 for storage), enrollCapture falls back SecuGen→Mantra, BiometricDriver.best() adds Mantra; Kotlin channel: usbInventory/mantraStatus/mantraCapture/mantraMatch (event via reflect Proxy); diagnostics lists ALL USB devices w/ per-brand guidance (MFS110/L1 = Aadhaar-locked, explained; Morpho/Startek detected); dev guide gains India scanner matrix. Mantra SDK jar NOT bundled yet (registration-gated portal) — driver activates when added to android/app/libs
+- [x] **App v0.9.31: SecuGen x64 runtime DLLs COMMITTED** (client/windows/sgfp) + CI "Bundle scanner DLLs" step — Windows zip is zero-setup (unzip→plug→scan); release gate: sgfplib.dll present + md5-identical
+- [x] **App v0.9.32: UIDAI e-Aadhaar link in registration** ("Get PDF from UIDAI" via url_launcher, myaadhaar.uidai.gov.in/genricDownloadAadhaar)
+- [x] **v1.10.0 + app v0.9.34: visitor gate passes + gate hardening** — company_hosts (HR CRUD) + gate_passes (code GP-YYYYMMDD-####, guest+phone+live photo+host, pending→approved/denied via WhatsApp webhook YES/NO or manual note (audited), entry blocked till approved, entry/exit stamps) migration 031; POST/GET /visitor-hosts, /gate-passes(+/decide,/move,/photo), public /whatsapp/webhook (Meta verify+receive); portal Visitors page (passes+hosts tabs, AuthImg guest photos); app Visitors tab (create w/ captureWithCamera, decide, entry/exit); includes v0.9.33: HANDS-FREE auto scan (kiosk loop, 90s per-worker cooldown, SIM refused, lifecycle pause; Windows captures via Isolate.run — UI no longer blocks), silentSnap enabled on WINDOWS (timeout-guarded per-camera fallback), app phone autofill from Aadhaar 'mobile' field
+- [x] **Go-live assets (2026-08-22)** — GO_LIVE_PLAN.md (production infra/backups/SMTP/WhatsApp/DPDP/onboarding/pricing/runbook); legal drafts frontend/public/legal/{privacy-policy,terms-of-service}.html (DPDP-aligned templates, lawyer-review placeholders, linked from download.html footer); A5 market flyer (flyer-work/*.dc.html, published as Claude artifact "TrueCrew Market Flyer")
 - [x] **Docs reorganised into role guides (2026-08-17)** — super-admin-guide.html / company-guide.html / vendor-guide.html; developer-guide.html refreshed (addressed to super admin, v1.2→v1.6.1 delta banner); user-manual.html = chooser page; Downloads.jsx + download.html link all guides
 - [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation

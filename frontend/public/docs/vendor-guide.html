@@ -200,11 +200,13 @@
   <a href="#job">Your job</a>
   <a href="#start">Getting started</a>
   <a href="#register">Register a worker</a>
+  <a href="#scanners">Scanners</a>
   <a href="#worker-list">Worker list</a>
   <a href="#deploy">Deploy</a>
   <a href="#actions">Worker actions</a>
   <a href="#notifications">Notifications</a>
   <a href="#attendance">Attendance</a>
+  <a href="#live">Live Board</a>
   <a href="#billing">Plan &amp; billing</a>
   <a href="#faq">FAQ</a>
 </nav>
@@ -214,9 +216,9 @@
   <h1>Vendor Guide</h1>
   <p>Register workers, deploy them to companies, track everything from the app</p>
   <div class="badges">
-    <span class="badge">Platform v1.7.0</span>
-    <span class="badge">Apps v0.9.28</span>
-    <span class="badge">Updated 17 Aug 2026</span>
+    <span class="badge">Platform v1.10.0</span>
+    <span class="badge">Apps v0.9.34</span>
+    <span class="badge">Updated 22 Aug 2026</span>
   </div>
 </div>
 
@@ -265,7 +267,7 @@
       </li>
       <li>
         <b>Request access to companies.</b>
-        On the web portal, open <b>Company Access</b>. Send a request to each company where your workers will be deployed.
+        On the web portal, open <b>Company Access</b>. Send a request to each company where your workers will be deployed. Every new request includes a <b>details-sharing consent</b> checkbox — you must tick it to send. It allows the company to view your organisation profile and your working history <em>with them</em>: workers, deployments, and attendance. Without it, they see only your name and request status.
       </li>
       <li>
         <b>Wait for approval.</b>
@@ -291,11 +293,11 @@
     <ol class="flow">
       <li>
         <b>Get the worker's Aadhaar PDF.</b>
-        The worker downloads it from the UIDAI website. The PDF has a password: the <b>first 4 letters of the name in CAPITALS + birth year</b>. Example: Narendra, born 1955 → <b>NARE1955</b>.
+        Tap <b>"Get PDF from UIDAI"</b> on the Aadhaar step — it opens the official myAadhaar download page, so the worker can fetch their e-Aadhaar without leaving the flow. The PDF has a password: the <b>first 4 letters of the name in CAPITALS + birth year</b>. Example: Narendra, born 1955 → <b>NARE1955</b>.
       </li>
       <li>
         <b>Import the PDF in the app.</b>
-        Name, date of birth, gender, and Aadhaar number fill in automatically. Just check them.
+        Name, date of birth, gender, Aadhaar number — and now the worker's <b>phone number</b> (the mobile registered on the e-Aadhaar) — fill in automatically. Just check them. A number you typed yourself is never overwritten.
       </li>
       <li>
         <b>Take a live photo.</b>
@@ -322,10 +324,44 @@
   </div>
 </section>
 
-<!-- ═══ 4. WORKER LIST ═══ -->
+<!-- ═══ 4. SCANNERS ═══ -->
+<section id="scanners">
+  <div class="card">
+    <h2>Choosing a fingerprint scanner <span class="new-pill">NEW</span></h2>
+    <p>Not every scanner sold in India can be used for TrueCrew. Here is exactly where each kind stands before you buy for your registration teams:</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Scanner</th><th>Status</th><th>What to know</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><b>SecuGen Hamster Pro 20 (HU20)</b></td>
+            <td><span class="chip chip-teal">Fully supported</span></td>
+            <td>Works on Android and Windows with <b>zero setup</b> — everything the scanner needs ships inside the app. Unzip or install, plug in, scan.</td>
+          </tr>
+          <tr>
+            <td><b>Mantra MFS100 / MFS500</b></td>
+            <td><span class="chip chip-amber">Driver built-in</span></td>
+            <td>The Mantra driver is already inside the app and activates once the Mantra SDK is bundled in an official release. Workers enrolled on either brand will match at either brand's gate — the templates are compatible.</td>
+          </tr>
+          <tr>
+            <td><b>Aadhaar L1 devices (e.g. Mantra MFS110)</b></td>
+            <td><span class="chip chip-red">Never usable</span></td>
+            <td>L1 scanners <b>encrypt fingerprints inside the sensor</b> — a UIDAI security design for Aadhaar authentication only. No attendance app can ever read them. Do not buy L1 devices for registration or attendance.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout tip">
+      <strong>Not sure what you have?</strong>
+      Plug the scanner in and open the app's <b>Diagnostics</b> page — it lists every attached USB device by brand (Morpho/IDEMIA, Startek, Tatvik, Precision and others are recognised too) and tells you exactly what each one can and cannot do, with next steps.
+    </div>
+  </div>
+</section>
+
+<!-- ═══ 5. WORKER LIST ═══ -->
 <section id="worker-list">
   <div class="card">
-    <h2>Your worker list in the app <span class="new-pill">NEW</span></h2>
+    <h2>Your worker list in the app</h2>
     <p>The worker list now answers the most important question at a glance: <b>where is each worker, and until when?</b> Every row shows the worker's deployment, color-coded. It works offline too.</p>
     <div class="tablewrap">
       <table>
@@ -348,7 +384,7 @@
   </div>
 </section>
 
-<!-- ═══ 5. DEPLOYING ═══ -->
+<!-- ═══ 6. DEPLOYING ═══ -->
 <section id="deploy">
   <div class="card">
     <h2>Deploying workers to a company</h2>
@@ -359,17 +395,17 @@
       <li><b>Pick the date range</b> — start date and end date.</li>
       <li><b>Send.</b> Done. The worker can now mark attendance at that company's gates during those dates.</li>
     </ol>
-    <h3>Company approval</h3>
-    <p>Some companies require their HR to approve each deployment. In that case the deployment shows <span class="chip chip-amber">awaiting approval</span> first, then turns <span class="chip chip-teal">approved</span> or <span class="chip chip-red">rejected</span>. A worker cannot mark attendance until the deployment is approved.</p>
-    <p>The company also chooses <b>which gates or departments</b> the worker may use. That rule is enforced at every gate.</p>
+    <h3>Company approval — now the default <span class="new-pill">NEW</span></h3>
+    <p>New deployments <b>wait for company approval by default</b>. Expect every deployment to show <span class="chip chip-amber">awaiting approval</span> first, then turn <span class="chip chip-teal">approved</span> or <span class="chip chip-red">rejected</span> once the company's HR decides. You get a notification either way. A worker cannot mark attendance until the deployment is approved. (A company can switch approval off — then deployments go live immediately, as before.)</p>
+    <p>When approving, the company also chooses <b>which gates or departments</b> the worker may use. That rule is enforced at every gate.</p>
     <p>All deployments are visible on the web portal too, with the exact time each one was requested and decided.</p>
   </div>
 </section>
 
-<!-- ═══ 6. WORKER ACTIONS ═══ -->
+<!-- ═══ 7. WORKER ACTIONS ═══ -->
 <section id="actions">
   <div class="card">
-    <h2>Worker actions in the app <span class="new-pill">NEW in v0.9.27</span></h2>
+    <h2>Worker actions in the app</h2>
     <p>Open any worker to see the actions sheet:</p>
     <ul>
       <li><b>Edit</b> — fix the name, phone, date of birth, or gender.</li>
@@ -387,7 +423,7 @@
   </div>
 </section>
 
-<!-- ═══ 7. NOTIFICATIONS ═══ -->
+<!-- ═══ 8. NOTIFICATIONS ═══ -->
 <section id="notifications">
   <div class="card">
     <h2>Notifications — no need to keep checking the portal</h2>
@@ -406,7 +442,7 @@
   </div>
 </section>
 
-<!-- ═══ 8. TRACKING ATTENDANCE ═══ -->
+<!-- ═══ 9. TRACKING ATTENDANCE ═══ -->
 <section id="attendance">
   <div class="card">
     <h2>Tracking attendance</h2>
@@ -416,10 +452,32 @@
       <li><b>Exceptions</b> — everyone currently inside (marked IN, no OUT yet). Handy at the end of a shift.</li>
       <li><b>CSV exports</b> — download daily rows or monthly totals, ready for Excel. On <b>Professional and above</b>, you also get bulk worker <b>import and export</b> by CSV.</li>
     </ul>
+    <h3>Every mark is cross-checked <span class="new-pill">NEW</span></h3>
+    <p>Gates photograph the worker at the moment of each IN/OUT, and every capture is <b>automatically compared with the worker's enrolled face</b>. If a capture does not match, the company sees a flag on that mark. This protects your honest workers against buddy-punching disputes — keep enrollment photos current, clear, and well-lit so the check always works in your favour.</p>
+    <h3>What changed at the gates (affects your workers)</h3>
+    <ul>
+      <li><b>Hands-free scanning</b> — gates can now run in auto-scan mode: the worker just places a finger and the mark happens by itself. Faster queues at shift change.</li>
+      <li><b>Windows gate stations are plug-and-play</b> — nothing to install any more, so new sites come online quickly.</li>
+      <li><b>The ambiguity guard</b> — when two workers' fingerprints score too close together, the scan is rejected and the worker is asked to rescan instead of the system guessing. An occasional "please rescan" is a safety feature, not a fault.</li>
+    </ul>
   </div>
 </section>
 
-<!-- ═══ 9. PLAN & BILLING ═══ -->
+<!-- ═══ 10. LIVE BOARD ═══ -->
+<section id="live">
+  <div class="card">
+    <h2>Live Board — your workers, right now <span class="new-pill">NEW</span></h2>
+    <p>The <b>Live Board</b> page on the web portal shows the live picture of your workforce across client sites, auto-refreshing every 10 seconds:</p>
+    <ul>
+      <li><b>Who is inside right now</b> — your workers currently on site, with their photos, grouped by gate and department.</li>
+      <li><b>Today's flow</b> — an hour-by-hour chart of INs and OUTs, plus a live feed of the most recent marks.</li>
+      <li><b>Night-shift safe</b> — a worker who checked in before midnight stays on the board until they check out.</li>
+    </ul>
+    <p>You see your own workers only; each company sees their own site the same way.</p>
+  </div>
+</section>
+
+<!-- ═══ 11. PLAN & BILLING ═══ -->
 <section id="billing">
   <div class="card">
     <h2>Plan &amp; billing</h2>
@@ -436,7 +494,7 @@
   </div>
 </section>
 
-<!-- ═══ 10. FAQ ═══ -->
+<!-- ═══ 12. FAQ ═══ -->
 <section id="faq">
   <div class="card">
     <h2>FAQ / Troubleshooting</h2>
@@ -458,7 +516,7 @@
     <details>
       <summary>Does the scanner work on Windows?</summary>
       <div>
-        <p>Yes. Install the standard SecuGen driver once — the app finds it automatically, wherever it installed. No extra software, no manual copying. The SecuGen Hamster Pro 20 (HU20) is supported. The app's Diagnostics screen shows exactly what was found.</p>
+        <p>Yes — and there is nothing to install any more. Everything the SecuGen Hamster Pro 20 (HU20) needs now ships inside the Windows app: unzip, plug the scanner in, scan. (Windows fetches the basic USB driver by itself on first plug.) The app's Diagnostics screen shows exactly what was found — for any brand of scanner.</p>
       </div>
     </details>
 
@@ -503,7 +561,7 @@
 </div>
 
 <footer>
-  TrueCrew · Platform v1.7.0 · Apps v0.9.28-preview · 17 August 2026
+  TrueCrew · Platform v1.10.0 · Apps v0.9.34-preview · 22 August 2026
 </footer>
 
 </body>
