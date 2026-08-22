@@ -28,6 +28,10 @@ Route::get('/plans-public', fn () => response()->json([
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:signup');
 Route::post('/auth/reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:login');
 
+// WhatsApp inbound webhook (Meta Cloud API) — host YES/NO gate-pass replies
+Route::get('/whatsapp/webhook',  [\App\Http\Controllers\VisitorController::class, 'webhookVerify']);
+Route::post('/whatsapp/webhook', [\App\Http\Controllers\VisitorController::class, 'webhookReceive']);
+
 // ─── Authenticated ────────────────────────────────────────────────────────────
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -123,6 +127,17 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('assignments', WorkerAssignmentController::class);
     Route::get('assignments/company/{company}/today', [WorkerAssignmentController::class, 'todayForCompany']);
     Route::get('assignments/worker/{worker}',         [WorkerAssignmentController::class, 'forWorker']);
+
+    // ── Visitors / Gate passes ────────────────────────────────────────────────
+    Route::get('visitor-hosts',            [\App\Http\Controllers\VisitorController::class, 'hosts']);
+    Route::post('visitor-hosts',           [\App\Http\Controllers\VisitorController::class, 'storeHost']);
+    Route::put('visitor-hosts/{host}',     [\App\Http\Controllers\VisitorController::class, 'updateHost']);
+    Route::delete('visitor-hosts/{host}',  [\App\Http\Controllers\VisitorController::class, 'destroyHost']);
+    Route::get('gate-passes',              [\App\Http\Controllers\VisitorController::class, 'passes']);
+    Route::post('gate-passes',             [\App\Http\Controllers\VisitorController::class, 'storePass']);
+    Route::post('gate-passes/{pass}/decide', [\App\Http\Controllers\VisitorController::class, 'decidePass']);
+    Route::post('gate-passes/{pass}/move',   [\App\Http\Controllers\VisitorController::class, 'movePass']);
+    Route::get('gate-passes/{pass}/photo',   [\App\Http\Controllers\VisitorController::class, 'passPhoto']);
 
     // ── Attendance ────────────────────────────────────────────────────────────
     Route::prefix('attendance')->group(function () {

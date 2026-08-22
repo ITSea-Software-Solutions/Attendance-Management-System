@@ -526,6 +526,58 @@ class AppState extends ChangeNotifier {
     return Map<String, dynamic>.from(r.data as Map);
   }
 
+  // ── Visitors / gate passes (online; company-side roles) ───────────────────
+
+  /// Active hosts who may receive visitors (HR-maintained on the portal).
+  Future<List<Map<String, dynamic>>> visitorHosts() async {
+    final api = await Api.client();
+    final r = await api.get('/visitor-hosts', queryParameters: {'active_only': 1});
+    return List<Map>.from(r.data as List).map(Map<String, dynamic>.from).toList();
+  }
+
+  /// Today's gate passes (newest first).
+  Future<List<Map<String, dynamic>>> gatePasses() async {
+    final api = await Api.client();
+    final r = await api.get('/gate-passes');
+    return List<Map>.from(r.data as List).map(Map<String, dynamic>.from).toList();
+  }
+
+  /// Create a visitor pass; the host is asked on WhatsApp when configured.
+  Future<Map<String, dynamic>> createGatePass({
+    required int hostId,
+    required String guestName,
+    String? guestPhone,
+    String? purpose,
+    String? photoPath,
+  }) async {
+    final api = await Api.client();
+    final fd = FormData.fromMap({
+      'host_id': hostId,
+      'guest_name': guestName,
+      if (guestPhone != null && guestPhone.isNotEmpty) 'guest_phone': guestPhone,
+      if (purpose != null && purpose.isNotEmpty) 'purpose': purpose,
+      if (photoPath != null)
+        'photo': await MultipartFile.fromFile(photoPath, filename: 'guest.jpg'),
+    });
+    final r = await api.post('/gate-passes', data: fd);
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  /// Manual decision (host answered by phone / WhatsApp not configured).
+  Future<Map<String, dynamic>> decideGatePass(int id, String decision, String note) async {
+    final api = await Api.client();
+    final r = await api.post('/gate-passes/$id/decide',
+        data: {'decision': decision, 'note': note});
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  /// Record the visitor entering / leaving.
+  Future<Map<String, dynamic>> moveGatePass(int id, String direction) async {
+    final api = await Api.client();
+    final r = await api.post('/gate-passes/$id/move', data: {'direction': direction});
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
   /// The server's human-readable message from an API error (engagement
   /// locks, plan limits) — fall back to a generic line when absent.
   static String apiMessage(Object e, String fallback) {

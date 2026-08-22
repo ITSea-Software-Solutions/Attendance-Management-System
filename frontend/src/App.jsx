@@ -16,6 +16,7 @@ import WorkerAssign from "@/pages/workers/WorkerAssign";
 import AttendanceMark from "@/pages/attendance/AttendanceMark";
 import AttendanceList from "@/pages/attendance/AttendanceList";
 import LiveBoard from "@/pages/attendance/LiveBoard";
+import Visitors from "@/pages/visitors/Visitors";
 import AttendanceExceptions from "@/pages/attendance/AttendanceExceptions";
 import UserList from "@/pages/users/UserList";
 import Downloads from "@/pages/Downloads";
@@ -123,6 +124,11 @@ export default function App() {
         {/* Attendance */}
         <Route path="attendance" element={<AttendanceList />} />
         <Route path="live" element={<LiveBoard />} />
+        <Route path="visitors" element={
+          <PrivateRoute roles={["super_admin", "company_admin", "company_hr", "company_gate"]}>
+            <Visitors />
+          </PrivateRoute>
+        } />
         <Route path="attendance/mark" element={
           <PrivateRoute roles={["super_admin", "company_admin", "company_gate"]}>
             <AttendanceMark />

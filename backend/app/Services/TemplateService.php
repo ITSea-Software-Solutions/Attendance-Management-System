@@ -16,6 +16,12 @@ class TemplateService
 {
     /** Seeded defaults — also the catalogue of every known template key. */
     public const DEFAULTS = [
+        'gatepass_request' => [
+            'label'   => 'Gate pass — visitor approval request',
+            'subject' => 'Visitor at {{gate}}: {{guest_name}}',
+            'body'    => "Visitor request at {{company_name}} ({{gate}}):\n{{guest_name}}{{guest_phone}} wants to meet you.\nPurpose: {{purpose}}\nPass: {{code}}\n\nReply YES to allow or NO to deny.",
+            'vars'    => ['guest_name', 'guest_phone', 'purpose', 'code', 'gate', 'company_name', 'host_name'],
+        ],
         'welcome_user' => [
             'label'   => 'Welcome — new login created',
             'subject' => 'Welcome to TrueCrew, {{name}}',

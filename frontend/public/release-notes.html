@@ -47,7 +47,17 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.33</span> Hands-free gate + phone autofill <span class="date">19 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.34</span> Visitor gate passes <span class="date">22 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Visitors tab for gate users</b> — create a gate pass in seconds: guest name, phone, live photo, and whom they came to meet (from the HR-maintained host list). The host is asked on WhatsApp (reply YES/NO) where configured; a phone answer is recorded as a manual decision with a mandatory note.</li>
+      <li><b>Entry only after approval</b> — the pass tracks waiting → approved/denied → inside → left, with entry/exit times and the guest photo on the portal's new Visitors page.</li>
+      <li><b>Gate proof camera now works on Windows too</b> — IN/OUT marks photograph the person at the gate on laptops and desktops (internal or USB webcam), not just Android.</li>
+      <li>Includes v0.9.33: hands-free auto scan, phone autofill from Aadhaar, background captures on Windows.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.33</span> Hands-free gate + phone autofill <span class="date">19 Aug 2026</span></h3>
     <ul>
       <li><b>Hands-free auto scan</b> — flip the switch on the gate screen and the scanner stays armed: a worker just places a finger, the mark happens automatically (IN/OUT by last state), the verified card shows and dismisses itself. 90-second per-worker cooldown prevents double-marks; needs a real scanner (disabled in simulation).</li>
       <li>Windows: fingerprint captures no longer freeze the screen — they run in the background (manual and hands-free).</li>
@@ -242,6 +252,14 @@
   </div>
 
   <h2>Web platform</h2>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.10.0</span> Visitor management <span class="date">22 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Visitors page</b> (company roles): today's gate passes with guest photos, status, WhatsApp/manual decision trail, entry/exit times — plus the <b>Hosts</b> tab where HR maintains who may receive visitors (name, mobile, position, department).</li>
+      <li><b>WhatsApp approval loop</b> — hosts reply YES/NO to approve passes; the webhook is live and activates fully once WhatsApp Business credentials are configured. Until then, manual decisions (with an audited note) keep gates moving.</li>
+    </ul>
+  </div>
 
   <div class="rel">
     <h3><span class="tag amber">Platform v1.9.0</span> Live Board <span class="date">18 Aug 2026 · current</span></h3>

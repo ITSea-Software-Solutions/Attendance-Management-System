@@ -9,6 +9,7 @@ import 'diagnostics.dart';
 import 'notifications_screen.dart';
 import 'face_attendance.dart';
 import 'gate_attendance.dart';
+import 'visitors_screen.dart';
 import 'vendor_workers.dart';
 
 /// Role-aware shell: tabs depend on who is signed in.
@@ -61,6 +62,12 @@ class _HomeScreenState extends State<HomeScreen> {
           label: 'Approvals',
           icon: Icons.approval,
           body: const ApprovalsScreen()
+        ),
+      if (app.canMark || app.isApprover)
+        (
+          label: 'Visitors',
+          icon: Icons.badge,
+          body: const VisitorsScreen()
         ),
       (label: 'Inside', icon: Icons.meeting_room, body: const ExceptionsScreen()),
       (label: 'Activity', icon: Icons.receipt_long, body: const _ActivityScreen()),

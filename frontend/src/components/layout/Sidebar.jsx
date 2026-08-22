@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Building2, UserCog, Users, Settings, ShieldCheck,
-  UserCheck, ClipboardList, BarChart2, AlertTriangle, Activity,
+  UserCheck, ClipboardList, BarChart2, AlertTriangle, Activity, Contact,
   Download as DownloadIcon, CreditCard, Fingerprint, X, Sparkles,
 } from "lucide-react";
 
@@ -40,6 +40,7 @@ const NAV = [
     label: "Attendance",
     items: [
       { to: "/live",                  icon: Activity,     label: "Live Board",      roles: ["all"] },
+      { to: "/visitors",              icon: Contact,      label: "Visitors",        roles: ["super_admin", "company_admin", "company_hr", "company_gate"] },
       { to: "/attendance",            icon: BarChart2,    label: "Attendance Log",  roles: ["all"], end: true },
       { to: "/attendance/exceptions", icon: AlertTriangle,label: "Exceptions",      roles: ["super_admin", "company_admin", "vendor_admin"] },
     ],
