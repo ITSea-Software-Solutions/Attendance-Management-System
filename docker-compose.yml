@@ -69,7 +69,10 @@ services:
       target: ${FRONTEND_TARGET:-dev}
     container_name: ams_frontend
     ports:
-      - "5173:5173"
+      # Loopback-only: Vite must never be internet-reachable (bots probe
+      # /.env, /.npmrc and trigger HMR error overlays for real users) —
+      # nginx reaches it via the docker network; local dev via localhost.
+      - "127.0.0.1:5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
