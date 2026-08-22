@@ -159,6 +159,12 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
         final dm = RegExp(r'^(\d{2})[/-](\d{2})[/-](\d{4})$').firstMatch(dob);
         if (dm != null) dob = '${dm.group(3)}-${dm.group(2)}-${dm.group(1)}';
         if (dob.isNotEmpty) _dob.text = dob;
+        // e-Aadhaar carries the registered mobile ("Mobile: 98…") — autofill
+        // like the web wizard does; never overwrite a manually-typed number.
+        final mob = '${data['mobile'] ?? data['phone'] ?? ''}';
+        if (_phone.text.trim().isEmpty && RegExp(r'^[6-9]\d{9}$').hasMatch(mob)) {
+          _phone.text = mob;
+        }
         if (RegExp(r'^\d{12}$').hasMatch(full)) {
           _aadhaar.text = full;
           _pdfMasked = null;

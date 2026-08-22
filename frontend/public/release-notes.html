@@ -47,7 +47,16 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.32</span> UIDAI link in registration <span class="date">18 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.33</span> Hands-free gate + phone autofill <span class="date">19 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Hands-free auto scan</b> — flip the switch on the gate screen and the scanner stays armed: a worker just places a finger, the mark happens automatically (IN/OUT by last state), the verified card shows and dismisses itself. 90-second per-worker cooldown prevents double-marks; needs a real scanner (disabled in simulation).</li>
+      <li>Windows: fingerprint captures no longer freeze the screen — they run in the background (manual and hands-free).</li>
+      <li><b>Phone number now autofills from the Aadhaar PDF</b> in the app, like the portal (e-Aadhaar carries the registered mobile). A manually-typed number is never overwritten.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.32</span> UIDAI link in registration <span class="date">18 Aug 2026</span></h3>
     <ul>
       <li><b>"Get PDF from UIDAI" button</b> on the Aadhaar import step — opens the official myAadhaar download page in the browser (same link as the web wizard), so the worker's e-Aadhaar can be fetched and imported without leaving the flow.</li>
     </ul>
