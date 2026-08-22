@@ -434,6 +434,9 @@ class AttendanceController extends Controller
         if (! $probe) {
             return response()->json(['message' => 'No face detected in the photo — try again with the worker facing the camera.'], 422);
         }
+        if ($this->face->spoofSuspected()) {
+            return response()->json(['message' => 'Liveness check failed — present the actual person to the camera, not a photo or screen.'], 422);
+        }
 
         $best   = ['worker' => null, 'score' => 0.0];
         $second = 0.0;
@@ -659,6 +662,9 @@ class AttendanceController extends Controller
             $probe = $this->face->embed(file_get_contents($request->file('photo')->getRealPath()));
             if (! $probe) {
                 return response()->json(['message' => 'No face detected in the photo — retake and try again.'], 422);
+            }
+            if ($this->face->spoofSuspected()) {
+                return response()->json(['message' => 'Liveness check failed — present the actual person to the camera, not a photo or screen.'], 422);
             }
             $faceScore = \App\Services\FaceService::cosine($probe, $worker->face_descriptor);
             if ($faceScore < $this->face->threshold()) {

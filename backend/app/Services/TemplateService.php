@@ -16,6 +16,24 @@ class TemplateService
 {
     /** Seeded defaults — also the catalogue of every known template key. */
     public const DEFAULTS = [
+        'license_expiring' => [
+            'label'   => 'Licence expiring soon',
+            'subject' => 'TrueCrew: your {{plan}} licence expires in {{days}} day(s)',
+            'body'    => "Hello {{org_name}},\n\nYour {{plan}} licence expires on {{date}}.\nRenew from Plan & Billing (record your payment there) to avoid dropping to trial limits.\n\n— TrueCrew",
+            'vars'    => ['plan', 'days', 'date', 'org_name'],
+        ],
+        'license_lapsed' => [
+            'label'   => 'Licence lapsed — trial limits',
+            'subject' => 'TrueCrew: {{plan}} licence expired',
+            'body'    => "Hello {{org_name}},\n\nYour {{plan}} licence has expired; trial limits now apply. Nothing was deleted — renew from Plan & Billing and your plan restores instantly after verification.\n\n— TrueCrew",
+            'vars'    => ['plan', 'org_name'],
+        ],
+        'plan_payment_recorded' => [
+            'label'   => 'Payment recorded (to platform team)',
+            'subject' => 'Payment recorded: {{org_name}}',
+            'body'    => "{{org_name}} recorded an offline payment — verify on the Subscriptions page.",
+            'vars'    => ['org_name'],
+        ],
         'gatepass_request' => [
             'label'   => 'Gate pass — visitor approval request',
             'subject' => 'Visitor at {{gate}}: {{guest_name}}',

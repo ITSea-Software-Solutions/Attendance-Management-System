@@ -18,6 +18,8 @@ Schedule::command('truecrew:missing-out-alerts')->dailyAt('21:00')->timezone('As
 
 // Vendor digests: benched workers + deployments nearing expiry.
 Schedule::command('truecrew:deployment-alerts')->dailyAt('08:30')->timezone('Asia/Kolkata');
+// Licence lifecycle: expiry reminders (<=7d) + lapsed notices
+Schedule::command('truecrew:license-alerts')->dailyAt('09:00')->timezone('Asia/Kolkata');
 
 // Prune audit logs older than 1 year
 Schedule::command('audit:prune --days=365')->monthly();

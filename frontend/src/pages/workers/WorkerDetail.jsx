@@ -117,6 +117,22 @@ export default function WorkerDetail() {
     }
   };
 
+  // Real OTP path for phone: send a code to the worker's phone, then confirm
+  // it here. Falls back to a demo code in debug when no SMS provider is set.
+  const otpVerifyPhone = async () => {
+    try {
+      const r = await api.post(`/workers/${id}/send-otp`);
+      const dev = r.data.dev_otp ? ` (demo code: ${r.data.dev_otp})` : "";
+      const code = window.prompt(`${r.data.message}${dev}\n\nEnter the 6-digit code the worker received:`);
+      if (!code?.trim()) return;
+      const v = await api.post(`/workers/${id}/verify-otp`, { otp: code.trim() });
+      toast.success(v.data.message);
+      refetchWorker();
+    } catch (e) {
+      toast.error(e.response?.data?.message ?? "OTP verification failed.");
+    }
+  };
+
   // Label shown above stats — company name for company users, selected company for vendors
   const scopeLabel = isCompanyUser
     ? user?.company?.name
@@ -208,18 +224,29 @@ export default function WorkerDetail() {
                 </div>
                 <p className="text-[11px] text-gray-500 mt-1 truncate">{s.done ? "Verified" : s.hint}</p>
                 {canVerify && s.can && (
-                  <button
-                    className="text-[11px] text-brand-600 font-medium mt-1 underline"
-                    onClick={() => verifyStep(s.verifyStep)}
-                  >
-                    Mark verified
-                  </button>
+                  <div className="flex gap-2 mt-1">
+                    {s.verifyStep === "phone" && (
+                      <button
+                        className="text-[11px] text-brand-700 font-semibold underline"
+                        onClick={otpVerifyPhone}
+                      >
+                        Verify by OTP
+                      </button>
+                    )}
+                    <button
+                      className="text-[11px] text-gray-500 font-medium underline"
+                      onClick={() => verifyStep(s.verifyStep)}
+                    >
+                      Mark verified
+                    </button>
+                  </div>
                 )}
               </div>
             ))}
           </div>
           <p className="text-[11px] text-gray-400 mt-2">
-            Aadhaar, fingerprint and face verify through their own flows. Email/phone are attested manually for now — OTP verification activates with an SMS/WhatsApp provider (Enterprise).
+            Aadhaar, fingerprint and face verify through their own flows. Phone verifies by OTP
+            (real SMS with a provider configured; demo code in test mode) — "Mark verified" stays as the manual attest.
           </p>
         </div>
       )}

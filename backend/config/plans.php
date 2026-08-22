@@ -8,6 +8,15 @@
  * that the super admin approves after payment is settled outside the app.
  */
 return [
+
+    // Shown to org admins on the Billing page — how to pay offline.
+    // Fill the real details in .env at launch; placeholders keep the demo honest.
+    'payment' => [
+        'upi'   => env('PAY_UPI', '[your-upi-id@bank]'),
+        'bank'  => env('PAY_BANK', '[Account name · A/c no · IFSC]'),
+        'note'  => env('PAY_NOTE', 'After paying, record the payment below with the reference number — the platform team verifies and activates your plan.'),
+    ],
+
     'default' => 'trial',
 
     'plans' => [

@@ -42,20 +42,92 @@ class PlanController extends Controller
                 'id'     => $org->id,
                 'name'   => $org->name,
                 'plan'   => $org->plan,
-                'limits' => PlanService::limits($org->plan),
+                'limits' => PlanService::limits(PlanService::effectivePlan($org)),
                 'usage'  => PlanService::usage($ctx['type'], $org->id),
+                'plan_expires_at' => $org->plan_expires_at?->toDateString(),
+                'days_left'       => PlanService::daysLeft($org),
+                'licence_lapsed'  => PlanService::effectivePlan($org) !== ($org->plan ?? 'trial'),
             ],
             'pending_request' => $pending,
+            'payment'         => config('plans.payment'),
             'plans'           => config('plans.plans'),
             'feature_labels'  => config('plans.feature_labels'),
         ]);
     }
 
+    /**
+     * Record an offline payment on the org's own pending request: method,
+     * reference (UTR/txn/cheque no), amount, optional proof image/PDF.
+     * The super admin then verifies it on the Subscriptions page.
+     */
+    public function recordPayment(Request $request, PlanUpgradeRequest $planRequest): JsonResponse
+    {
+        $ctx = PlanService::orgFor($request->user());
+        abort_unless($ctx && $planRequest->org_type === $ctx['type']
+            && $planRequest->org_id === $ctx['org']->id, 403);
+        abort_unless(in_array($request->user()->role, ['company_admin', 'vendor_admin'], true), 403,
+            'Only the organisation admin can record payments.');
+        abort_unless($planRequest->status === 'pending', 422, 'This request was already decided.');
+
+        $data = $request->validate([
+            'payment_method'    => 'required|in:upi,bank_transfer,cash,cheque',
+            'payment_reference' => 'required|string|max:80',
+            'amount'            => 'required|numeric|min:1|max:10000000',
+            'proof'             => 'nullable|file|max:5120|mimes:jpeg,png,jpg,pdf',
+        ], ['payment_reference.required' => 'Enter the UTR / transaction / cheque number.']);
+
+        if ($request->hasFile('proof')) {
+            if ($planRequest->payment_proof_path) {
+                \Illuminate\Support\Facades\Storage::disk('private')->delete($planRequest->payment_proof_path);
+            }
+            $planRequest->forceFill([
+                'payment_proof_path' => $request->file('proof')->store('payments', 'private'),
+            ]);
+        }
+        $planRequest->forceFill([
+            'payment_method'    => $data['payment_method'],
+            'payment_reference' => $data['payment_reference'],
+            'amount'            => $data['amount'],
+            'paid_at'           => now(),
+        ])->save();
+
+        // Tell the platform team there is money to verify.
+        $notify = app(\App\Services\NotifyService::class);
+        $supers = \App\Models\User::where('role', 'super_admin')->get();
+        $notify->inApp($supers, 'plan_payment_recorded',
+            "Payment recorded: {$ctx['org']->name} → {$planRequest->requested_plan}",
+            strtoupper($data['payment_method'])." ₹{$data['amount']} · ref {$data['payment_reference']} — verify on Subscriptions.");
+
+        $this->audit->log($request->user()->id, 'plan_payment_recorded', PlanUpgradeRequest::class, $planRequest->id, [
+            'method' => $data['payment_method'], 'amount' => $data['amount'], 'ref' => $data['payment_reference'],
+        ]);
+
+        return response()->json([
+            'message' => 'Payment recorded — the platform team will verify and activate your plan.',
+            'request' => $planRequest->fresh(),
+        ]);
+    }
+
+    /** Serve the payment proof (super admin, or the org's own admin). */
+    public function paymentProof(Request $request, PlanUpgradeRequest $planRequest)
+    {
+        $user = $request->user();
+        if (! $user->isSuperAdmin()) {
+            $ctx = PlanService::orgFor($user);
+            abort_unless($ctx && $planRequest->org_type === $ctx['type']
+                && $planRequest->org_id === $ctx['org']->id, 403);
+        }
+        abort_unless($planRequest->payment_proof_path, 404);
+
+        return \Illuminate\Support\Facades\Storage::disk('private')->response($planRequest->payment_proof_path);
+    }
+
     public function requestUpgrade(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'plan' => 'required|in:professional,enterprise',
-            'note' => 'nullable|string|max:500',
+            'plan'   => 'required|in:professional,enterprise',
+            'months' => 'nullable|integer|in:1,3,6,12',
+            'note'   => 'nullable|string|max:500',
         ]);
         $ctx = PlanService::orgFor($request->user());
         if (! $ctx) {
@@ -64,9 +136,9 @@ class PlanController extends Controller
         if (! in_array($request->user()->role, ['company_admin', 'vendor_admin'], true)) {
             return response()->json(['message' => 'Only the organisation admin can request an upgrade.'], 403);
         }
-        if ($ctx['org']->plan === $data['plan']) {
+        if ($ctx['org']->plan === $data['plan'] && ! $ctx['org']->plan_expires_at) {
             return response()->json(['message' => 'You are already on this plan.'], 422);
-        }
+        } // same plan WITH an expiry = a renewal — allowed
         $existing = PlanUpgradeRequest::where('org_type', $ctx['type'])
             ->where('org_id', $ctx['org']->id)->where('status', 'pending')->first();
         if ($existing) {
@@ -78,6 +150,7 @@ class PlanController extends Controller
             'org_id'         => $ctx['org']->id,
             'current_plan'   => $ctx['org']->plan,
             'requested_plan' => $data['plan'],
+            'months'         => $data['months'] ?? 1,
             'requested_by'   => $request->user()->id,
             'note'           => $data['note'] ?? null,
         ]);
@@ -109,6 +182,9 @@ class PlanController extends Controller
                     'status'   => $org->status,
                     'plan'     => $org->plan,
                     'plan_started_at' => $org->plan_started_at ? substr((string) $org->plan_started_at, 0, 10) : null,
+                    'plan_expires_at' => $org->plan_expires_at ? substr((string) $org->plan_expires_at, 0, 10) : null,
+                    'days_left'       => PlanService::daysLeft($org),
+                    'licence_lapsed'  => PlanService::effectivePlan($org) !== ($org->plan ?? 'trial'),
                     'usage'    => PlanService::usage($type, $org->id),
                     'limits'   => PlanService::limits($org->plan),
                 ];
@@ -128,12 +204,19 @@ class PlanController extends Controller
             'org_type' => 'required|in:company,vendor',
             'org_id'   => 'required|integer',
             'plan'     => 'required|in:trial,professional,enterprise',
+            'months'   => 'nullable|integer|min:1|max:36',
         ]);
         $org = $data['org_type'] === 'company' ? Company::find($data['org_id']) : Vendor::find($data['org_id']);
         if (! $org) {
             return response()->json(['message' => 'Organisation not found.'], 404);
         }
-        $org->forceFill(['plan' => $data['plan'], 'plan_started_at' => now()])->save();
+        $org->forceFill([
+            'plan'            => $data['plan'],
+            'plan_started_at' => now(),
+            // months given -> licence expiry; trial or omitted -> open-ended
+            'plan_expires_at' => ($data['plan'] !== 'trial' && ! empty($data['months']))
+                ? now()->addMonths((int) $data['months']) : null,
+        ])->save();
 
         // Auto-resolve a matching pending request, if any.
         PlanUpgradeRequest::where('org_type', $data['org_type'])->where('org_id', $org->id)
@@ -160,10 +243,21 @@ class PlanController extends Controller
             'decided_at' => now(),
         ]);
         if ($data['action'] === 'approve') {
-            $planRequest->org()?->forceFill([
-                'plan'            => $planRequest->requested_plan,
-                'plan_started_at' => now(),
-            ])->save();
+            $orgModel = $planRequest->org();
+            if ($orgModel) {
+                $months = max(1, (int) ($planRequest->months ?? 1));
+                // Renewing before expiry EXTENDS from the current end date;
+                // fresh purchases (or lapsed licences) start from today.
+                $base = ($orgModel->plan === $planRequest->requested_plan
+                        && $orgModel->plan_expires_at
+                        && $orgModel->plan_expires_at->isFuture())
+                    ? $orgModel->plan_expires_at : now();
+                $orgModel->forceFill([
+                    'plan'            => $planRequest->requested_plan,
+                    'plan_started_at' => now(),
+                    'plan_expires_at' => $base->copy()->addMonths($months),
+                ])->save();
+            }
         }
         $org = $planRequest->org();
         if ($org) {

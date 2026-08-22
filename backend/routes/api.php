@@ -42,6 +42,8 @@ Route::middleware('auth:sanctum')->group(function () {
     // ── SaaS plans & subscriptions ───────────────────────────────────────────
     Route::get('plan',                  [\App\Http\Controllers\PlanController::class, 'show']);
     Route::post('plan/upgrade-request', [\App\Http\Controllers\PlanController::class, 'requestUpgrade']);
+    Route::post('plan/requests/{planRequest}/payment', [\App\Http\Controllers\PlanController::class, 'recordPayment']);
+    Route::get('plan/requests/{planRequest}/proof',    [\App\Http\Controllers\PlanController::class, 'paymentProof']);
     Route::get('admin/subscriptions',   [\App\Http\Controllers\PlanController::class, 'index']);
     Route::post('admin/subscriptions/set-plan', [\App\Http\Controllers\PlanController::class, 'setPlan']);
     Route::post('admin/plan-requests/{planRequest}/decide', [\App\Http\Controllers\PlanController::class, 'decide']);
@@ -95,6 +97,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('stats',          [WorkerController::class, 'stats']);
         Route::get('photo',          [WorkerController::class, 'servePhoto'])->name('worker.photo');
         Route::post('verify-step',   [WorkerController::class, 'verifyStep']);
+        Route::post('send-otp',      [WorkerController::class, 'sendPhoneOtp']);
+        Route::post('verify-otp',    [WorkerController::class, 'verifyPhoneOtp']);
         Route::post('aadhaar-photo', [WorkerController::class, 'uploadAadhaarPhoto']);
         Route::get('aadhaar-photo',  [WorkerController::class, 'serveAadhaarPhoto']);
         Route::post('fingerprint',   [WorkerController::class, 'storeFingerprint']);

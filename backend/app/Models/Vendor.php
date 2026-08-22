@@ -10,7 +10,8 @@ class Vendor extends Model
 {
     use HasFactory, SoftDeletes;
 
-    protected $casts = ['settings' => 'array'];
+    protected $casts = [
+        'plan_expires_at' => 'datetime','settings' => 'array'];
 
     protected $fillable = [
         'name',

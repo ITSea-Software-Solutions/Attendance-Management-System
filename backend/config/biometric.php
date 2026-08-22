@@ -57,4 +57,23 @@ return [
     */
     'face_threshold' => (float) env('FACE_MATCH_THRESHOLD', 0.45),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Face anti-spoofing (PAD) — dormant until activated
+    |--------------------------------------------------------------------------
+    | Activates ONLY when (a) a PAD ONNX model is installed in the pdf-service
+    | (PAD_MODEL_PATH, default /app/models/pad.onnx) AND (b) this threshold is
+    | set. Marks whose live-probability falls below it are rejected with a
+    | clear message. Leave unset for staffed gates.
+    */
+    'face_pad_threshold' => env('FACE_PAD_THRESHOLD') !== null ? (float) env('FACE_PAD_THRESHOLD') : null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | 1:N ambiguity margins
+    |--------------------------------------------------------------------------
+    */
+    'margin'      => (int) env('BIOMETRIC_MARGIN', 10),
+    'face_margin' => (float) env('FACE_MARGIN', 0.08),
+
 ];

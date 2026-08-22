@@ -414,6 +414,84 @@ class WorkerController extends Controller
     }
 
     /**
+     * OTP phone verification — the real (non-attest) path. Sends a 6-digit
+     * code to the worker's phone via the configured SMS provider; without
+     * provider credentials the code is returned in the response ONLY in
+     * debug mode (same pattern as the dev password-reset link).
+     */
+    public function sendPhoneOtp(Request $request, Worker $worker): JsonResponse
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        $phone = $worker->mobile ?: $worker->phone;
+        abort_unless($phone, 422, 'Worker has no phone on record.');
+
+        $key = "wotp-send:{$worker->id}";
+        abort_if(cache()->get($key, 0) >= 3, 429, 'Too many OTPs sent — try again in 10 minutes.');
+        cache()->put($key, cache()->get($key, 0) + 1, now()->addMinutes(10));
+
+        $otp = (string) random_int(100000, 999999);
+        cache()->put("wotp:{$worker->id}", hash('sha256', $otp), now()->addMinutes(10));
+
+        $sent = $this->sendSms($phone, "TrueCrew verification code: {$otp}. Valid 10 minutes.");
+        $this->audit->log($request->user()->id, 'worker_phone_otp_sent', Worker::class, $worker->id);
+
+        $payload = ['message' => $sent
+            ? "OTP sent to {$phone}."
+            : 'SMS provider not configured — ask your administrator (or use manual attest).'];
+        if (! $sent && config('app.debug')) {
+            $payload['dev_otp'] = $otp; // demo mode only — never in production
+            $payload['message'] = 'SMS provider not configured — demo OTP included (debug mode).';
+        }
+
+        return response()->json($payload, $sent || config('app.debug') ? 200 : 503);
+    }
+
+    public function verifyPhoneOtp(Request $request, Worker $worker): JsonResponse
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        $data = $request->validate(['otp' => 'required|digits:6']);
+
+        $stored = cache()->get("wotp:{$worker->id}");
+        abort_unless($stored, 422, 'No OTP pending — send one first (codes expire in 10 minutes).');
+        if (! hash_equals($stored, hash('sha256', $data['otp']))) {
+            return response()->json(['message' => 'Wrong code — check and try again.'], 422);
+        }
+
+        cache()->forget("wotp:{$worker->id}");
+        $worker->forceFill(['phone_verified_at' => now()])->save();
+        $this->audit->log($request->user()->id, 'worker_phone_otp_verified', Worker::class, $worker->id);
+
+        return response()->json(['message' => 'Phone verified by OTP.', 'worker' => $worker->fresh()]);
+    }
+
+    /** Pluggable SMS send (MSG91 flow API); returns false when unconfigured. */
+    private function sendSms(string $phone, string $text): bool
+    {
+        $key = config('services.sms.msg91_key', env('MSG91_AUTHKEY'));
+        if (! $key) {
+            return false;
+        }
+        try {
+            $msisdn = preg_replace('/\D/', '', $phone);
+            if (strlen($msisdn) === 10) {
+                $msisdn = '91'.$msisdn;
+            }
+            \Illuminate\Support\Facades\Http::withHeaders(['authkey' => $key])
+                ->timeout(8)
+                ->post('https://control.msg91.com/api/v5/flow/', [
+                    'template_id' => config('services.sms.msg91_template', env('MSG91_TEMPLATE_ID')),
+                    'recipients'  => [['mobiles' => $msisdn, 'otp' => preg_replace('/\D/', '', $text)]],
+                ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
+    }
+
+    /**
      * Resolve the mandatory Aadhaar input into [masked, hash].
      * Accepts either the extract-path pair (masked + hash) or a manual full
      * 12-digit number (hashed + masked here; the raw number is discarded).

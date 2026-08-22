@@ -83,7 +83,8 @@ async def face_embed(image: UploadFile = File(..., description="Face image (JPEG
         raise HTTPException(status_code=413, detail="Image must not exceed 8 MB.")
     try:
         from face_encoder import encode_face  # lazy: loads InsightFace once per worker
-        embedding = encode_face(content)
+        embedding, liveness = encode_face(content, with_liveness=True)
     except RuntimeError as e:
         raise HTTPException(status_code=422, detail=str(e))
-    return JSONResponse(content={"embedding": embedding})
+    # liveness: 0..1 live-probability when a PAD model is installed; null otherwise
+    return JSONResponse(content={"embedding": embedding, "liveness": liveness})

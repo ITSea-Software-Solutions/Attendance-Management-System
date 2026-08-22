@@ -254,7 +254,18 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.10.0</span> Visitor management <span class="date">22 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.11.0</span> Licences, payments & go-live hardening <span class="date">22 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Offline payment, formalised</b> — pick a licence period (1/3/6/12 months), pay by UPI/bank/cash/cheque, record the reference and upload proof on the Billing page; super admins get notified, see the proof, and "Verify payment &amp; activate" starts the licence.</li>
+      <li><b>Licence management</b> — every paid plan now has a validity: countdown on the Billing page, expiry column on Subscriptions, renewal extends from the current end date, expiry reminders at ≤7 days, and a lapsed licence silently drops to trial limits (nothing deleted) until a renewal is verified.</li>
+      <li><b>Real OTP phone verification</b> for workers (SMS provider–ready; demo code in test mode) alongside manual attest.</li>
+      <li><b>Face liveness (anti-spoofing) hook</b> — activates when a PAD model + threshold are configured; photo/screen replays are then rejected at face attendance.</li>
+      <li><b>Nightly backups</b> — database + document archive with 7-day retention, offsite-ready.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.10.0</span> Visitor management <span class="date">22 Aug 2026</span></h3>
     <ul>
       <li><b>Visitors page</b> (company roles): today's gate passes with guest photos, status, WhatsApp/manual decision trail, entry/exit times — plus the <b>Hosts</b> tab where HR maintains who may receive visitors (name, mobile, position, department).</li>
       <li><b>WhatsApp approval loop</b> — hosts reply YES/NO to approve passes; the webhook is live and activates fully once WhatsApp Business credentials are configured. Until then, manual decisions (with an audited note) keep gates moving.</li>

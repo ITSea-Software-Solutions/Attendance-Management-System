@@ -30,6 +30,7 @@ class Company extends Model
     ];
 
     protected $casts = [
+        'plan_expires_at' => 'datetime',
         'settings' => 'array',
     ];
 
