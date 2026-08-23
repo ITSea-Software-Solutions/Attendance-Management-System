@@ -58,6 +58,7 @@ export default function WorkerList() {
   });
 
   const canRegister = ["super_admin", "vendor_admin", "vendor_operator"].includes(user?.role);
+  const canImport   = [...["super_admin", "vendor_admin", "vendor_operator"], "company_admin"].includes(user?.role);
   const canDelete   = ["super_admin", "vendor_admin"].includes(user?.role);
   const canActivate = ["super_admin", "company_admin", "vendor_admin"].includes(user?.role);
 
@@ -117,8 +118,13 @@ export default function WorkerList() {
     const file = e.target.files?.[0];
     e.target.value = "";
     if (!file) return;
+    if (!isVendorUser && !vendorId) {
+      toast.error("Pick the vendor these workers belong to (vendor dropdown below), then import.", { duration: 6000 });
+      return;
+    }
     const fd = new FormData();
     fd.append("file", file);
+    if (!isVendorUser) fd.append("vendor_id", vendorId);
     try {
       const r = await api.post("/workers-import", fd, { headers: { "Content-Type": "multipart/form-data" } });
       const errs = r.data.errors ?? [];
@@ -144,17 +150,17 @@ export default function WorkerList() {
           <button className="btn-secondary text-sm" onClick={exportCsv} title="Professional+ feature">
             <Download size={14} /> Export CSV
           </button>
+          {canImport && (
+            <label className="btn-secondary text-sm cursor-pointer" title="CSV columns: name (required), emp_code, phone, joining_date, aadhaar_number (optional — verify later), pan_number, address, dob, gender, email. Professional+ feature">
+              <Upload size={14} /> Import CSV
+              <input type="file" accept=".csv" className="hidden" onChange={importCsv} />
+            </label>
+          )}
           {canRegister && (
-            <>
-              <label className="btn-secondary text-sm cursor-pointer" title="CSV columns: name (required), emp_code, phone, joining_date, aadhaar_number (optional — verify later), pan_number, address, dob, gender, email. Professional+ feature">
-                <Upload size={14} /> Import CSV
-                <input type="file" accept=".csv" className="hidden" onChange={importCsv} />
-              </label>
-              <Link to="/workers/register" className="btn-primary">
-                <Plus size={16} />
-                Register Worker
-              </Link>
-            </>
+            <Link to="/workers/register" className="btn-primary">
+              <Plus size={16} />
+              Register Worker
+            </Link>
           )}
         </div>
       </div>

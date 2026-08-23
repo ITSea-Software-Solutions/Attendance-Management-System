@@ -313,14 +313,23 @@ class WorkerController extends Controller
     public function import(Request $request): JsonResponse
     {
         $user = $request->user();
-        abort_unless($user->isVendorUser() || $user->isSuperAdmin(), 403);
+        // Vendors import their own workers; super admin and COMPANY ADMINS
+        // import on a vendor's behalf (companies onboarding an existing
+        // workforce pick which of their approved vendors it belongs to).
+        abort_unless($user->isVendorUser() || $user->isSuperAdmin() || $user->role === 'company_admin', 403);
         abort_unless(\App\Services\PlanService::userHasFeature($user, 'bulk_import_export'), 403,
             'Bulk import is a Professional/Enterprise feature.');
         $request->validate([
             'file'      => 'required|file|mimes:csv,txt|max:2048',
-            'vendor_id' => $user->isSuperAdmin() ? 'required|integer|exists:vendors,id' : 'nullable',
+            'vendor_id' => $user->isVendorUser() ? 'nullable' : 'required|integer|exists:vendors,id',
         ]);
         $vendorId = $user->isVendorUser() ? $user->vendor_id : (int) $request->input('vendor_id');
+        if ($user->role === 'company_admin') {
+            $approved = \App\Models\Company::find($user->company_id)?->vendors()
+                ->where('vendor_id', $vendorId)
+                ->where('company_vendors.status', 'approved')->exists();
+            abort_unless($approved, 403, 'That vendor is not approved for your company.');
+        }
 
         $fh = fopen($request->file('file')->getRealPath(), 'r');
         $rawHeader = fgetcsv($fh) ?: [];
