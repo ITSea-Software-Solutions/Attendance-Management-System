@@ -28,6 +28,9 @@ class Worker extends Model
         'dob',
         'gender',
         'address',
+        'emp_code',
+        'pan_number',
+        'joining_date',
         'city',
         'state',
         'pin',
@@ -55,6 +58,8 @@ class Worker extends Model
         'face_enrolled_at'        => 'datetime',
         'email_verified_at'       => 'datetime',
         'phone_verified_at'       => 'datetime',
+        'aadhaar_verified_at'     => 'datetime',
+        'joining_date'            => 'date',
     ];
 
     // ─── Relationships ─────────────────────────────────────────────────────────

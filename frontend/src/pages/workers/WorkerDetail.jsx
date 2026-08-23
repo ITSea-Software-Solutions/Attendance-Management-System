@@ -173,7 +173,10 @@ export default function WorkerDetail() {
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-gray-900 truncate">{worker?.name}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 truncate">
+                {worker?.name}
+                {worker?.emp_code && <span className="ml-2 text-sm font-mono text-gray-400">#{worker.emp_code}</span>}
+              </h1>
               <p className="text-sm text-gray-500 mt-0.5">{worker?.vendor?.name}</p>
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 <span className={`badge ${STATUS_BADGE[worker?.status] ?? "badge-gray"}`}>
@@ -191,6 +194,12 @@ export default function WorkerDetail() {
                 )}
                 {worker?.aadhaar_number_masked && (
                   <span className="text-xs text-gray-400 font-mono">{worker.aadhaar_number_masked}</span>
+                )}
+                {worker && !worker.aadhaar_verified_at && (
+                  <span className="badge badge-yellow text-[10px]">Aadhaar pending</span>
+                )}
+                {worker?.joining_date && (
+                  <span className="text-xs text-gray-400">joined {format(new Date(worker.joining_date), "dd MMM yyyy")}</span>
                 )}
               </div>
             </>
@@ -211,7 +220,7 @@ export default function WorkerDetail() {
           <p className="text-sm font-semibold text-gray-800 mb-3">Verification steps</p>
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
-              { label: "Aadhaar", done: !!worker.aadhaar_number_masked, hint: worker.has_aadhaar_pdf ? "PDF on file" : "number verified" },
+              { label: "Aadhaar", done: !!worker.aadhaar_verified_at, hint: worker.aadhaar_number_masked ? (worker.has_aadhaar_pdf ? "PDF on file" : "number on file") : "pending — add via Edit Worker" },
               { label: "Fingerprint", done: !!worker.fingerprint_enrolled_at, hint: worker.fingerprint_enrolled_at ? "enrolled" : "pending" },
               { label: "Face / photo", done: !!worker.face_enrolled_at, hint: worker.face_enrolled_at ? "enrolled" : "pending" },
               { label: "Email", done: !!worker.email_verified_at, hint: worker.email ?? "no email", verifyStep: "email", can: !!worker.email && !worker.email_verified_at },

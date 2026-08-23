@@ -62,7 +62,10 @@ class WorkerController extends Controller
                 }
             })
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
-            ->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%"))
+            ->when($request->search, fn($q, $s) => $q->where(fn($w) => $w
+                ->where('name', 'like', "%{$s}%")
+                ->orWhere('emp_code', 'like', "%{$s}%")
+                ->orWhere('phone', 'like', "%{$s}%")))
             // Vendor filter (company/super users narrowing a mixed list)
             ->when($request->vendor_id, fn($q, $v) => $q->where('vendor_id', $v))
             // "Inside now": the worker's LATEST event is an IN with no OUT yet
@@ -77,6 +80,8 @@ class WorkerController extends Controller
                 ) = 'IN'");
             })
             // Deployment-state filter: undeployed | expiring (≤3 days) | deployed
+            ->when($request->aadhaar === 'unverified', fn($q) => $q->whereNull('aadhaar_verified_at'))
+            ->when($request->aadhaar === 'verified',   fn($q) => $q->whereNotNull('aadhaar_verified_at'))
             ->when($request->deploy_state === 'undeployed', fn($q) =>
                 $q->whereDoesntHave('assignments', fn($a) => $a
                     ->where('status', 'active')->where('approval_status', 'approved')
@@ -195,6 +200,9 @@ class WorkerController extends Controller
             'pin'                    => 'nullable|string|size:6',
             'phone'                  => 'nullable|string|max:15',
             'mobile'                 => 'nullable|string|max:15',
+            'emp_code'               => 'nullable|string|max:30',
+            'pan_number'             => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
+            'joining_date'           => 'nullable|date',
             // Aadhaar is MANDATORY — via one of two paths:
             //   extract path: masked + hash returned by /aadhaar/extract
             //   manual path : full 12-digit number (hashed & masked here, then discarded)
@@ -276,11 +284,15 @@ class WorkerController extends Controller
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF"); // Excel-friendly BOM
-            fputcsv($out, ['Name', 'Aadhaar (masked)', 'DOB', 'Gender', 'Phone', 'Email', 'Vendor', 'Status', 'Fingerprint', 'Face', 'Email verified', 'Phone verified']);
+            fputcsv($out, ['Name', 'Emp code', 'Aadhaar (masked)', 'Aadhaar verified', 'PAN', 'Joining date', 'DOB', 'Gender', 'Phone', 'Email', 'Address', 'Vendor', 'Status', 'Fingerprint', 'Face', 'Email verified', 'Phone verified']);
             foreach ($rows as $w) {
                 fputcsv($out, [
-                    $w->name, $w->aadhaar_number_masked,
+                    $w->name, $w->emp_code, $w->aadhaar_number_masked,
+                    $w->aadhaar_verified_at ? 'yes' : 'NO — pending',
+                    $w->pan_number,
+                    optional($w->joining_date)->format('Y-m-d'),
                     optional($w->dob)->format('Y-m-d'), $w->gender, $w->phone, $w->email,
+                    $w->address,
                     $w->vendor?->name, $w->status,
                     $w->fingerprint_enrolled_at ? 'yes' : 'no',
                     $w->face_enrolled_at ? 'yes' : 'no',
@@ -311,49 +323,122 @@ class WorkerController extends Controller
         $vendorId = $user->isVendorUser() ? $user->vendor_id : (int) $request->input('vendor_id');
 
         $fh = fopen($request->file('file')->getRealPath(), 'r');
-        $header = array_map(fn ($h) => strtolower(trim((string) $h)), fgetcsv($fh) ?: []);
-        $idx = fn (string $col) => array_search($col, $header, true);
-        if ($idx('name') === false || $idx('aadhaar_number') === false) {
-            return response()->json(['message' => 'CSV must have header columns: name, aadhaar_number (plus optional dob, gender, phone, email).'], 422);
+        $rawHeader = fgetcsv($fh) ?: [];
+        // Flexible headers: trim, lowercase, strip spaces/underscores, and
+        // accept the aliases people actually type in Excel.
+        $norm = fn ($h) => preg_replace('/[^a-z0-9]/', '', strtolower(trim((string) $h)));
+        $aliases = [
+            'name'          => ['name', 'workername', 'fullname'],
+            'emp_code'      => ['empcode', 'employeecode', 'empno', 'employeeno', 'empid', 'staffcode', 'code'],
+            'phone'         => ['phone', 'mobile', 'phoneno', 'mobileno', 'contact'],
+            'joining_date'  => ['joiningdate', 'doj', 'dateofjoining', 'joindate'],
+            'aadhaar'       => ['aadhaarnumber', 'aadhaarno', 'aadhaar', 'adharno', 'adhar', 'adhaar', 'aadharnumber', 'aadharno', 'aadhar', 'uid'],
+            'pan'           => ['pannumber', 'panno', 'pan', 'pancard'],
+            'address'       => ['address', 'addr', 'fulladdress'],
+            'dob'           => ['dob', 'dateofbirth', 'birthdate'],
+            'gender'        => ['gender', 'sex'],
+            'email'         => ['email', 'emailid', 'mail'],
+        ];
+        $cols = [];
+        foreach ($rawHeader as $i => $h) {
+            $n = $norm($h);
+            foreach ($aliases as $field => $alts) {
+                if (in_array($n, $alts, true)) {
+                    $cols[$field] = $i;
+                }
+            }
         }
+        if (! isset($cols['name'])) {
+            return response()->json(['message' => 'CSV needs at least a "name" column. Recognised columns: name, phone, joining_date, aadhaar_number (OPTIONAL — verify later), pan_number, address, dob, gender, email.'], 422);
+        }
+        $cell = function (array $row, string $field) use ($cols): string {
+            return isset($cols[$field]) ? trim((string) ($row[$cols[$field]] ?? '')) : '';
+        };
+        // dd/mm/yyyy · dd-mm-yyyy · yyyy-mm-dd → Y-m-d (null when unparseable)
+        $parseDate = function (string $v): ?string {
+            if ($v === '') {
+                return null;
+            }
+            if (preg_match('~^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$~', $v, $m)) {
+                return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
+            }
+            if (preg_match('~^(\d{4})-(\d{1,2})-(\d{1,2})$~', $v, $m)) {
+                return sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+            }
+            return null;
+        };
 
         $created = 0;
+        $imported_unverified = 0;
         $errors = [];
         $line = 1;
         while (($row = fgetcsv($fh)) !== false) {
             $line++;
-            $name = trim((string) ($row[$idx('name')] ?? ''));
-            $aadhaar = preg_replace('/\D+/', '', (string) ($row[$idx('aadhaar_number')] ?? ''));
-            if ($name === '' && $aadhaar === '') {
+            $name    = $cell($row, 'name');
+            $aadhaar = preg_replace('/\D+/', '', $cell($row, 'aadhaar'));
+            if ($name === '' && $aadhaar === '' && $cell($row, 'phone') === '') {
                 continue; // blank line
             }
-            if ($name === '' || strlen($aadhaar) !== 12) {
-                $errors[] = "line {$line}: name and a 12-digit aadhaar_number are required";
+            if ($name === '') {
+                $errors[] = "line {$line}: name is required";
                 continue;
             }
-            $resolved = $this->resolveAadhaar(['aadhaar_number' => $aadhaar]);
-            if ($resolved instanceof JsonResponse) {
-                $errors[] = "line {$line}: duplicate or invalid Aadhaar";
+
+            // Aadhaar is OPTIONAL on import — when present it must be valid
+            // and unique; when absent the worker imports UNVERIFIED and the
+            // number is added later (edit / app), which sets the flag.
+            $masked = null;
+            $hash = null;
+            if ($aadhaar !== '') {
+                if (strlen($aadhaar) !== 12) {
+                    $errors[] = "line {$line}: aadhaar_number must be 12 digits (or leave it empty to verify later)";
+                    continue;
+                }
+                $resolved = $this->resolveAadhaar(['aadhaar_number' => $aadhaar]);
+                if ($resolved instanceof JsonResponse) {
+                    $errors[] = "line {$line}: duplicate or invalid Aadhaar";
+                    continue;
+                }
+                [$masked, $hash] = $resolved;
+            }
+
+            $empCode = strtoupper($cell($row, 'emp_code'));
+            if ($empCode !== '' && Worker::withTrashed()->where('vendor_id', $vendorId)->where('emp_code', $empCode)->exists()) {
+                $errors[] = "line {$line}: emp_code '{$empCode}' already exists for this vendor";
                 continue;
             }
-            [$masked, $hash] = $resolved;
-            $g = strtoupper(substr(trim((string) ($idx('gender') !== false ? ($row[$idx('gender')] ?? '') : '')), 0, 1));
+
+            $pan = strtoupper($cell($row, 'pan'));
+            if ($pan !== '' && ! preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $pan)) {
+                $errors[] = "line {$line}: PAN '{$pan}' is not a valid format (AAAAA9999A) — row skipped";
+                continue;
+            }
+
+            $g = strtoupper(substr($cell($row, 'gender'), 0, 1));
             $worker = new Worker([
-                'vendor_id' => $vendorId,
-                'name'      => $name,
-                'dob'       => $idx('dob') !== false ? (trim((string) ($row[$idx('dob')] ?? '')) ?: null) : null,
-                'gender'    => in_array($g, ['M', 'F', 'O'], true) ? $g : null,
-                'phone'     => $idx('phone') !== false ? (trim((string) ($row[$idx('phone')] ?? '')) ?: null) : null,
-                'email'     => $idx('email') !== false ? (trim((string) ($row[$idx('email')] ?? '')) ?: null) : null,
+                'vendor_id'    => $vendorId,
+                'name'         => $name,
+                'emp_code'     => $empCode ?: null,
+                'dob'          => $parseDate($cell($row, 'dob')),
+                'joining_date' => $parseDate($cell($row, 'joining_date')),
+                'gender'       => in_array($g, ['M', 'F', 'O'], true) ? $g : null,
+                'phone'        => $cell($row, 'phone') ?: null,
+                'email'        => $cell($row, 'email') ?: null,
+                'address'      => $cell($row, 'address') ?: null,
+                'pan_number'   => $pan ?: null,
                 'aadhaar_number_masked' => $masked,
             ]);
             $worker->forceFill([
                 'aadhaar_hash'         => $hash,
+                'aadhaar_verified_at'  => $hash ? now() : null,
                 'consent_confirmed_at' => now(), // importer attests consent for the batch
                 'status'               => Worker::STATUS_PENDING,
                 'registered_by'        => $user->id,
             ])->save();
             $created++;
+            if (! $hash) {
+                $imported_unverified++;
+            }
         }
         fclose($fh);
         $this->audit->log($user->id, 'workers_imported', Worker::class, null, [
@@ -361,9 +446,12 @@ class WorkerController extends Controller
         ]);
 
         return response()->json([
-            'message' => "{$created} worker(s) imported".(count($errors) ? ', '.count($errors).' row(s) skipped' : '.'),
-            'created' => $created,
-            'errors'  => array_slice($errors, 0, 50),
+            'message' => "{$created} worker(s) imported"
+                .($imported_unverified ? " ({$imported_unverified} without Aadhaar — verify later)" : '')
+                .(count($errors) ? ', '.count($errors).' row(s) skipped' : '.'),
+            'created'             => $created,
+            'without_aadhaar'     => $imported_unverified,
+            'errors'              => array_slice($errors, 0, 50),
         ]);
     }
 
@@ -553,6 +641,9 @@ class WorkerController extends Controller
             'pin'     => 'nullable|string|size:6',
             'phone'   => 'nullable|string|max:15',
             'notes'   => 'nullable|string',
+            'emp_code'     => 'nullable|string|max:30',
+            'pan_number'   => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
+            'joining_date' => 'nullable|date',
             // Optional on edit: add/replace Aadhaar (legacy workers may lack it)
             'aadhaar_number'        => 'nullable|string|regex:/^\d{12}$/',
             'aadhaar_number_masked' => 'nullable|string|max:20',
@@ -568,10 +659,19 @@ class WorkerController extends Controller
                 return $resolved;
             }
             [$masked, $hash] = $resolved;
-            $worker->forceFill(['aadhaar_hash' => $hash]);
+            // Adding/confirming the Aadhaar IS the verification moment for
+            // workers imported without one.
+            $worker->forceFill(['aadhaar_hash' => $hash, 'aadhaar_verified_at' => $worker->aadhaar_verified_at ?? now()]);
             $data['aadhaar_number_masked'] = $masked;
         }
         unset($data['aadhaar_number'], $data['aadhaar_hash']);
+
+        if (! empty($data['emp_code'])) {
+            $data['emp_code'] = strtoupper($data['emp_code']);
+            $clash = Worker::withTrashed()->where('vendor_id', $worker->vendor_id)
+                ->where('emp_code', $data['emp_code'])->where('id', '!=', $worker->id)->exists();
+            abort_if($clash, 422, "Employee code {$data['emp_code']} is already used by another worker of this vendor.");
+        }
 
         $worker->fill($data)->save();
         $this->audit->log($request->user()->id, 'worker_updated', Worker::class, $worker->id);

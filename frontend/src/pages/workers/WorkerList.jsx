@@ -24,17 +24,19 @@ export default function WorkerList() {
   const [tab, setTab]        = useState("current"); // all | current | previous
   const [vendorId, setVendorId] = useState("");
   const [deployState, setDeployState] = useState("");
+  const [aadhaarFilter, setAadhaarFilter] = useState("");
   const [inside, setInside]     = useState(false);       // last event today = IN
   const [presentToday, setPresentToday] = useState(false); // any event today
 
   const deploymentParam = tab !== "all" ? tab : undefined;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["workers", search, status, page, tab, vendorId, inside, presentToday, deployState],
+    queryKey: ["workers", search, status, page, tab, vendorId, inside, presentToday, deployState, aadhaarFilter],
     queryFn:  () => api.get("/workers", { params: {
       search, status, page, deployment: deploymentParam,
       vendor_id: vendorId || undefined,
       deploy_state: deployState || undefined,
+      aadhaar: aadhaarFilter || undefined,
       inside: inside ? 1 : undefined,
       present_today: presentToday ? 1 : undefined,
     } }).then((r) => r.data),
@@ -144,7 +146,7 @@ export default function WorkerList() {
           </button>
           {canRegister && (
             <>
-              <label className="btn-secondary text-sm cursor-pointer" title="CSV columns: name, aadhaar_number, dob, gender, phone, email — Professional+ feature">
+              <label className="btn-secondary text-sm cursor-pointer" title="CSV columns: name (required), emp_code, phone, joining_date, aadhaar_number (optional — verify later), pan_number, address, dob, gender, email. Professional+ feature">
                 <Upload size={14} /> Import CSV
                 <input type="file" accept=".csv" className="hidden" onChange={importCsv} />
               </label>
@@ -202,6 +204,11 @@ export default function WorkerList() {
             ))}
           </select>
         )}
+        <select className="input w-auto text-sm" value={aadhaarFilter} onChange={(e) => { setAadhaarFilter(e.target.value); setPage(1); }}>
+          <option value="">Aadhaar: any</option>
+          <option value="verified">Aadhaar verified</option>
+          <option value="unverified">Aadhaar pending</option>
+        </select>
         <button
           onClick={() => { setInside(!inside); setPage(1); }}
           className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
@@ -289,14 +296,19 @@ export default function WorkerList() {
                         {w.name[0]}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{w.name}</p>
+                        <p className="font-medium text-gray-900">
+                          {w.name}
+                          {w.emp_code && <span className="ml-1.5 text-[10px] font-mono text-gray-400">#{w.emp_code}</span>}
+                        </p>
                         <p className="text-xs text-gray-400">{w.gender === "M" ? "Male" : w.gender === "F" ? "Female" : "Other"}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-gray-600 hidden md:table-cell">{w.vendor?.name ?? "—"}</td>
                   <td className="px-4 py-4 text-gray-500 font-mono text-xs hidden sm:table-cell">
-                    {w.aadhaar_number_masked ?? <span className="text-gray-300">Not uploaded</span>}
+                    {w.aadhaar_verified_at
+                      ? (w.aadhaar_number_masked ?? "verified")
+                      : <span className="badge badge-yellow text-[10px]">Aadhaar pending</span>}
                   </td>
                   <td className="px-4 py-4 text-center">
                     {w.fingerprint_enrolled_at
