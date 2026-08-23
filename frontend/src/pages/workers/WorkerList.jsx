@@ -58,7 +58,7 @@ export default function WorkerList() {
   });
 
   const canRegister = ["super_admin", "vendor_admin", "vendor_operator"].includes(user?.role);
-  const canImport   = [...["super_admin", "vendor_admin", "vendor_operator"], "company_admin"].includes(user?.role);
+  const canImport   = canRegister; // workers belong to vendors — vendor/SA only
   const canDelete   = ["super_admin", "vendor_admin"].includes(user?.role);
   const canActivate = ["super_admin", "company_admin", "vendor_admin"].includes(user?.role);
 
