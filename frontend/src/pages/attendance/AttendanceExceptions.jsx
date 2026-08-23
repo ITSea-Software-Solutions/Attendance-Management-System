@@ -16,7 +16,7 @@ export default function AttendanceExceptions() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Attendance Exceptions</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Still Inside</h1>
           <p className="text-sm text-gray-500 mt-0.5">Workers with IN but missing OUT</p>
         </div>
         <input

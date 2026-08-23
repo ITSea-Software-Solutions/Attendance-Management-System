@@ -48,3 +48,19 @@
   .badge-blue   { @apply badge bg-blue-100 text-blue-800; }
   .badge-gray   { @apply badge bg-gray-100 text-gray-700; }
 }
+
+/* ── Excel-familiar tables (friendliness pass) ─────────────────────────
+   Subtle zebra striping + sticky headers on every card table, so long
+   lists read like the spreadsheets people are used to. */
+.card table thead th {
+  position: sticky;
+  top: 0;
+  background: #f9fafb;
+  z-index: 1;
+}
+.card table tbody tr:nth-child(even) {
+  background-color: rgba(249, 250, 251, 0.6);
+}
+.card table tbody tr:hover {
+  background-color: rgba(227, 239, 236, 0.45);
+}

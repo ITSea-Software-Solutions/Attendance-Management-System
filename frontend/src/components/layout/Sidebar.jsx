@@ -42,7 +42,7 @@ const NAV = [
       { to: "/live",                  icon: Activity,     label: "Live Board",      roles: ["all"] },
       { to: "/visitors",              icon: Contact,      label: "Visitors",        roles: ["super_admin", "company_admin", "company_hr", "company_gate"] },
       { to: "/attendance",            icon: BarChart2,    label: "Attendance Log",  roles: ["all"], end: true },
-      { to: "/attendance/exceptions", icon: AlertTriangle,label: "Exceptions",      roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/attendance/exceptions", icon: AlertTriangle,label: "Still Inside",    roles: ["super_admin", "company_admin", "vendor_admin"] },
     ],
   },
   {
@@ -50,7 +50,7 @@ const NAV = [
     items: [
       { to: "/downloads", icon: DownloadIcon, label: "Downloads", roles: ["all"] },
       { to: "/whats-new", icon: Sparkles, label: "What's New", roles: ["all"] },
-      { to: "/settings/templates", icon: Settings, label: "Templates", roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/settings/templates", icon: Settings, label: "Message Templates", roles: ["super_admin", "company_admin", "vendor_admin"] },
       { to: "/billing", icon: CreditCard, label: "Plan & Billing", roles: ["company_admin", "vendor_admin"] },
       { to: "/subscriptions", icon: CreditCard, label: "Subscriptions", roles: ["super_admin"] },
     ],

@@ -5,6 +5,8 @@ import api from "@/lib/axios";
 import { useAuth } from "@/contexts/AuthContext";
 import { Plus, Search, Fingerprint, Download, FileText, Upload } from "lucide-react";
 import toast from "react-hot-toast";
+import ImportWorkersModal from "@/components/ImportWorkersModal";
+import PageHint from "@/components/PageHint";
 
 const STATUS_BADGE = {
   active:   "badge-green",
@@ -25,6 +27,7 @@ export default function WorkerList() {
   const [vendorId, setVendorId] = useState("");
   const [deployState, setDeployState] = useState("");
   const [aadhaarFilter, setAadhaarFilter] = useState("");
+  const [showImport, setShowImport] = useState(false);
   const [inside, setInside]     = useState(false);       // last event today = IN
   const [presentToday, setPresentToday] = useState(false); // any event today
 
@@ -114,30 +117,6 @@ export default function WorkerList() {
     }
   };
 
-  const importCsv = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = "";
-    if (!file) return;
-    if (!isVendorUser && !vendorId) {
-      toast.error("Pick the vendor these workers belong to (vendor dropdown below), then import.", { duration: 6000 });
-      return;
-    }
-    const fd = new FormData();
-    fd.append("file", file);
-    if (!isVendorUser) fd.append("vendor_id", vendorId);
-    try {
-      const r = await api.post("/workers-import", fd, { headers: { "Content-Type": "multipart/form-data" } });
-      const errs = r.data.errors ?? [];
-      toast.success(r.data.message, { duration: 6000 });
-      if (errs.length) toast(errs.slice(0, 3).join("\n"), { duration: 8000, icon: "⚠️" });
-      queryClient.invalidateQueries(["workers"]);
-    } catch (err) {
-      toast.error(err.response?.data?.message
-        ?? (err.response?.status === 403
-          ? "Bulk import is a Professional/Enterprise feature — see Plan & Billing."
-          : "Import failed — check the CSV format."));
-    }
-  };
 
   return (
     <div className="space-y-5">
@@ -151,10 +130,10 @@ export default function WorkerList() {
             <Download size={14} /> Export CSV
           </button>
           {canImport && (
-            <label className="btn-secondary text-sm cursor-pointer" title="CSV columns: name (required), emp_code, phone, joining_date, aadhaar_number (optional — verify later), pan_number, address, dob, gender, email. Professional+ feature">
-              <Upload size={14} /> Import CSV
-              <input type="file" accept=".csv" className="hidden" onChange={importCsv} />
-            </label>
+            <button className="btn-secondary text-sm" onClick={() => setShowImport(true)}
+              title="Bring your existing Excel sheet — Professional+ feature">
+              <Upload size={14} /> Import from Excel
+            </button>
           )}
           {canRegister && (
             <Link to="/workers/register" className="btn-primary">
@@ -164,6 +143,13 @@ export default function WorkerList() {
           )}
         </div>
       </div>
+
+      <PageHint id="workers">
+        This page is your worker register — click any row to open that worker's full record.
+        {canImport
+          ? <> Already have workers in an Excel sheet? Use <b>Import from Excel</b> — your existing file works as-is, and Aadhaar can be added later.</>
+          : <> Your vendors register workers (from their app or Excel import); workers deployed to you appear here automatically.</>}
+      </PageHint>
 
       {/* Deployment tabs */}
       <div className="flex gap-1 border-b border-gray-200">
@@ -438,6 +424,14 @@ export default function WorkerList() {
           )}
         </div>
       )}
+      <ImportWorkersModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={() => queryClient.invalidateQueries(["workers"])}
+        vendorOpts={vendorOpts}
+        isVendorUser={isVendorUser}
+        defaultVendorId={vendorId}
+      />
     </div>
   );
 }

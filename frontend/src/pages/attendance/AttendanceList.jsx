@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import api from "@/lib/axios";
 import AuthImg from "@/components/AuthImg";
+import PageHint from "@/components/PageHint";
 import { useAuth } from "@/contexts/AuthContext";
 import { Download, Printer, X, User } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
@@ -147,6 +148,11 @@ export default function AttendanceList() {
           />
         </div>
       </div>
+
+      <PageHint id="attendance">
+        One row = one worker's day, like your attendance register. Click a row to see the
+        photos and exact times. Use <b>Export CSV</b> to open any month back in Excel.
+      </PageHint>
 
       {/* Table */}
       <div className="card p-0 overflow-hidden">

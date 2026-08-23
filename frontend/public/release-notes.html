@@ -254,7 +254,17 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.13.0</span> Onboarding-grade bulk import <span class="date">23 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.14.0</span> Made for Excel people <span class="date">23 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Import wizard</b> — "Import from Excel" now opens a proper wizard: drag in the .xlsx you already have (no more converting to CSV), see exactly how your columns were understood and a preview of the rows BEFORE anything uploads, download a ready-made Excel template, and get a full imported / Aadhaar-pending / skipped report with every skipped row explained.</li>
+      <li><b>Plain language</b> — "Exceptions" is now "Still Inside" (workers who checked IN but not OUT); "Templates" is "Message Templates".</li>
+      <li><b>Spreadsheet-familiar tables</b> — subtle row striping and headers that stay visible while you scroll, on every list.</li>
+      <li><b>One-line page guides</b> — key pages open with a dismissable hint explaining the page in plain words (Workers, Attendance Log), written for people moving over from Excel and paper registers.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.13.0</span> Onboarding-grade bulk import <span class="date">23 Aug 2026</span></h3>
     <ul>
       <li><b>Import an existing workforce and start the same day</b> — CSV columns: name, emp code, phone, joining date, Aadhaar number (<b>now optional</b>), PAN, address (+ dob/gender/email). Headers are matched flexibly (Excel-style "Adhar No", "Date of Joining", "Mobile No" all work); dates accept dd/mm/yyyy.</li>
       <li><b>Explicit Aadhaar-verified flag</b> on every worker — rows imported without Aadhaar land as "Aadhaar pending"; adding the number later (Edit Worker or the app) verifies them. New Workers filter (verified / pending) + pending badges + export column track the backlog.</li>
