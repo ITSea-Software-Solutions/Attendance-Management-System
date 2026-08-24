@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>TrueCrew — Work Order / Order Confirmation</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',sans-serif;color:#1D2833;font-size:14px;line-height:1.65;background:#fff}
+  .page{max-width:790px;margin:0 auto;padding:44px 50px}
+  .head{display:flex;justify-content:space-between;border-bottom:3px solid #10685A;padding-bottom:12px;margin-bottom:20px}
+  .brand{font-size:20px;font-weight:800;color:#10685A}
+  .brand small{display:block;font-size:10px;letter-spacing:2px;color:#5A6470;font-weight:600}
+  h1{font-size:17px;margin:6px 0 14px;text-align:center;letter-spacing:.5px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:8px 0}
+  th,td{border:1px solid #DAD6CC;padding:7px 10px;text-align:left}
+  th{background:#E3EFEC;width:220px}
+  mark{background:#fef9c3;padding:0 3px}
+  .sig{display:flex;gap:40px;margin-top:30px}
+  .sig div{flex:1;border-top:1px solid #1D2833;padding-top:6px;font-size:12.5px}
+  .small{font-size:12px;color:#5A6470}
+  .accept{border:2px dashed #B07310;border-radius:10px;padding:12px 16px;margin-top:26px}
+  @media print{.page{padding:20px 6px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div class="brand">TRUECREW<small>VERIFIED WORKFORCE ATTENDANCE</small></div>
+    <div class="small" style="text-align:right">
+      <b><mark>[Your business legal name]</mark></b><br><mark>[Phone · email · GSTIN]</mark>
+    </div>
+  </div>
+
+  <h1>WORK ORDER / ORDER CONFIRMATION</h1>
+
+  <table>
+    <tr><th>Work Order No. / Date</th><td><mark>TC-WO-2026-001</mark> · <mark>[date]</mark></td></tr>
+    <tr><th>Against Proposal</th><td><mark>TC-PROP-2026-001</mark> dated <mark>[date]</mark></td></tr>
+    <tr><th>Client</th><td><b><mark>[Client company legal name]</mark></b>, <mark>[address]</mark><br>GSTIN: <mark>[client GSTIN / not registered]</mark> · Contact: <mark>[name, phone]</mark></td></tr>
+    <tr><th>Scope</th><td>TrueCrew <mark>[Professional]</mark> subscription — <mark>[12]</mark> months, onboarding (setup, Excel worker import, enrollment day, training) as per the proposal<mark>[, + N fingerprint scanners at cost]</mark>.</td></tr>
+    <tr><th>Contract value</th><td><b>₹ <mark>[total]</mark></b> <mark>[inclusive of 18% GST / GST not applicable]</mark></td></tr>
+    <tr><th>Payment terms</th><td>50% advance against proforma invoice; balance on go-live acceptance. Bank/UPI transfer.</td></tr>
+    <tr><th>Go-live target</th><td><mark>[date]</mark> (within <mark>[7]</mark> working days of advance + hardware)</td></tr>
+    <tr><th>Governing terms</th><td class="small">Terms of Service and Privacy Policy at <mark>[https://yourdomain.in]</mark>/legal/ — including data protection (DPDP Act 2023), support, availability and liability. Subscription auto-reminds before expiry; renewal by fresh order.</td></tr>
+  </table>
+
+  <p class="small">By signing, the Client confirms the order on the terms above and authorises
+  <mark>[Your business]</mark> to set up the system, import the Client's worker data supplied by the
+  Client/its contractors, and process it per the Privacy Policy.</p>
+
+  <div class="sig">
+    <div>Accepted for <b><mark>[Client company]</mark></b><br>Name, designation, signature &amp; stamp · Date</div>
+    <div>For <b><mark>[Your business]</mark></b><br>Name, signature · Date</div>
+  </div>
+
+  <div class="accept">
+    <b>Delivery acceptance (fill at go-live)</b><br>
+    <span class="small">System delivered, workers imported/enrolled, staff trained, and gate attendance working
+    satisfactorily as per the scope above. Balance payment is due as per terms.</span>
+    <div class="sig">
+      <div>For <b><mark>[Client company]</mark></b><br>Name, signature · Date: <mark>[go-live date]</mark></div>
+      <div>For <b><mark>[Your business]</mark></b><br>Name, signature · Date</div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>TrueCrew — Proforma Invoice</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',sans-serif;color:#1D2833;font-size:14px;line-height:1.6;background:#fff}
+  .page{max-width:790px;margin:0 auto;padding:44px 50px}
+  .head{display:flex;justify-content:space-between;border-bottom:3px solid #10685A;padding-bottom:12px;margin-bottom:16px}
+  .brand{font-size:20px;font-weight:800;color:#10685A}
+  .brand small{display:block;font-size:10px;letter-spacing:2px;color:#5A6470;font-weight:600}
+  h1{font-size:16px;text-align:center;margin:8px 0 4px;letter-spacing:1px}
+  .note{text-align:center;font-size:11.5px;color:#B07310;font-weight:700;margin-bottom:14px}
+  .parties{display:flex;gap:14px;margin:10px 0}
+  .party{flex:1;border:1px solid #DAD6CC;border-radius:8px;padding:10px 12px;font-size:13px}
+  .party b{display:block;font-size:11px;color:#5A6470;letter-spacing:1px;margin-bottom:4px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+  th,td{border:1px solid #DAD6CC;padding:7px 10px;text-align:left}
+  th{background:#E3EFEC}
+  td.r,th.r{text-align:right}
+  mark{background:#fef9c3;padding:0 3px}
+  .small{font-size:12px;color:#5A6470}
+  .bank{border:2px solid #10685A;border-radius:10px;padding:12px 16px;margin-top:14px;font-size:13.5px}
+  @media print{.page{padding:20px 6px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div class="brand">TRUECREW<small>VERIFIED WORKFORCE ATTENDANCE</small></div>
+    <div class="small" style="text-align:right">
+      <b><mark>[Your business legal name]</mark></b><br><mark>[Address]</mark><br>
+      <mark>[Phone · email]</mark><br>PAN: <mark>[PAN]</mark> · GSTIN: <mark>[GSTIN / —]</mark>
+    </div>
+  </div>
+
+  <h1>PROFORMA INVOICE</h1>
+  <p class="note">NOT A TAX INVOICE — issued for advance payment against order</p>
+
+  <div class="parties">
+    <div class="party"><b>BILL TO</b>
+      <b2><mark>[Client company legal name]</mark></b2><br>
+      <mark>[Address]</mark><br>GSTIN: <mark>[client GSTIN / not registered]</mark>
+    </div>
+    <div class="party"><b>DETAILS</b>
+      Proforma No: <mark>TC-PI-2026-001</mark><br>
+      Date: <mark>[date]</mark><br>
+      Ref: Work Order <mark>TC-WO-2026-001</mark> / Proposal <mark>TC-PROP-2026-001</mark>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>#</th><th>Description</th><th class="r">Amount (₹)</th></tr>
+    <tr><td>1</td><td>TrueCrew <mark>[Professional]</mark> subscription — <mark>[12]</mark> months<mark>[, + onboarding / + N scanners]</mark> (as per work order)</td><td class="r"><mark>[contract subtotal]</mark></td></tr>
+    <tr><td colspan="2" class="r">GST @ 18% (SAC <mark>[997331]</mark>) — <i>omit if not GST-registered</i></td><td class="r"><mark>[gst]</mark></td></tr>
+    <tr><th colspan="2" class="r">Contract total</th><th class="r"><mark>[total]</mark></th></tr>
+    <tr><th colspan="2" class="r">ADVANCE NOW DUE (50%)</th><th class="r"><b>₹ <mark>[advance]</mark></b></th></tr>
+  </table>
+  <p class="small">Amount in words: <mark>[Rupees ... only]</mark>. Balance ₹<mark>[balance]</mark> due on
+  go-live acceptance; a GST tax invoice for the full value will be issued at supply.</p>
+
+  <div class="bank">
+    <b>Pay to:</b> <mark>[Account name]</mark> · A/c <mark>[number]</mark> · IFSC <mark>[IFSC]</mark> · <mark>[Bank, branch]</mark><br>
+    <b>UPI:</b> <mark>[yourbusiness@upi]</mark> &nbsp;<span class="small">Please share the UTR/reference after payment.</span>
+  </div>
+
+  <p class="small" style="margin-top:18px">For <b><mark>[Your business]</mark></b> — <mark>[Name]</mark>, Authorised Signatory</p>
+</div>
+</body>
+</html>

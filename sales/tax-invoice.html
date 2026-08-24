@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>TrueCrew — Tax Invoice</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Segoe UI',sans-serif;color:#1D2833;font-size:14px;line-height:1.6;background:#fff}
+  .page{max-width:790px;margin:0 auto;padding:44px 50px}
+  .head{display:flex;justify-content:space-between;border-bottom:3px solid #10685A;padding-bottom:12px;margin-bottom:16px}
+  .brand{font-size:20px;font-weight:800;color:#10685A}
+  .brand small{display:block;font-size:10px;letter-spacing:2px;color:#5A6470;font-weight:600}
+  h1{font-size:16px;text-align:center;margin:8px 0 14px;letter-spacing:1px}
+  .parties{display:flex;gap:14px;margin:10px 0}
+  .party{flex:1;border:1px solid #DAD6CC;border-radius:8px;padding:10px 12px;font-size:13px}
+  .party b{display:block;font-size:11px;color:#5A6470;letter-spacing:1px;margin-bottom:4px}
+  table{width:100%;border-collapse:collapse;font-size:13.5px;margin:10px 0}
+  th,td{border:1px solid #DAD6CC;padding:7px 10px;text-align:left}
+  th{background:#E3EFEC}
+  td.r,th.r{text-align:right}
+  mark{background:#fef9c3;padding:0 3px}
+  .small{font-size:12px;color:#5A6470}
+  .decl{border:1px solid #DAD6CC;border-radius:8px;padding:10px 12px;font-size:12px;color:#5A6470;margin-top:12px}
+  @media print{.page{padding:20px 6px}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="head">
+    <div class="brand">TRUECREW<small>VERIFIED WORKFORCE ATTENDANCE</small></div>
+    <div class="small" style="text-align:right">
+      <b><mark>[Your business legal name]</mark></b><br><mark>[Address]</mark><br>
+      <mark>[Phone · email]</mark><br>PAN: <mark>[PAN]</mark> · GSTIN: <mark>[GSTIN]</mark>
+    </div>
+  </div>
+
+  <h1>TAX INVOICE</h1>
+
+  <div class="parties">
+    <div class="party"><b>BILL TO</b>
+      <b2><mark>[Client company legal name]</mark></b2><br>
+      <mark>[Address]</mark><br>
+      GSTIN: <mark>[client GSTIN]</mark> · State: <mark>[state, code]</mark>
+    </div>
+    <div class="party"><b>DETAILS</b>
+      Invoice No: <mark>TC-INV-2026-001</mark><br>
+      Date: <mark>[date — at/within 30 days of go-live]</mark><br>
+      Ref: WO <mark>TC-WO-2026-001</mark> · Place of supply: <mark>[state]</mark>
+    </div>
+  </div>
+
+  <table>
+    <tr><th>#</th><th>Description</th><th>SAC</th><th class="r">Amount (₹)</th></tr>
+    <tr><td>1</td><td>TrueCrew <mark>[Professional]</mark> software subscription — <mark>[12]</mark> months
+      (<mark>[start date]</mark> to <mark>[end date]</mark>)</td><td><mark>997331</mark></td><td class="r"><mark>[amount]</mark></td></tr>
+    <tr><td>2</td><td>Onboarding: setup, worker import, enrollment, training</td><td><mark>997331</mark></td><td class="r"><mark>[amount / 0]</mark></td></tr>
+    <tr><td>3</td><td><mark>[Fingerprint scanners — N units (if supplied; HSN 8471 / confirm with CA)]</mark></td><td><mark>[HSN]</mark></td><td class="r"><mark>[amount]</mark></td></tr>
+    <tr><th colspan="3" class="r">Taxable value</th><th class="r"><mark>[subtotal]</mark></th></tr>
+    <tr><td colspan="3" class="r">CGST @ 9% <span class="small">(same-state supply)</span></td><td class="r"><mark>[cgst]</mark></td></tr>
+    <tr><td colspan="3" class="r">SGST @ 9%</td><td class="r"><mark>[sgst]</mark></td></tr>
+    <tr><td colspan="3" class="r"><i>— or IGST @ 18% for inter-state supply —</i></td><td class="r"><mark>[igst]</mark></td></tr>
+    <tr><th colspan="3" class="r">Invoice total</th><th class="r"><b>₹ <mark>[total]</mark></b></th></tr>
+    <tr><td colspan="3" class="r">Less: advance received (Proforma <mark>TC-PI-2026-001</mark>, ref <mark>[UTR]</mark>)</td><td class="r">− <mark>[advance]</mark></td></tr>
+    <tr><th colspan="3" class="r">BALANCE DUE</th><th class="r"><b>₹ <mark>[balance]</mark></b></th></tr>
+  </table>
+
+  <p class="small">Amount in words: <mark>[Rupees ... only]</mark> · Payment: bank/UPI as per
+  details below · Due: <mark>[on receipt / 7 days]</mark>.</p>
+
+  <p class="small"><b>Pay to:</b> <mark>[Account name]</mark> · A/c <mark>[number]</mark> · IFSC <mark>[IFSC]</mark> · UPI <mark>[yourbusiness@upi]</mark></p>
+
+  <div class="decl">
+    <b>Notes</b> — 1. Subject to <mark>[city]</mark> jurisdiction; services per Terms of Service at
+    <mark>[https://yourdomain.in]</mark>/legal/. 2. If TDS is deducted u/s 194J, please share Form 16A.
+    3. <i>If you are NOT GST-registered, delete the GST lines and add:</i>
+    "GST not applicable — supplier not registered under the CGST Act, 2017."
+    <i>Confirm the SAC/HSN codes and tax treatment with your CA before first use.</i>
+  </div>
+
+  <p class="small" style="margin-top:16px">For <b><mark>[Your business]</mark></b> — <mark>[Name]</mark>, Authorised Signatory</p>
+</div>
+</body>
+</html>
