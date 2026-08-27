@@ -53,6 +53,7 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
   String? _verifyNote;
 
   EnrollCapture? _fp;
+  EnrollCapture? _fp2; // optional backup finger — either verifies at the gate
   bool _fpBusy = false;
   String? _photoPath;
   bool _photoBusy = false;
@@ -214,11 +215,15 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
     }
   }
 
-  Future<void> _captureFingerprint() async {
+  Future<void> _captureFingerprint({bool backup = false}) async {
     setState(() => _fpBusy = true);
     final r = await BiometricDriver.enrollCapture();
     setState(() {
-      _fp = r;
+      if (backup) {
+        _fp2 = r;
+      } else {
+        _fp = r;
+      }
       _fpBusy = false;
       if (r == null) {
         _error = BiometricDriver.lastEnrollError ??
@@ -334,6 +339,8 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
       gender: _gender,
       fingerprintTemplate: _fp!.template,
       fingerprintQuality: _fp!.quality,
+      fingerprintTemplate2: _fp2?.template,
+      fingerprintQuality2: _fp2?.quality,
       fingerprintSimulated: _fp!.simulated,
       photoPath: _photoPath,
       aadhaarPdfPath: _pdfPath,
@@ -505,6 +512,31 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
                             ? (_fpBusy ? 'Scanning…' : 'Scan fingerprint')
                             : 'Re-scan'),
                       ),
+                      if (_fp != null) ...[
+                        const SizedBox(height: 10),
+                        Row(children: [
+                          Expanded(
+                            child: Text(
+                              _fp2 == null
+                                  ? 'Backup finger (recommended): enroll a SECOND finger — e.g. the other thumb. If one finger is cut, bandaged or worn, the other still marks attendance.'
+                                  : 'Backup finger enrolled (Q ${_fp2!.quality}). Either finger verifies at the gate.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: _fpBusy
+                                ? null
+                                : () => _captureFingerprint(backup: true),
+                            icon: Icon(
+                                _fp2 == null ? Icons.fingerprint : Icons.check,
+                                size: 16),
+                            label: Text(_fp2 == null
+                                ? 'Add backup finger'
+                                : 'Re-scan backup'),
+                          ),
+                        ]),
+                      ],
                     ],
                   ),
                 ),

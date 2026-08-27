@@ -84,6 +84,12 @@ class SyncController extends Controller
                         try { return decrypt($w->fingerprint_template); } catch (\Throwable) { return null; }
                     })()
                     : null,
+                // Backup finger — gate matches against ANY enrolled finger.
+                'fingerprint_template_2' => $withTemplates && $w->fingerprint_template_2
+                    ? (function () use ($w) {
+                        try { return decrypt($w->fingerprint_template_2); } catch (\Throwable) { return null; }
+                    })()
+                    : null,
             ]),
             'assignments' => $assignments->map(fn ($a) => [
                 'id'           => $a->id,
@@ -130,6 +136,8 @@ class SyncController extends Controller
             'registrations.*.consent'        => 'nullable|boolean',
             'registrations.*.fingerprint_template' => 'nullable|string',
             'registrations.*.fingerprint_quality'  => 'nullable|integer|min:0|max:100',
+            'registrations.*.fingerprint_template_2' => 'nullable|string',
+            'registrations.*.fingerprint_quality_2'  => 'nullable|integer|min:0|max:100',
             'marks'                          => 'array',
             'marks.*.uuid'                   => 'required|uuid',
             'marks.*.worker_id'              => 'nullable|integer',
@@ -220,6 +228,10 @@ class SyncController extends Controller
             // SIM elsewhere) — encrypted at rest exactly like web enrollment.
             'fingerprint_template'    => $hasFp ? encrypt($reg['fingerprint_template']) : null,
             'fingerprint_quality'     => $hasFp ? ($reg['fingerprint_quality'] ?? null) : null,
+            'fingerprint_template_2'  => $hasFp && ! empty($reg['fingerprint_template_2'])
+                ? encrypt($reg['fingerprint_template_2']) : null,
+            'fingerprint_quality_2'   => $hasFp && ! empty($reg['fingerprint_template_2'])
+                ? ($reg['fingerprint_quality_2'] ?? null) : null,
             'fingerprint_enrolled_at' => $hasFp ? now() : null,
             'status'                => $hasFp ? Worker::STATUS_ACTIVE : Worker::STATUS_PENDING,
             'registered_by'         => $user->id,

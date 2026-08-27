@@ -73,6 +73,19 @@ abstract class BiometricDriver {
   /// rescan rather than pick whoever edged ahead.
   static const int matchMargin = 10;
 
+  /// All valid enrolled templates of a candidate — primary + backup finger.
+  /// ANY of them identifies the worker; loops take the worker's best score,
+  /// so one score per WORKER feeds the cross-worker ambiguity margin (a
+  /// worker's own two fingers never look like two different people).
+  static List<String> templatesOf(Map<String, Object?> w) {
+    final out = <String>[];
+    for (final k in ['fingerprint_template', 'fingerprint_template_2']) {
+      final t = w[k] as String?;
+      if (t != null && t.length >= 80 && !t.startsWith('U0lNRk1EOg')) out.add(t);
+    }
+    return out;
+  }
+
   static Future<BiometricDriver> best() async {
     if (Platform.isWindows) {
       final direct = SgfpDirectDriver();
@@ -379,24 +392,27 @@ class SgibiosrvDriver implements BiometricDriver {
     var bestScore = -1;
     var secondScore = -1;
     for (final w in candidates) {
-      final stored = w['fingerprint_template'] as String?;
-      if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
-      try {
-        final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIMatchScore',
-            data: 'template1=${Uri.encodeComponent(live)}'
-                '&template2=${Uri.encodeComponent(stored)}'
-                '&licstr=&templateFormat=ISO',
-            options: Options(contentType: 'text/plain;charset=UTF-8'));
-        final data = r.data is Map ? r.data as Map : {};
-        final score = (data['MatchingScore'] as num?)?.toInt() ?? -1;
-        if (score > bestScore) {
-          secondScore = bestScore;
-          bestScore = score;
-          best = w;
-        } else if (score > secondScore) {
-          secondScore = score;
-        }
-      } catch (_) {/* keep trying others */}
+      var score = -1; // worker's best across enrolled fingers
+      for (final stored in BiometricDriver.templatesOf(w)) {
+        try {
+          final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIMatchScore',
+              data: 'template1=${Uri.encodeComponent(live)}'
+                  '&template2=${Uri.encodeComponent(stored)}'
+                  '&licstr=&templateFormat=ISO',
+              options: Options(contentType: 'text/plain;charset=UTF-8'));
+          final data = r.data is Map ? r.data as Map : {};
+          final s = (data['MatchingScore'] as num?)?.toInt() ?? -1;
+          if (s > score) score = s;
+        } catch (_) {/* keep trying others */}
+      }
+      if (score < 0) continue;
+      if (score > bestScore) {
+        secondScore = bestScore;
+        bestScore = score;
+        best = w;
+      } else if (score > secondScore) {
+        secondScore = score;
+      }
     }
     if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
     if (secondScore >= 0 &&
@@ -423,10 +439,14 @@ class SgfpDirectDriver implements BiometricDriver {
     var bestScore = -1;
     var secondScore = -1;
     for (final w in candidates) {
-      final stored = w['fingerprint_template'] as String?;
       // Skip missing/simulated/garbage templates — only real enrollments match.
-      if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
-      final score = SgfpDirect.instance.matchScore(live, stored);
+      final stored2 = BiometricDriver.templatesOf(w);
+      if (stored2.isEmpty) continue;
+      var score = -1;
+      for (final stored in stored2) {
+        final s = SgfpDirect.instance.matchScore(live, stored);
+        if (s > score) score = s;
+      }
       if (score > bestScore) {
         secondScore = bestScore;
         bestScore = score;
@@ -508,20 +528,23 @@ class MantraAndroidDriver implements BiometricDriver {
       var bestRaw = -1;
       var secondRaw = -1;
       for (final w in candidates) {
-        final stored = w['fingerprint_template'] as String?;
-        if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
-        try {
-          final m = Map<String, dynamic>.from(await _ch
-              .invokeMethod('mantraMatch', {'t1': live, 't2': stored}) as Map);
-          final raw = (m['raw'] as num?)?.toInt() ?? -1;
-          if (raw > bestRaw) {
-            secondRaw = bestRaw;
-            bestRaw = raw;
-            best = w;
-          } else if (raw > secondRaw) {
-            secondRaw = raw;
-          }
-        } catch (_) {/* try next */}
+        var raw = -1; // worker's best across enrolled fingers
+        for (final stored in BiometricDriver.templatesOf(w)) {
+          try {
+            final m = Map<String, dynamic>.from(await _ch
+                .invokeMethod('mantraMatch', {'t1': live, 't2': stored}) as Map);
+            final r2 = (m['raw'] as num?)?.toInt() ?? -1;
+            if (r2 > raw) raw = r2;
+          } catch (_) {/* try next */}
+        }
+        if (raw < 0) continue;
+        if (raw > bestRaw) {
+          secondRaw = bestRaw;
+          bestRaw = raw;
+          best = w;
+        } else if (raw > secondRaw) {
+          secondRaw = raw;
+        }
       }
       if (best == null || bestRaw < rawThreshold) return null;
       if (secondRaw >= 0 && bestRaw - secondRaw < rawMargin) {
@@ -565,20 +588,23 @@ class AndroidSgDriver implements BiometricDriver {
       var bestScore = -1;
       var secondScore = -1;
       for (final w in candidates) {
-        final stored = w['fingerprint_template'] as String?;
-        if (stored == null || stored.length < 80 || stored.startsWith('U0lNRk1EOg')) continue;
-        try {
-          final m = Map<String, dynamic>.from(await _ch.invokeMethod(
-              'matchScore', {'t1': live, 't2': stored}) as Map);
-          final score = (m['score'] as num?)?.toInt() ?? -1;
-          if (score > bestScore) {
-            secondScore = bestScore;
-            bestScore = score;
-            best = w;
-          } else if (score > secondScore) {
-            secondScore = score;
-          }
-        } catch (_) {/* try next */}
+        var score = -1; // worker's best across enrolled fingers
+        for (final stored in BiometricDriver.templatesOf(w)) {
+          try {
+            final m = Map<String, dynamic>.from(await _ch.invokeMethod(
+                'matchScore', {'t1': live, 't2': stored}) as Map);
+            final s2 = (m['score'] as num?)?.toInt() ?? -1;
+            if (s2 > score) score = s2;
+          } catch (_) {/* try next */}
+        }
+        if (score < 0) continue;
+        if (score > bestScore) {
+          secondScore = bestScore;
+          bestScore = score;
+          best = w;
+        } else if (score > secondScore) {
+          secondScore = score;
+        }
       }
       if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
       if (secondScore >= 0 &&

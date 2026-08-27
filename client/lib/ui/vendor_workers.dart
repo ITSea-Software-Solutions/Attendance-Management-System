@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import '../biometric/driver.dart';
 import '../core/scope.dart';
 import 'register_worker.dart';
 
@@ -378,6 +379,13 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
                       : 'Activate'),
                 ),
                 OutlinedButton.icon(
+                  onPressed: serverId != null && app.online
+                      ? () => _enrollBackupFinger(context, serverId)
+                      : null,
+                  icon: const Icon(Icons.fingerprint, size: 18),
+                  label: const Text('Add backup finger'),
+                ),
+                OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
                   onPressed: (serverId == null || app.online)
                       ? () => _confirmDelete(context, w, serverId)
@@ -391,6 +399,40 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
         ),
       ),
     );
+  }
+
+  /// Capture a SECOND finger for an existing worker and enroll it as the
+  /// backup — either finger then verifies at the gate.
+  Future<void> _enrollBackupFinger(
+      BuildContext sheetContext, int serverId) async {
+    final app = AppScope.of(context);
+    if (sheetContext.mounted) Navigator.pop(sheetContext);
+    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Place the BACKUP finger (e.g. the other thumb) on the scanner...')));
+    final cap = await BiometricDriver.enrollCapture();
+    if (!mounted) return;
+    if (cap == null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(BiometricDriver.lastEnrollError ??
+              'Capture failed — check the scanner and try again.')));
+      return;
+    }
+    if (cap.simulated) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content:
+              Text('No real scanner detected — backup finger needs a real capture.')));
+      return;
+    }
+    String msg;
+    try {
+      msg = await app.enrollWorkerFinger(serverId, cap.template, cap.quality,
+          slot: 2);
+    } catch (e) {
+      msg = AppState.apiMessage(e, 'Could not enroll the backup finger.');
+    }
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
+    setState(() {});
   }
 
   /// Run an online admin action, surface the server's message, refresh.

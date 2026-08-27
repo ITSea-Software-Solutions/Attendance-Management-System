@@ -46,9 +46,10 @@ class Worker extends Model
         'aadhaar_pdf_path',
         'aadhaar_hash',
         'fingerprint_template',
+        'fingerprint_template_2',
     ];
 
-    protected $appends = ['photo_url', 'has_aadhaar_pdf'];
+    protected $appends = ['photo_url', 'has_aadhaar_pdf', 'fingers_enrolled'];
 
     protected $casts = [
         'dob'                    => 'date',
@@ -119,6 +120,12 @@ class Worker extends Model
     public function hasFingerprint(): bool
     {
         return !empty($this->fingerprint_template);
+    }
+
+    public function getFingersEnrolledAttribute(): int
+    {
+        return (int) !empty($this->fingerprint_template)
+             + (int) !empty($this->fingerprint_template_2);
     }
 
     // Active = fingerprint enrolled (any ID document is acceptable)

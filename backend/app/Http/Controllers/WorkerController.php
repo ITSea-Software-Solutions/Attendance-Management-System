@@ -725,7 +725,9 @@ class WorkerController extends Controller
         $data = $request->validate([
             'template' => 'required|string',
             'quality'  => 'required|integer|min:0|max:100',
+            'slot'     => 'nullable|integer|in:1,2', // 2 = backup finger (any enrolled finger verifies at the gate)
         ]);
+        $slot = (int) ($data['slot'] ?? 1);
 
         // Enrollment quality floor: a poor enrollment haunts every future
         // match. SecuGen quality < 30 means smudged/partial — rescan now.
@@ -735,15 +737,26 @@ class WorkerController extends Controller
             ], 422);
         }
 
-        $worker->forceFill([
-            'fingerprint_template'    => encrypt($data['template']),
-            'fingerprint_quality'     => $data['quality'],
-            'fingerprint_enrolled_at' => now(),
-            'status'                  => Worker::STATUS_ACTIVE, // active once fingerprint is enrolled
-        ])->save();
+        if ($slot === 2) {
+            if (empty($worker->fingerprint_template)) {
+                return response()->json(['message' => 'Enroll the primary finger first.'], 422);
+            }
+            $worker->forceFill([
+                'fingerprint_template_2' => encrypt($data['template']),
+                'fingerprint_quality_2'  => $data['quality'],
+            ])->save();
+        } else {
+            $worker->forceFill([
+                'fingerprint_template'    => encrypt($data['template']),
+                'fingerprint_quality'     => $data['quality'],
+                'fingerprint_enrolled_at' => now(),
+                'status'                  => Worker::STATUS_ACTIVE, // active once fingerprint is enrolled
+            ])->save();
+        }
 
         $this->audit->log($request->user()->id, 'fingerprint_enrolled', Worker::class, $worker->id, [
             'quality' => $data['quality'],
+            'slot'    => $slot,
         ]);
 
         return response()->json([
@@ -766,9 +779,22 @@ class WorkerController extends Controller
             return $blocked;
         }
 
+        // slot=2 removes only the backup finger; default deregisters biometrics fully.
+        if ((int) $request->input('slot') === 2) {
+            $worker->forceFill([
+                'fingerprint_template_2' => null,
+                'fingerprint_quality_2'  => null,
+            ])->save();
+            $this->audit->log($request->user()->id, 'fingerprint_deleted', Worker::class, $worker->id, ['slot' => 2]);
+
+            return response()->json(['message' => 'Backup fingerprint removed.']);
+        }
+
         $worker->forceFill([
             'fingerprint_template'    => null,
             'fingerprint_quality'     => null,
+            'fingerprint_template_2'  => null,
+            'fingerprint_quality_2'   => null,
             'fingerprint_enrolled_at' => null,
             'status'                  => Worker::STATUS_PENDING,
         ])->save();

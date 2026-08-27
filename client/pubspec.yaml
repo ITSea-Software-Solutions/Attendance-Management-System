@@ -1,7 +1,7 @@
 name: ams_client
 description: "TrueCrew — Every worker verified — Aadhaar + biometric attendance (offline-first)."
 publish_to: "none"
-version: 0.9.34+35
+version: 0.9.35+36
 
 environment:
   sdk: ^3.5.0

@@ -47,7 +47,16 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.34</span> Visitor gate passes <span class="date">22 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.35</span> Backup finger <span class="date">27 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Enroll TWO fingers per worker</b> — registration now offers a backup finger (e.g. the other thumb) right after the first scan, and existing workers get an "Add backup finger" action in the worker sheet. If a finger is cut, bandaged or worn, the other still marks attendance.</li>
+      <li><b>Any enrolled finger verifies at the gate</b> — every scanner driver (SecuGen Windows, SecuGen Android, Mantra) matches the live scan against both enrolled fingers and takes the worker's best score. Thresholds and the two-worker ambiguity guard are unchanged — a worker's own two fingers can never look like two different people.</li>
+      <li>Backup fingers ride the normal offline sync — captured offline at registration, pushed with the worker, and delivered to every gate device.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.34</span> Visitor gate passes <span class="date">22 Aug 2026</span></h3>
     <ul>
       <li><b>Visitors tab for gate users</b> — create a gate pass in seconds: guest name, phone, live photo, and whom they came to meet (from the HR-maintained host list). The host is asked on WhatsApp (reply YES/NO) where configured; a phone answer is recorded as a manual decision with a mandatory note.</li>
       <li><b>Entry only after approval</b> — the pass tracks waiting → approved/denied → inside → left, with entry/exit times and the guest photo on the portal's new Visitors page.</li>
@@ -254,7 +263,15 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.14.0</span> Made for Excel people <span class="date">23 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.15.0</span> Backup finger &amp; Excel export <span class="date">27 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Two fingers per worker</b> — the registration wizard offers a backup finger after the first enrolls, worker records show "2 fingers enrolled", and the gate accepts whichever enrolled finger matches. Server-side verification (web gate) checks both; removing biometrics clears both.</li>
+      <li><b>Export to real Excel</b> — the Workers page now downloads a proper .xlsx workbook (sized columns, opens perfectly in Excel) alongside CSV. Exported files re-import cleanly through the import wizard — a true round trip.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.14.0</span> Made for Excel people <span class="date">23 Aug 2026</span></h3>
     <ul>
       <li><b>Import wizard</b> — "Import from Excel" now opens a proper wizard: drag in the .xlsx you already have (no more converting to CSV), see exactly how your columns were understood and a preview of the rows BEFORE anything uploads, download a ready-made Excel template, and get a full imported / Aadhaar-pending / skipped report with every skipped row explained.</li>
       <li><b>Plain language</b> — "Exceptions" is now "Still Inside" (workers who checked IN but not OUT); "Templates" is "Message Templates".</li>
@@ -303,7 +320,7 @@
   </div>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.9.0</span> Live Board <span class="date">18 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.9.0</span> Live Board <span class="date">18 Aug 2026</span></h3>
     <ul>
       <li><b>The whole site at a glance</b> — new Live Board page for every role: how many are inside right now (with occupancy vs expected), per gate and department with worker photos, today's hour-by-hour IN/OUT flow, and a live activity feed. Auto-refreshes every 10 seconds.</li>
       <li>Role-aware: companies see their site, gate users their own gate, vendors their own workers. Night-shift safe — workers who checked in before midnight stay on the board until they check out.</li>

@@ -133,6 +133,8 @@ class AppState extends ChangeNotifier {
                 'consent': true,
                 'fingerprint_template': w['fingerprint_template'],
                 'fingerprint_quality': w['fingerprint_quality'],
+                'fingerprint_template_2': w['fingerprint_template_2'],
+                'fingerprint_quality_2': w['fingerprint_quality_2'],
               })
           .toList(),
       'marks': marks
@@ -160,6 +162,7 @@ class AppState extends ChangeNotifier {
                   'aadhaar_masked': item['aadhaar_number_masked'],
                   'aadhaar_number': null, // discard raw number once server has it
                   'fingerprint_template': null, // server holds it encrypted now
+                  'fingerprint_template_2': null,
                   'sync_state': 'synced',
                   'sync_error': null,
                 }
@@ -278,6 +281,7 @@ class AppState extends ChangeNotifier {
         // Enrolled template (marking-capable roles only — server decides):
         // enables OFFLINE 1:N fingerprint matching at this gate device.
         'fingerprint_template': w['fingerprint_template'],
+        'fingerprint_template_2': w['fingerprint_template_2'],
         'sync_state': 'synced',
         'sync_error': null,
         'updated_at': w['updated_at']?.toString(),
@@ -606,6 +610,18 @@ class AppState extends ChangeNotifier {
     return (r.data is Map ? (r.data['message'] ?? 'Done.') : 'Done.').toString();
   }
 
+  /// Enroll a fingerprint for an EXISTING worker (online). slot 2 = backup
+  /// finger — the gate then verifies against whichever finger matches.
+  Future<String> enrollWorkerFinger(
+      int serverId, String template, int quality, {int slot = 1}) async {
+    final api = await Api.client();
+    final r = await api.post('/workers/$serverId/fingerprint',
+        data: {'template': template, 'quality': quality, 'slot': slot});
+    await sync();
+    return (r.data is Map ? (r.data['message'] ?? 'Enrolled.') : 'Enrolled.')
+        .toString();
+  }
+
   /// Delete a worker (online). The server blocks while deployed or checked
   /// IN; on success we prune the local cache (pull only upserts, never prunes).
   Future<String> deleteWorker(int serverId) async {
@@ -675,6 +691,8 @@ class AppState extends ChangeNotifier {
     String? phone,
     String? fingerprintTemplate,
     int? fingerprintQuality,
+    String? fingerprintTemplate2,
+    int? fingerprintQuality2,
     bool fingerprintSimulated = false,
     String? photoPath,
     String? aadhaarPdfPath,
@@ -697,6 +715,8 @@ class AppState extends ChangeNotifier {
       'phone': phone,
       'fingerprint_template': fingerprintTemplate,
       'fingerprint_quality': fingerprintQuality,
+      'fingerprint_template_2': fingerprintTemplate2,
+      'fingerprint_quality_2': fingerprintQuality2,
       'fp_simulated': fingerprintSimulated ? 1 : 0,
       'photo_path': photoPath,
       'photo_synced': 0,

@@ -541,8 +541,22 @@ class AttendanceController extends Controller
             }
             $probe = $request->input('probe_template');
             foreach ($workers as $worker) {
-                $result = $this->biometric->matchTemplates($probe, decrypt($worker->fingerprint_template));
-                $score  = (int) ($result['score'] ?? 0);
+                // Any enrolled finger identifies the worker: score the probe
+                // against both templates, keep the worker's best. One score
+                // per WORKER, so a worker's own two fingers never trip the
+                // cross-worker ambiguity margin below.
+                $score = 0;
+                foreach ([$worker->fingerprint_template, $worker->fingerprint_template_2] as $enc) {
+                    if (empty($enc)) {
+                        continue;
+                    }
+                    try {
+                        $result = $this->biometric->matchTemplates($probe, decrypt($enc));
+                        $score  = max($score, (int) ($result['score'] ?? 0));
+                    } catch (\Throwable) {
+                        // undecryptable template — skip this finger
+                    }
+                }
                 if ($score > $best['score']) {
                     $second = $best['score'];
                     $best   = ['worker' => $worker, 'score' => $score];
@@ -644,11 +658,21 @@ class AttendanceController extends Controller
                 $worker = Worker::findOrFail($data['worker_id']);
                 abort_unless($worker->fingerprint_template, 422, 'Worker has no enrolled fingerprint.');
                 abort_unless(! empty($data['probe_template']), 422, 'Fingerprint probe required.');
-                $result = $this->biometric->matchTemplates($data['probe_template'], decrypt($worker->fingerprint_template));
-                if (! ($result['matched'] ?? false)) {
+                // Verify against ANY enrolled finger (primary or backup).
+                $matched = false;
+                foreach ([$worker->fingerprint_template, $worker->fingerprint_template_2] as $enc) {
+                    if (empty($enc)) {
+                        continue;
+                    }
+                    $result = $this->biometric->matchTemplates($data['probe_template'], decrypt($enc));
+                    if ($result['matched'] ?? false) {
+                        $matched     = true;
+                        $serverScore = max((int) ($serverScore ?? 0), (int) $result['score']);
+                    }
+                }
+                if (! $matched) {
                     return response()->json(['message' => 'Fingerprint did not match this worker.'], 422);
                 }
-                $serverScore = $result['score'];
             }
         }
 

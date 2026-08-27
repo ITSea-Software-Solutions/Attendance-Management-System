@@ -102,12 +102,29 @@ export default function WorkerList() {
     onError:    (e) => toast.error(e.response?.data?.message ?? "Delete failed."),
   });
 
-  const exportCsv = async () => {
+  // Export the server's authoritative CSV as-is, or converted to a real
+  // Excel workbook (same columns; headers re-import cleanly via the wizard).
+  const exportWorkers = async (asExcel) => {
     try {
       const r = await api.get("/workers-export", { responseType: "blob" });
+      const stamp = new Date().toISOString().slice(0, 10);
+      if (asExcel) {
+        const XLSX = await import("xlsx");
+        const wb = XLSX.read(await r.data.text(), { type: "string", raw: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        // Column widths from content so the sheet opens readable in Excel.
+        ws["!cols"] = (rows[0] || []).map((_, c) => ({
+          wch: Math.min(32, Math.max(10, ...rows.map((row) => String(row?.[c] ?? "").length + 2))),
+        }));
+        const out = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(out, ws, "Workers");
+        XLSX.writeFile(out, `truecrew-workers-${stamp}.xlsx`);
+        return;
+      }
       const url = URL.createObjectURL(r.data);
       const a = document.createElement("a");
-      a.href = url; a.download = `truecrew-workers-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.href = url; a.download = `truecrew-workers-${stamp}.csv`;
       document.body.appendChild(a); a.click(); a.remove();
       URL.revokeObjectURL(url);
     } catch (e) {
@@ -126,8 +143,12 @@ export default function WorkerList() {
           <p className="text-gray-500 text-sm mt-0.5">Registered labor / workers</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <button className="btn-secondary text-sm" onClick={exportCsv} title="Professional+ feature">
-            <Download size={14} /> Export CSV
+          <button className="btn-secondary text-sm" onClick={() => exportWorkers(true)}
+            title="Download as an Excel workbook — Professional+ feature">
+            <Download size={14} /> Export Excel
+          </button>
+          <button className="btn-secondary text-sm" onClick={() => exportWorkers(false)} title="Professional+ feature">
+            <Download size={14} /> CSV
           </button>
           {canImport && (
             <button className="btn-secondary text-sm" onClick={() => setShowImport(true)}

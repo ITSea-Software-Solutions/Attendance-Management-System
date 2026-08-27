@@ -924,7 +924,19 @@ frontend/src/
      8. VENDOR-COMPANY APPROVAL FLOW
 ══════════════════════════════════════════════════ -->
 <section id="biometrics">
-<h2>Biometric Matching Internals <span style="font-size:.6em;font-weight:600;color:#64748b">(audited 17 Aug 2026 · v1.7.2)</span></h2>
+<h2>Biometric Matching Internals <span style="font-size:.6em;font-weight:600;color:#64748b">(audited 17 Aug 2026 · v1.7.2 · multi-finger v1.15.0)</span></h2>
+<div class="callout" style="border-left:3px solid #10b981;padding:10px 14px;margin:10px 0;background:#f0fdf4">
+<b>Multi-finger (v1.15.0 / apps v0.9.35).</b> Each worker can enroll <b>two</b> fingers
+(<code>workers.fingerprint_template</code> + <code>fingerprint_template_2</code>, both AES-encrypted;
+enroll via <code>POST /workers/{id}/fingerprint</code> with <code>slot: 2</code>). Every matcher —
+server-side identify/verify and all three app drivers (SecuGen Windows FFI, SecuGen Android,
+Mantra) — scores the live scan against <i>both</i> templates and keeps the worker's
+<b>best</b> score, producing <b>one score per worker</b>. The 1:N ambiguity margin then compares
+<i>across workers</i> only, so a worker's own two fingers can never trigger a false ambiguity.
+Thresholds are unchanged (fingerprint 40/200, margin 10; Mantra raw 14000/margin 7000).
+Deleting biometrics clears both templates; <code>slot=2</code> on DELETE removes only the backup.
+Sync pull delivers both templates to marking devices (app DB v7); vendors still receive neither.
+</div>
 
 <h3>Fingerprint — SecuGen SGFPM (the manufacturer's own matcher)</h3>
 <p>Templates are <b>ISO 19794-2 FMD</b> (~400 bytes, base64 over the wire), captured on SecuGen
