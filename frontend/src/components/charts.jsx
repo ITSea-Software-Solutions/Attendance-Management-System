@@ -190,3 +190,24 @@ export function PresenceBars({ rows }) {
     </div>
   );
 }
+
+/** Ranked horizontal bars: rows [{label, value, display?}] (top-N lists). */
+export function HBarList({ rows, color = "#2563eb", emptyText = "No data" }) {
+  if (!rows?.length) return <p className="text-sm text-gray-400 py-6 text-center">{emptyText}</p>;
+  const max = Math.max(1, ...rows.map((r) => r.value));
+  return (
+    <div className="space-y-2.5">
+      {rows.map((r) => (
+        <div key={r.label}>
+          <div className="flex items-baseline justify-between text-[13px] mb-0.5">
+            <span className="font-medium text-gray-700 truncate pr-3">{r.label}</span>
+            <span className="font-semibold text-gray-900 shrink-0">{r.display ?? r.value}</span>
+          </div>
+          <div className="h-2 rounded-full bg-gray-100 overflow-hidden">
+            <div className="h-full rounded-full" style={{ width: `${(r.value / max) * 100}%`, background: color }} />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
