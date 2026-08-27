@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   Users, Building2, UserCheck, Clock, AlertTriangle, CheckCircle, TrendingUp,
   TrendingDown, Fingerprint, Download, Printer, ArrowRight, Activity, Camera,
-  MonitorSmartphone, CalendarDays, LogIn, LogOut, Minus, FileSpreadsheet,
+  CalendarDays, LogIn, LogOut, Minus, FileSpreadsheet,
 } from "lucide-react";
 import { AreaChart, BarChart, Donut, HourlyFlow, PresenceBars } from "@/components/charts";
 
@@ -329,8 +329,8 @@ export default function Dashboard() {
           <button className="btn-secondary text-sm" onClick={openPrintable}>
             <Printer size={14} /> Printable report
           </button>
-          <Link to="/attendance" className="text-sm font-medium text-blue-600 hover:underline inline-flex items-center gap-1 ml-auto">
-            <MonitorSmartphone size={14} /> Full attendance log
+          <Link to="/reports" className="text-sm font-medium text-blue-600 hover:underline inline-flex items-center gap-1 ml-auto">
+            All reports & filters <ArrowRight size={13} />
           </Link>
         </div>
       </div>

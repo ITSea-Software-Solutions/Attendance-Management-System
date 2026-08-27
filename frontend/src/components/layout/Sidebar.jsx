@@ -4,7 +4,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import {
   LayoutDashboard, Building2, UserCog, Users, Settings, ShieldCheck,
   UserCheck, ClipboardList, BarChart2, AlertTriangle, Activity, Contact,
-  Download as DownloadIcon, CreditCard, Fingerprint, X, Sparkles,
+  Download as DownloadIcon, CreditCard, Fingerprint, X, Sparkles, FileSpreadsheet,
 } from "lucide-react";
 
 const NAV = [
@@ -43,6 +43,7 @@ const NAV = [
       { to: "/visitors",              icon: Contact,      label: "Visitors",        roles: ["super_admin", "company_admin", "company_hr", "company_gate"] },
       { to: "/attendance",            icon: BarChart2,    label: "Attendance Log",  roles: ["all"], end: true },
       { to: "/attendance/exceptions", icon: AlertTriangle,label: "Still Inside",    roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/reports",               icon: FileSpreadsheet, label: "Reports",      roles: ["all"] },
     ],
   },
   {

@@ -18,6 +18,7 @@ import AttendanceList from "@/pages/attendance/AttendanceList";
 import LiveBoard from "@/pages/attendance/LiveBoard";
 import Visitors from "@/pages/visitors/Visitors";
 import AttendanceExceptions from "@/pages/attendance/AttendanceExceptions";
+import Reports from "@/pages/Reports";
 import UserList from "@/pages/users/UserList";
 import Downloads from "@/pages/Downloads";
 import Signup from "@/pages/Signup";
@@ -135,6 +136,7 @@ export default function App() {
           </PrivateRoute>
         } />
         <Route path="attendance/exceptions" element={<AttendanceExceptions />} />
+        <Route path="reports" element={<Reports />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" />} />
