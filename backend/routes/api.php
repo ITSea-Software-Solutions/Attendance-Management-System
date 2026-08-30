@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\VendorController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\WorkerController;
 use App\Http\Controllers\WorkerAssignmentController;
 use App\Http\Controllers\WorkerIdDocumentController;
@@ -170,5 +171,20 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('printable',       [AttendanceController::class, 'printable']);   // print-friendly period report
         // Hours / wage-day report: ?from=&to= (or ?month=) &group=daily|weekly|monthly|summary
         Route::get('hours-report',    [AttendanceController::class, 'hoursReport']);
+    });
+
+    // ── Payroll / wage register ───────────────────────────────────────────────
+    Route::prefix('payroll')->group(function () {
+        Route::get('register',            [PayrollController::class, 'register']);
+        Route::get('register-export',     [PayrollController::class, 'registerExport']);
+        Route::get('muster',              [PayrollController::class, 'muster']);
+        Route::get('contractor-summary',  [PayrollController::class, 'contractorSummary']);
+        Route::post('rates',              [PayrollController::class, 'saveRates']);
+        Route::post('adjustments',        [PayrollController::class, 'storeAdjustment']);
+        Route::delete('adjustments/{id}', [PayrollController::class, 'deleteAdjustment']);
+        Route::post('overrides',          [PayrollController::class, 'storeOverride']);
+        Route::get('holidays',            [PayrollController::class, 'holidays']);
+        Route::post('holidays',           [PayrollController::class, 'storeHoliday']);
+        Route::delete('holidays/{id}',    [PayrollController::class, 'deleteHoliday']);
     });
 });

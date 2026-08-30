@@ -812,10 +812,7 @@ class AttendanceController extends Controller
                 // per WORKER, so a worker's own two fingers never trip the
                 // cross-worker ambiguity margin below.
                 $score = 0;
-                foreach ([$worker->fingerprint_template, $worker->fingerprint_template_2] as $enc) {
-                    if (empty($enc)) {
-                        continue;
-                    }
+                foreach ($worker->enrolledTemplates() as $enc) {
                     try {
                         $result = $this->biometric->matchTemplates($probe, decrypt($enc));
                         $score  = max($score, (int) ($result['score'] ?? 0));
@@ -926,10 +923,7 @@ class AttendanceController extends Controller
                 abort_unless(! empty($data['probe_template']), 422, 'Fingerprint probe required.');
                 // Verify against ANY enrolled finger (primary or backup).
                 $matched = false;
-                foreach ([$worker->fingerprint_template, $worker->fingerprint_template_2] as $enc) {
-                    if (empty($enc)) {
-                        continue;
-                    }
+                foreach ($worker->enrolledTemplates() as $enc) {
                     $result = $this->biometric->matchTemplates($data['probe_template'], decrypt($enc));
                     if ($result['matched'] ?? false) {
                         $matched     = true;

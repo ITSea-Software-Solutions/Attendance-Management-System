@@ -200,7 +200,7 @@ export default function WorkerRegister() {
   // Shared
   const [fingerprint, setFP]    = useState(null);
   const [fpSlot, setFpSlot]     = useState(1);      // 1 = primary, 2 = backup finger
-  const [fpOffer, setFpOffer]   = useState(false);  // "add a backup finger?" card
+  const [fpOffer, setFpOffer]   = useState(0);     // 1 = offer 2nd finger, 2 = offer 3rd
   const [savedWorker, setSaved] = useState(null);
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
@@ -389,13 +389,16 @@ export default function WorkerRegister() {
     if (!savedWorker) return;
     try {
       await api.post(`/workers/${savedWorker.id}/fingerprint`, { template, quality, slot: fpSlot });
-      if (fpSlot === 2) {
-        toast.success("Backup finger enrolled — either finger now verifies at the gate.");
+      if (fpSlot === 3) {
+        toast.success("Third finger enrolled — any of the three verifies at the gate.");
         setStep(3);
+      } else if (fpSlot === 2) {
+        toast.success("Backup finger enrolled — either finger now verifies at the gate.");
+        setFpOffer(2); // offer a third
       } else {
         setFP({ quality });
         toast.success("Fingerprint enrolled!");
-        setFpOffer(true); // offer an optional backup finger before moving on
+        setFpOffer(1); // offer an optional backup finger before moving on
       }
     } catch (e) {
       toast.error(e?.response?.data?.message || "Fingerprint enrollment failed. Please retry.");
@@ -740,20 +743,22 @@ export default function WorkerRegister() {
           {fpOffer ? (
             <div className="card space-y-5">
               <div>
-                <h2 className="font-semibold text-gray-900">Add a backup finger?</h2>
+                <h2 className="font-semibold text-gray-900">
+                  {fpOffer === 2 ? "Add a third finger?" : "Add a backup finger?"}
+                </h2>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Recommended: enroll a second finger (e.g. the other thumb). If one finger is
-                  cut, bandaged or worn, the worker can still mark attendance with the other —
-                  the gate accepts whichever enrolled finger matches.
+                  {fpOffer === 2
+                    ? "Optional but useful on heavy manual sites: prints wear down, and a third finger keeps the gate working when two are unusable. Up to three fingers can be enrolled — any of them verifies."
+                    : "Recommended: enroll a second finger (e.g. the other thumb). If one finger is cut, bandaged or worn, the worker can still mark attendance with the other — the gate accepts whichever enrolled finger matches."}
                 </p>
               </div>
               <div className="flex gap-3">
                 <button type="button" className="btn-primary"
-                  onClick={() => { setFpSlot(2); setFpOffer(false); }}>
-                  <Fingerprint size={14} /> Scan backup finger
+                  onClick={() => { setFpSlot(fpOffer === 2 ? 3 : 2); setFpOffer(0); }}>
+                  <Fingerprint size={14} /> {fpOffer === 2 ? "Scan third finger" : "Scan backup finger"}
                 </button>
                 <button type="button" className="btn-secondary" onClick={() => setStep(3)}>
-                  Skip — one finger is enough
+                  {fpOffer === 2 ? "Skip — two fingers are enough" : "Skip — one finger is enough"}
                 </button>
               </div>
             </div>
@@ -770,11 +775,14 @@ export default function WorkerRegister() {
                 </div>
                 <div>
                   <p className="font-medium text-green-800">
-                    {existingWorker.fingers_enrolled === 2 ? "2 fingers enrolled (primary + backup)" : "Fingerprint enrolled"}
+                    {existingWorker.fingers_enrolled > 1
+                      ? `${existingWorker.fingers_enrolled} fingers enrolled`
+                      : "Fingerprint enrolled"}
                   </p>
                   <p className="text-sm text-green-700 mt-0.5">
                     Quality: {existingWorker.fingerprint_quality ?? "?"}%
-                    {existingWorker.fingers_enrolled === 2 && ` · backup ${existingWorker.fingerprint_quality_2 ?? "?"}%`}
+                    {existingWorker.fingers_enrolled > 1 && ` · backup ${existingWorker.fingerprint_quality_2 ?? "?"}%`}
+                    {existingWorker.fingers_enrolled > 2 && ` · third ${existingWorker.fingerprint_quality_3 ?? "?"}%`}
                   </p>
                   <p className="text-xs text-green-600 mt-0.5">
                     Enrolled: {format(new Date(existingWorker.fingerprint_enrolled_at), "dd MMM yyyy")}
@@ -789,9 +797,12 @@ export default function WorkerRegister() {
                 <button type="button" onClick={() => { setFpSlot(1); setReEnrollFP(true); }} className="btn-secondary">
                   <RefreshCw size={14} /> Re-enroll
                 </button>
-                {existingWorker.fingers_enrolled !== 2 && (
-                  <button type="button" onClick={() => { setFpSlot(2); setReEnrollFP(true); }} className="btn-secondary">
-                    <Fingerprint size={14} /> Add backup finger
+                {existingWorker.fingers_enrolled < 3 && (
+                  <button type="button"
+                    onClick={() => { setFpSlot(existingWorker.fingers_enrolled + 1); setReEnrollFP(true); }}
+                    className="btn-secondary">
+                    <Fingerprint size={14} />
+                    {existingWorker.fingers_enrolled === 1 ? "Add backup finger" : "Add third finger"}
                   </button>
                 )}
               </div>
@@ -801,7 +812,7 @@ export default function WorkerRegister() {
             <div className="space-y-3">
               {fpSlot === 2 && (
                 <p className="text-sm font-medium text-brand-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                  Scanning the BACKUP finger — use a different finger (e.g. the other thumb).
+                  Scanning the {fpSlot === 3 ? "THIRD" : "BACKUP"} finger — use a finger not already enrolled.
                 </p>
               )}
               <FingerprintCapture

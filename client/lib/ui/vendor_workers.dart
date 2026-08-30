@@ -380,10 +380,17 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
                 ),
                 OutlinedButton.icon(
                   onPressed: serverId != null && app.online
-                      ? () => _enrollBackupFinger(context, serverId)
+                      ? () => _enrollBackupFinger(context, serverId, slot: 2)
                       : null,
                   icon: const Icon(Icons.fingerprint, size: 18),
                   label: const Text('Add backup finger'),
+                ),
+                OutlinedButton.icon(
+                  onPressed: serverId != null && app.online
+                      ? () => _enrollBackupFinger(context, serverId, slot: 3)
+                      : null,
+                  icon: const Icon(Icons.fingerprint, size: 18),
+                  label: const Text('Add 3rd finger'),
                 ),
                 OutlinedButton.icon(
                   style: OutlinedButton.styleFrom(foregroundColor: Colors.red),
@@ -404,11 +411,13 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
   /// Capture a SECOND finger for an existing worker and enroll it as the
   /// backup — either finger then verifies at the gate.
   Future<void> _enrollBackupFinger(
-      BuildContext sheetContext, int serverId) async {
+      BuildContext sheetContext, int serverId, {int slot = 2}) async {
     final app = AppScope.of(context);
     if (sheetContext.mounted) Navigator.pop(sheetContext);
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Place the BACKUP finger (e.g. the other thumb) on the scanner...')));
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(slot == 3
+            ? 'Place the THIRD finger on the scanner...'
+            : 'Place the BACKUP finger (e.g. the other thumb) on the scanner...')));
     final cap = await BiometricDriver.enrollCapture();
     if (!mounted) return;
     if (cap == null) {
@@ -426,7 +435,7 @@ class _VendorWorkersScreenState extends State<VendorWorkersScreen> {
     String msg;
     try {
       msg = await app.enrollWorkerFinger(serverId, cap.template, cap.quality,
-          slot: 2);
+          slot: slot);
     } catch (e) {
       msg = AppState.apiMessage(e, 'Could not enroll the backup finger.');
     }

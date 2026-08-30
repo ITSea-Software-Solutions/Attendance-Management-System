@@ -187,7 +187,7 @@ export default function WorkerDetail() {
                 {worker?.fingerprint_enrolled_at && (
                   <span className="badge badge-green text-xs">
                     <Fingerprint size={10} className="mr-1 inline" />
-                    {worker.fingers_enrolled === 2 ? "2 Fingers Enrolled" : "Fingerprint Enrolled"}
+                    {worker.fingers_enrolled > 1 ? `${worker.fingers_enrolled} Fingers Enrolled` : "Fingerprint Enrolled"}
                   </span>
                 )}
                 {worker?.gender && (
@@ -224,7 +224,7 @@ export default function WorkerDetail() {
           <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
             {[
               { label: "Aadhaar", done: !!worker.aadhaar_verified_at, hint: worker.aadhaar_number_masked ? (worker.has_aadhaar_pdf ? "PDF on file" : "number on file") : "pending — add via Edit Worker" },
-              { label: "Fingerprint", done: !!worker.fingerprint_enrolled_at, hint: worker.fingerprint_enrolled_at ? (worker.fingers_enrolled === 2 ? "2 fingers" : "1 finger") : "pending" },
+              { label: "Fingerprint", done: !!worker.fingerprint_enrolled_at, hint: worker.fingerprint_enrolled_at ? `${worker.fingers_enrolled} finger${worker.fingers_enrolled > 1 ? "s" : ""}` : "pending" },
               { label: "Face / photo", done: !!worker.face_enrolled_at, hint: worker.face_enrolled_at ? "enrolled" : "pending" },
               { label: "Email", done: !!worker.email_verified_at, hint: worker.email ?? "no email", verifyStep: "email", can: !!worker.email && !worker.email_verified_at },
               { label: "Phone", done: !!worker.phone_verified_at, hint: worker.phone ?? worker.mobile ?? "no phone", verifyStep: "phone", can: !!(worker.phone || worker.mobile) && !worker.phone_verified_at },

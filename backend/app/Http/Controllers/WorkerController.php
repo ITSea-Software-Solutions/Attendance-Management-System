@@ -771,7 +771,7 @@ class WorkerController extends Controller
         $data = $request->validate([
             'template' => 'required|string',
             'quality'  => 'required|integer|min:0|max:100',
-            'slot'     => 'nullable|integer|in:1,2', // 2 = backup finger (any enrolled finger verifies at the gate)
+            'slot'     => 'nullable|integer|in:1,2,3', // 2 & 3 = backup fingers (ANY enrolled finger verifies at the gate)
         ]);
         $slot = (int) ($data['slot'] ?? 1);
 
@@ -783,13 +783,16 @@ class WorkerController extends Controller
             ], 422);
         }
 
-        if ($slot === 2) {
+        if ($slot > 1) {
             if (empty($worker->fingerprint_template)) {
                 return response()->json(['message' => 'Enroll the primary finger first.'], 422);
             }
+            if ($slot === 3 && empty($worker->fingerprint_template_2)) {
+                return response()->json(['message' => 'Enroll the second finger before the third.'], 422);
+            }
             $worker->forceFill([
-                'fingerprint_template_2' => encrypt($data['template']),
-                'fingerprint_quality_2'  => $data['quality'],
+                "fingerprint_template_{$slot}" => encrypt($data['template']),
+                "fingerprint_quality_{$slot}"  => $data['quality'],
             ])->save();
         } else {
             $worker->forceFill([
@@ -825,13 +828,14 @@ class WorkerController extends Controller
             return $blocked;
         }
 
-        // slot=2 removes only the backup finger; default deregisters biometrics fully.
-        if ((int) $request->input('slot') === 2) {
+        // slot=2|3 removes just that backup finger; default deregisters fully.
+        $slot = (int) $request->input('slot');
+        if (in_array($slot, [2, 3], true)) {
             $worker->forceFill([
-                'fingerprint_template_2' => null,
-                'fingerprint_quality_2'  => null,
+                "fingerprint_template_{$slot}" => null,
+                "fingerprint_quality_{$slot}"  => null,
             ])->save();
-            $this->audit->log($request->user()->id, 'fingerprint_deleted', Worker::class, $worker->id, ['slot' => 2]);
+            $this->audit->log($request->user()->id, 'fingerprint_deleted', Worker::class, $worker->id, ['slot' => $slot]);
 
             return response()->json(['message' => 'Backup fingerprint removed.']);
         }
@@ -841,6 +845,8 @@ class WorkerController extends Controller
             'fingerprint_quality'     => null,
             'fingerprint_template_2'  => null,
             'fingerprint_quality_2'   => null,
+            'fingerprint_template_3'  => null,
+            'fingerprint_quality_3'   => null,
             'fingerprint_enrolled_at' => null,
             'status'                  => Worker::STATUS_PENDING,
         ])->save();

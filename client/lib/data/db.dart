@@ -24,8 +24,16 @@ class LocalDb {
     final path = p.join(dir.path, 'ams_client.db');
     _db = await factory.openDatabase(path,
         options: OpenDatabaseOptions(
-          version: 7,
+          version: 8,
           onUpgrade: (db, from, to) async {
+            if (from < 8) {
+              for (final c in [
+                "ALTER TABLE workers ADD COLUMN fingerprint_template_3 TEXT",
+                "ALTER TABLE workers ADD COLUMN fingerprint_quality_3 INTEGER",
+              ]) {
+                try { await db.execute(c); } catch (_) {}
+              }
+            }
             if (from < 7) {
               // Backup finger: any enrolled finger verifies at the gate.
               for (final c in [
@@ -98,8 +106,10 @@ class LocalDb {
                 photo_note TEXT,
                 fingerprint_template TEXT,     -- held until synced (server encrypts at rest)
                 fingerprint_quality INTEGER,
-                fingerprint_template_2 TEXT,   -- backup finger (either verifies)
+                fingerprint_template_2 TEXT,   -- backup fingers (ANY of the three verifies)
                 fingerprint_quality_2 INTEGER,
+                fingerprint_template_3 TEXT,
+                fingerprint_quality_3 INTEGER,
                 fp_simulated INTEGER DEFAULT 0,
                 photo_path TEXT,               -- local file; uploaded post-sync (face auto-enroll)
                 photo_synced INTEGER DEFAULT 0,

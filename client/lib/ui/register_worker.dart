@@ -53,7 +53,8 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
   String? _verifyNote;
 
   EnrollCapture? _fp;
-  EnrollCapture? _fp2; // optional backup finger — either verifies at the gate
+  EnrollCapture? _fp2; // backup fingers — ANY enrolled finger verifies at the gate
+  EnrollCapture? _fp3;
   bool _fpBusy = false;
   String? _photoPath;
   bool _photoBusy = false;
@@ -215,11 +216,13 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
     }
   }
 
-  Future<void> _captureFingerprint({bool backup = false}) async {
+  Future<void> _captureFingerprint({int slot = 1}) async {
     setState(() => _fpBusy = true);
     final r = await BiometricDriver.enrollCapture();
     setState(() {
-      if (backup) {
+      if (slot == 3) {
+        _fp3 = r;
+      } else if (slot == 2) {
         _fp2 = r;
       } else {
         _fp = r;
@@ -341,6 +344,8 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
       fingerprintQuality: _fp!.quality,
       fingerprintTemplate2: _fp2?.template,
       fingerprintQuality2: _fp2?.quality,
+      fingerprintTemplate3: _fp3?.template,
+      fingerprintQuality3: _fp3?.quality,
       fingerprintSimulated: _fp!.simulated,
       photoPath: _photoPath,
       aadhaarPdfPath: _pdfPath,
@@ -527,13 +532,35 @@ class _RegisterWorkerScreenState extends State<RegisterWorkerScreen> {
                           OutlinedButton.icon(
                             onPressed: _fpBusy
                                 ? null
-                                : () => _captureFingerprint(backup: true),
+                                : () => _captureFingerprint(slot: 2),
                             icon: Icon(
                                 _fp2 == null ? Icons.fingerprint : Icons.check,
                                 size: 16),
                             label: Text(_fp2 == null
                                 ? 'Add backup finger'
                                 : 'Re-scan backup'),
+                          ),
+                        ]),
+                      ],
+                      if (_fp2 != null) ...[
+                        const SizedBox(height: 8),
+                        Row(children: [
+                          Expanded(
+                            child: Text(
+                              _fp3 == null
+                                  ? 'Third finger (optional): heavy manual work wears prints down — a third finger keeps the gate working when two are unusable.'
+                                  : 'Third finger enrolled (Q ${_fp3!.quality}). Any of the three verifies.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed:
+                                _fpBusy ? null : () => _captureFingerprint(slot: 3),
+                            icon: Icon(
+                                _fp3 == null ? Icons.fingerprint : Icons.check,
+                                size: 16),
+                            label: Text(_fp3 == null ? 'Add third finger' : 'Re-scan third'),
                           ),
                         ]),
                       ],

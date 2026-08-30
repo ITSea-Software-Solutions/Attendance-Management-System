@@ -135,6 +135,8 @@ class AppState extends ChangeNotifier {
                 'fingerprint_quality': w['fingerprint_quality'],
                 'fingerprint_template_2': w['fingerprint_template_2'],
                 'fingerprint_quality_2': w['fingerprint_quality_2'],
+                'fingerprint_template_3': w['fingerprint_template_3'],
+                'fingerprint_quality_3': w['fingerprint_quality_3'],
               })
           .toList(),
       'marks': marks
@@ -163,6 +165,7 @@ class AppState extends ChangeNotifier {
                   'aadhaar_number': null, // discard raw number once server has it
                   'fingerprint_template': null, // server holds it encrypted now
                   'fingerprint_template_2': null,
+                  'fingerprint_template_3': null,
                   'sync_state': 'synced',
                   'sync_error': null,
                 }
@@ -282,6 +285,7 @@ class AppState extends ChangeNotifier {
         // enables OFFLINE 1:N fingerprint matching at this gate device.
         'fingerprint_template': w['fingerprint_template'],
         'fingerprint_template_2': w['fingerprint_template_2'],
+        'fingerprint_template_3': w['fingerprint_template_3'],
         'sync_state': 'synced',
         'sync_error': null,
         'updated_at': w['updated_at']?.toString(),
@@ -693,6 +697,8 @@ class AppState extends ChangeNotifier {
     int? fingerprintQuality,
     String? fingerprintTemplate2,
     int? fingerprintQuality2,
+    String? fingerprintTemplate3,
+    int? fingerprintQuality3,
     bool fingerprintSimulated = false,
     String? photoPath,
     String? aadhaarPdfPath,
@@ -717,6 +723,8 @@ class AppState extends ChangeNotifier {
       'fingerprint_quality': fingerprintQuality,
       'fingerprint_template_2': fingerprintTemplate2,
       'fingerprint_quality_2': fingerprintQuality2,
+      'fingerprint_template_3': fingerprintTemplate3,
+      'fingerprint_quality_3': fingerprintQuality3,
       'fp_simulated': fingerprintSimulated ? 1 : 0,
       'photo_path': photoPath,
       'photo_synced': 0,

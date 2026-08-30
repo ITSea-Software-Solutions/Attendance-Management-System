@@ -84,10 +84,15 @@ class SyncController extends Controller
                         try { return decrypt($w->fingerprint_template); } catch (\Throwable) { return null; }
                     })()
                     : null,
-                // Backup finger — gate matches against ANY enrolled finger.
+                // Backup fingers — the gate matches against ANY enrolled finger.
                 'fingerprint_template_2' => $withTemplates && $w->fingerprint_template_2
                     ? (function () use ($w) {
                         try { return decrypt($w->fingerprint_template_2); } catch (\Throwable) { return null; }
+                    })()
+                    : null,
+                'fingerprint_template_3' => $withTemplates && $w->fingerprint_template_3
+                    ? (function () use ($w) {
+                        try { return decrypt($w->fingerprint_template_3); } catch (\Throwable) { return null; }
                     })()
                     : null,
             ]),
@@ -138,6 +143,8 @@ class SyncController extends Controller
             'registrations.*.fingerprint_quality'  => 'nullable|integer|min:0|max:100',
             'registrations.*.fingerprint_template_2' => 'nullable|string',
             'registrations.*.fingerprint_quality_2'  => 'nullable|integer|min:0|max:100',
+            'registrations.*.fingerprint_template_3' => 'nullable|string',
+            'registrations.*.fingerprint_quality_3'  => 'nullable|integer|min:0|max:100',
             'marks'                          => 'array',
             'marks.*.uuid'                   => 'required|uuid',
             'marks.*.worker_id'              => 'nullable|integer',
@@ -232,6 +239,10 @@ class SyncController extends Controller
                 ? encrypt($reg['fingerprint_template_2']) : null,
             'fingerprint_quality_2'   => $hasFp && ! empty($reg['fingerprint_template_2'])
                 ? ($reg['fingerprint_quality_2'] ?? null) : null,
+            'fingerprint_template_3'  => $hasFp && ! empty($reg['fingerprint_template_3'])
+                ? encrypt($reg['fingerprint_template_3']) : null,
+            'fingerprint_quality_3'   => $hasFp && ! empty($reg['fingerprint_template_3'])
+                ? ($reg['fingerprint_quality_3'] ?? null) : null,
             'fingerprint_enrolled_at' => $hasFp ? now() : null,
             'status'                => $hasFp ? Worker::STATUS_ACTIVE : Worker::STATUS_PENDING,
             'registered_by'         => $user->id,

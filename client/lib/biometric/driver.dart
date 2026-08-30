@@ -79,7 +79,11 @@ abstract class BiometricDriver {
   /// worker's own two fingers never look like two different people).
   static List<String> templatesOf(Map<String, Object?> w) {
     final out = <String>[];
-    for (final k in ['fingerprint_template', 'fingerprint_template_2']) {
+    for (final k in [
+      'fingerprint_template',
+      'fingerprint_template_2',
+      'fingerprint_template_3',
+    ]) {
       final t = w[k] as String?;
       if (t != null && t.length >= 80 && !t.startsWith('U0lNRk1EOg')) out.add(t);
     }

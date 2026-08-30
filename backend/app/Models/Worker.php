@@ -47,6 +47,7 @@ class Worker extends Model
         'aadhaar_hash',
         'fingerprint_template',
         'fingerprint_template_2',
+        'fingerprint_template_3',
     ];
 
     protected $appends = ['photo_url', 'has_aadhaar_pdf', 'fingers_enrolled'];
@@ -122,10 +123,25 @@ class Worker extends Model
         return !empty($this->fingerprint_template);
     }
 
+    /**
+     * All enrolled fingerprint templates (still encrypted), in slot order.
+     * Every matcher must read this instead of naming columns, so adding a
+     * slot never leaves one code path checking fewer fingers than another.
+     */
+    public function enrolledTemplates(): array
+    {
+        return array_values(array_filter([
+            $this->fingerprint_template,
+            $this->fingerprint_template_2,
+            $this->fingerprint_template_3,
+        ]));
+    }
+
     public function getFingersEnrolledAttribute(): int
     {
         return (int) !empty($this->fingerprint_template)
-             + (int) !empty($this->fingerprint_template_2);
+             + (int) !empty($this->fingerprint_template_2)
+             + (int) !empty($this->fingerprint_template_3);
     }
 
     // Active = fingerprint enrolled (any ID document is acceptable)
