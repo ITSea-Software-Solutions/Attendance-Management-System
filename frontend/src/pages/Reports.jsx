@@ -1,6 +1,8 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrgScope } from "@/lib/scope";
+import MultiSelect from "@/components/MultiSelect";
 import toast from "react-hot-toast";
 import PageHint from "@/components/PageHint";
 import {
@@ -138,8 +140,7 @@ function rankOf(view, keyIdx, { top = 6, metric, display } = {}) {
 }
 
 export default function Reports() {
-  const { user } = useAuth();
-  const isVendorUser = ["vendor_admin", "vendor_operator"].includes(user?.role);
+  const { isVendorUser, isCompanyUser, showCompany } = useOrgScope();
 
   const [reportId, setReportId] = useState("daily");
   const [preset, setPreset] = useState("this_month");
@@ -151,6 +152,33 @@ export default function Reports() {
   const [filters, setFilters] = useState({}); // {colIndex: value}
   const [search, setSearch] = useState("");
   const [showCharts, setShowCharts] = useState(true);
+  // Same scoping rule as the attendance log: company users are pinned to
+  // their own company (no picker, no column); vendors/super pick one.
+  const [companyId, setCompanyId] = useState("");
+  const [workerIds, setWorkerIds] = useState([]); // [] = all workers
+
+  const { data: companies } = useQuery({
+    queryKey: ["company-options"],
+    queryFn:  () => api.get("/companies", { params: { per_page: 100 } })
+                      .then((r) => r.data?.data ?? r.data),
+    enabled:  !isCompanyUser,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: workerOptions } = useQuery({
+    queryKey: ["worker-options", companyId],
+    queryFn:  () => api.get("/workers-options", {
+      params: { company_id: companyId || undefined },
+    }).then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+
+  // Sent with every attendance-based report so the server scopes the rows
+  // AND drops the Company column when it would just repeat itself.
+  const scopeParams = {
+    ...(companyId ? { company_id: companyId } : {}),
+    ...(workerIds.length ? { worker_ids: workerIds.join(",") } : {}),
+  };
 
   const def = REPORT_DEFS.find((r) => r.id === reportId);
   const reports = REPORT_DEFS.filter((r) => !(r.companyOnly && isVendorUser));
@@ -189,13 +217,13 @@ export default function Reports() {
       const periodLabel = `${from} → ${to}`;
       if (reportId === "daily" || reportId === "monthly") {
         const r = await api.get("/attendance/export", {
-          params: { from, to, type: reportId }, responseType: "blob",
+          params: { from, to, type: reportId, ...scopeParams }, responseType: "blob",
         });
         ({ headers, rows, note } = await parseCsvBlob(r.data));
         label = `${def.label} — ${periodLabel}`;
       } else if (reportId === "hours") {
         const r = await api.get("/attendance/hours-report", {
-          params: { from, to, group: hoursGroup }, responseType: "blob",
+          params: { from, to, group: hoursGroup, ...scopeParams }, responseType: "blob",
         });
         ({ headers, rows, note } = await parseCsvBlob(r.data));
         label = `${def.label} · ${HOUR_GROUPS.find((g) => g.id === hoursGroup).label} — ${periodLabel}`;
@@ -207,10 +235,13 @@ export default function Reports() {
         ({ headers, rows } = await parseCsvBlob(r.data));
       } else if (reportId === "inside") {
         const r = await api.get("/attendance/exceptions", { params: { date } });
-        headers = ["Worker", "Company", "Gate"];
-        rows = (r.data?.missing_out || []).map((x) => [
-          x.worker?.name ?? "—", x.company?.name ?? "—", x.location_name ?? "Main Gate",
-        ]);
+        const withCompany = showCompany(companyId);
+        headers = withCompany ? ["Worker", "Company", "Gate"] : ["Worker", "Gate"];
+        rows = (r.data?.missing_out || [])
+          .filter((x) => !companyId || String(x.company?.id) === String(companyId))
+          .map((x) => (withCompany
+            ? [x.worker?.name ?? "—", x.company?.name ?? "—", x.location_name ?? "Main Gate"]
+            : [x.worker?.name ?? "—", x.location_name ?? "Main Gate"]));
         label = `${def.label} — ${date}`;
       }
       setLoaded({ id: reportId, headers, rows, note, label,
@@ -446,7 +477,8 @@ export default function Reports() {
   };
 
   const openPrintable = async () => {
-    const r = await api.get("/attendance/printable", { params: { from, to }, responseType: "blob" });
+    const r = await api.get("/attendance/printable", {
+      params: { from, to, ...scopeParams }, responseType: "blob" });
     window.open(URL.createObjectURL(new Blob([r.data], { type: "text/html" })), "_blank");
   };
 
@@ -522,6 +554,30 @@ export default function Reports() {
             <input type="date" className="input w-44 py-1.5 text-sm" value={date}
               onChange={(e) => setDate(e.target.value)} />
           </label>
+        )}
+        {(def?.needsRange || def?.needsDate) && (
+          <>
+            {!isCompanyUser && (
+              <select className="input w-auto py-1.5 text-sm" value={companyId}
+                onChange={(e) => { setCompanyId(e.target.value); setWorkerIds([]); }}>
+                <option value="">All companies</option>
+                {(companies ?? []).map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            )}
+            <MultiSelect
+              label="Workers"
+              width="w-52"
+              options={(workerOptions ?? []).map((w) => ({
+                id: w.id,
+                name: w.emp_code ? `${w.name} · #${w.emp_code}` : w.name,
+                sub: w.vendor,
+              }))}
+              value={workerIds}
+              onChange={setWorkerIds}
+            />
+          </>
         )}
         <button className="btn-primary text-sm" onClick={run} disabled={loading}>
           {loading ? <Loader2 size={14} className="animate-spin" /> : <Play size={14} />}

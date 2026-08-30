@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
+import { useOrgScope } from "@/lib/scope";
 import { useAuth } from "@/contexts/AuthContext";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
@@ -15,6 +16,7 @@ const STATUS_COLORS = {
 export default function WorkerAssign() {
   const queryClient   = useQueryClient();
   const { user }      = useAuth();
+  const { showCompany } = useOrgScope();
   const isVendorAdmin = ["vendor_admin", "vendor_operator"].includes(user?.role);
   const isCompanyAdmin = user?.role === "company_admin";
   const isApprover = ["company_admin", "company_hr"].includes(user?.role) || user?.role === "super_admin";
@@ -344,7 +346,9 @@ export default function WorkerAssign() {
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="text-left px-5 py-3 font-medium text-gray-500">Worker</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Company</th>
+              {showCompany() && (
+                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Company</th>
+              )}
               <th className="text-left px-4 py-3 font-medium text-gray-500">Period</th>
               <th className="text-center px-4 py-3 font-medium text-gray-500">Status</th>
               <th className="text-center px-4 py-3 font-medium text-gray-500">Lock</th>
@@ -370,12 +374,14 @@ export default function WorkerAssign() {
                   <p className="font-medium text-gray-900">{a.worker?.name}</p>
                   <p className="text-xs text-gray-400">{a.vendor?.name}</p>
                 </td>
-                <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
-                  <div className="flex items-center gap-1.5">
-                    <Building2 size={13} className="text-gray-400" />
-                    {a.company?.name}
-                  </div>
-                </td>
+                {showCompany() && (
+                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 size={13} className="text-gray-400" />
+                      {a.company?.name}
+                    </div>
+                  </td>
+                )}
                 <td className="px-4 py-3 text-gray-600">
                   <div className="flex items-center gap-1.5 text-xs">
                     <Calendar size={12} className="text-gray-400" />

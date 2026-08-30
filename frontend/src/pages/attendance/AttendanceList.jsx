@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import api from "@/lib/axios";
 import AuthImg from "@/components/AuthImg";
 import PageHint from "@/components/PageHint";
-import { useAuth } from "@/contexts/AuthContext";
+import { useOrgScope } from "@/lib/scope";
 import MultiSelect from "@/components/MultiSelect";
 import { Download, Printer, X, User, CalendarRange, Calendar } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
@@ -53,13 +53,12 @@ export default function AttendanceList() {
   const [search, setSearch] = useState("");
   const [page, setPage]     = useState(1);
   const [tab, setTab]       = useState("all"); // all | current | previous
-  const { user } = useAuth();
+  const { user, isCompanyUser, showCompany } = useOrgScope();
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7));
   const [detail, setDetail] = useState(null); // clicked daily-summary row
 
   // A company user always looks at their OWN company — no picker, no column.
   // Vendor/super users work across companies, so they get a dropdown.
-  const isCompanyUser = ["company_admin", "company_hr", "company_gate"].includes(user?.role);
   const [companyId, setCompanyId] = useState("");
   const [workerIds, setWorkerIds] = useState([]); // [] = all workers
 
@@ -79,9 +78,9 @@ export default function AttendanceList() {
   });
 
   // Company column only earns its place when more than one can appear.
-  const showCompany = !isCompanyUser && !companyId;
+  const withCompany = showCompany(companyId);
   // A range spans many days, so each row must say which day it is.
-  const cols = 7 + (showCompany ? 1 : 0) + (rangeMode ? 1 : 0);
+  const cols = 7 + (withCompany ? 1 : 0) + (rangeMode ? 1 : 0);
 
   // Filters shared by the list and by every export, so a download always
   // matches what is on screen.
@@ -298,7 +297,7 @@ export default function AttendanceList() {
                 <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">Date</th>
               )}
               <th className="text-left px-5 py-3 font-medium text-gray-500">Worker</th>
-              {showCompany && (
+              {withCompany && (
                 <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">
                   <span className="flex items-center gap-1"><Building2 size={13} />Company</span>
                 </th>
@@ -381,7 +380,7 @@ export default function AttendanceList() {
                   </td>
 
                   {/* Company — hidden when only one company can appear */}
-                  {showCompany && (
+                  {withCompany && (
                     <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
                       {row.company_name ?? <span className="text-gray-300">—</span>}
                     </td>
@@ -481,7 +480,7 @@ export default function AttendanceList() {
                 <h3 className="text-lg font-bold text-gray-900">{detail.worker_name}</h3>
                 <p className="text-xs text-gray-500 mt-0.5">
                   {detail.vendor_name && <>{detail.vendor_name} · </>}
-                  {detail.company_name && <>{detail.company_name} · </>}
+                  {withCompany && detail.company_name && <>{detail.company_name} · </>}
                   {format(new Date(detail.work_date), "dd MMM yyyy")}
                 </p>
               </div>

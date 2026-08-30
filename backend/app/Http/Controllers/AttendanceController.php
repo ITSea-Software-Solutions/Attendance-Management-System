@@ -123,29 +123,39 @@ class AttendanceController extends Controller
         ]);
         $type = $request->input('type', 'daily');
         $rows = $this->monthRows($request);
+        $withCompany = $this->showsCompany($request);
 
         [$from, $to] = $this->reportRange($request);
         $stamp    = $request->month ?: "{$from}_to_{$to}";
         $filename = "truecrew-attendance-{$stamp}-{$type}.csv";
-        return response()->streamDownload(function () use ($rows, $type) {
+        return response()->streamDownload(function () use ($rows, $type, $withCompany) {
             $out = fopen('php://output', 'w');
             fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
             if ($type === 'daily') {
-                \App\Support\Csv::row($out, ['Date', 'Worker', 'Vendor', 'Company', 'Location(s)', 'First IN', 'Last OUT', 'Hours', 'Status']);
+                \App\Support\Csv::row($out, array_merge(
+                    ['Date', 'Worker', 'Vendor'],
+                    $withCompany ? ['Company'] : [],
+                    ['Location(s)', 'First IN', 'Last OUT', 'Hours', 'Status']));
                 foreach ($rows as $r) {
-                    \App\Support\Csv::row($out, [
-                        $r->work_date, $r->worker_name, $r->vendor_name, $r->company_name,
-                        $r->locations, $r->first_in, $r->last_out,
-                        $this->hoursBetween($r->first_in, $r->last_out),
-                        $r->last_out ? 'Done' : 'Missing OUT',
-                    ]);
+                    \App\Support\Csv::row($out, array_merge(
+                        [$r->work_date, $r->worker_name, $r->vendor_name],
+                        $withCompany ? [$r->company_name] : [],
+                        [$r->locations, $r->first_in, $r->last_out,
+                         $this->hoursBetween($r->first_in, $r->last_out),
+                         $r->last_out ? 'Done' : 'Missing OUT']));
                 }
             } else {
-                \App\Support\Csv::row($out, ['Worker', 'Vendor', 'Company', 'Days Present', 'Total Hours',
-                               'Full days', 'Half days', 'Payable days', 'Overtime', 'Days Missing OUT']);
+                \App\Support\Csv::row($out, array_merge(
+                    ['Worker', 'Vendor'],
+                    $withCompany ? ['Company'] : [],
+                    ['Days Present', 'Total Hours', 'Full days', 'Half days',
+                     'Payable days', 'Overtime', 'Days Missing OUT']));
                 foreach ($this->monthlyTotals($rows) as $t) {
-                    \App\Support\Csv::row($out, [$t['worker'], $t['vendor'], $t['company'], $t['days'], $t['hours'],
-                                   $t['full'], $t['half'], $t['payable'], $t['ot'], $t['missing']]);
+                    \App\Support\Csv::row($out, array_merge(
+                        [$t['worker'], $t['vendor']],
+                        $withCompany ? [$t['company']] : [],
+                        [$t['days'], $t['hours'], $t['full'], $t['half'],
+                         $t['payable'], $t['ot'], $t['missing']]));
                 }
             }
             fclose($out);
@@ -168,10 +178,12 @@ class AttendanceController extends Controller
             ? optional(\App\Models\Vendor::find($request->user()->vendor_id))->name
             : optional(\App\Models\Company::find($request->user()->company_id))->name;
 
+        $withCompany = $this->showsCompany($request);
         $body = '';
         foreach ($totals as $t) {
-            $body .= '<tr><td>'.e($t['worker']).'</td><td>'.e($t['vendor']).'</td><td>'.e($t['company'])
-                   .'</td><td class="n">'.$t['days'].'</td><td class="n">'.$t['hours']
+            $body .= '<tr><td>'.e($t['worker']).'</td><td>'.e($t['vendor']).'</td>'
+                   .($withCompany ? '<td>'.e($t['company']).'</td>' : '')
+                   .'<td class="n">'.$t['days'].'</td><td class="n">'.$t['hours']
                    .'</td><td class="n">'.$t['full'].'</td><td class="n">'.$t['half']
                    .'</td><td class="n"><b>'.$t['payable'].'</b></td><td class="n">'.$t['ot']
                    .'</td><td class="n">'.$t['missing'].'</td></tr>';
@@ -195,7 +207,9 @@ class AttendanceController extends Controller
               .'<h1>TrueCrew — Attendance Report</h1>'
               .'<p class="muted">'.e($org ?? 'All organisations').' · Period: '.$month.' · Generated: '.now()->format('d M Y H:i').'</p>'
               .'<p class="muted">Wage rule: '.$fullH.'h or more = 1 full day · '.$halfH.'h or more = half day (0.5) · less = short day (0).</p>'
-              .'<h2>Totals (muster)</h2><table><tr><th>Worker</th><th>Vendor</th><th>Company</th><th>Days</th><th>Hours</th>'
+              .'<h2>Totals (muster)</h2><table><tr><th>Worker</th><th>Vendor</th>'
+              .($withCompany ? '<th>Company</th>' : '')
+              .'<th>Days</th><th>Hours</th>'
               .'<th>Full</th><th>Half</th><th>Payable days</th><th>OT</th><th>Missing OUT</th></tr>'.$body.'</table>'
               .'<h2>Daily detail</h2><table><tr><th>Date</th><th>Worker</th><th>Location</th><th>IN</th><th>OUT</th><th>Hours</th><th>Day</th></tr>'.$daily.'</table>'
               .'</body></html>';
@@ -253,6 +267,18 @@ class AttendanceController extends Controller
         $start = Carbon::createFromFormat('Y-m-d', $month.'-01');
 
         return [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()];
+    }
+
+    /**
+     * Should exports carry a Company column?
+     *
+     * No when every row would repeat the same company: a company user always
+     * looks at their own, and a vendor/super who narrowed to one company has
+     * already said which. Mirrors the on-screen rule in the attendance log.
+     */
+    private function showsCompany(Request $request): bool
+    {
+        return ! $request->user()->isCompanyUser() && ! $request->company_id;
     }
 
     /** ?worker_ids=1,2,3 (or array) → int list; empty = all workers in scope. */
@@ -364,6 +390,7 @@ class AttendanceController extends Controller
         [$from, $to] = $this->reportRange($request);
         $fullHours   = config('payroll.full_day_hours', 8);
         $halfHours   = config('payroll.half_day_hours', 4);
+        $withCompany = $this->showsCompany($request);
 
         // Period key + human label per grouping mode.
         $periodOf = function (string $date) use ($group) {
@@ -378,7 +405,7 @@ class AttendanceController extends Controller
 
         $filename = 'truecrew-hours-'.$group.'-'.($request->month ?: "{$from}_to_{$to}").'.csv';
 
-        return response()->streamDownload(function () use ($rows, $group, $periodOf, $fullHours, $halfHours) {
+        return response()->streamDownload(function () use ($rows, $group, $periodOf, $fullHours, $halfHours, $withCompany) {
             $out = fopen('php://output', 'w');
             fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
 
@@ -390,23 +417,26 @@ class AttendanceController extends Controller
             \App\Support\Csv::row($out, []);
 
             if ($group === 'daily') {
-                \App\Support\Csv::row($out, ['Date', 'Worker', 'Emp code', 'Vendor', 'Company', 'Location(s)',
-                               'First IN', 'Last OUT', 'Hours', 'Day value', 'Day type', 'Overtime', 'Status']);
+                \App\Support\Csv::row($out, array_merge(
+                    ['Date', 'Worker', 'Emp code', 'Vendor'],
+                    $withCompany ? ['Company'] : [],
+                    ['Location(s)', 'First IN', 'Last OUT', 'Hours', 'Day value',
+                     'Day type', 'Overtime', 'Status']));
                 foreach ($rows as $r) {
                     $mins = $this->minutesBetween($r->first_in, $r->last_out);
                     $d    = $this->dayValue($mins);
                     $done = $r->first_in && $r->last_out;
-                    \App\Support\Csv::row($out, [
-                        $r->work_date, $r->worker_name, $r->emp_code, $r->vendor_name, $r->company_name,
-                        $r->locations,
-                        $r->first_in ? substr($r->first_in, 11, 5) : '',
-                        $r->last_out ? substr($r->last_out, 11, 5) : '',
-                        $done ? $this->hm($mins) : '',
-                        $done ? $d['value'] : 0,
-                        $done ? $d['label'] : 'No OUT',
-                        $done ? $this->hm($d['ot_mins']) : '',
-                        $done ? 'Done' : 'Missing OUT',
-                    ]);
+                    \App\Support\Csv::row($out, array_merge(
+                        [$r->work_date, $r->worker_name, $r->emp_code, $r->vendor_name],
+                        $withCompany ? [$r->company_name] : [],
+                        [$r->locations,
+                         $r->first_in ? substr($r->first_in, 11, 5) : '',
+                         $r->last_out ? substr($r->last_out, 11, 5) : '',
+                         $done ? $this->hm($mins) : '',
+                         $done ? $d['value'] : 0,
+                         $done ? $d['label'] : 'No OUT',
+                         $done ? $this->hm($d['ot_mins']) : '',
+                         $done ? 'Done' : 'Missing OUT']));
                 }
                 fclose($out);
 
@@ -445,18 +475,20 @@ class AttendanceController extends Controller
                 'monthly' => 'Month',
                 default   => null,
             };
-            $head = ['Worker', 'Emp code', 'Vendor', 'Company', 'Days present',
-                     'Total hours', 'Full days', 'Half days', 'Short days', 'Payable days',
-                     'Overtime', 'Missing OUT'];
+            $head = array_merge(
+                ['Worker', 'Emp code', 'Vendor'],
+                $withCompany ? ['Company'] : [],
+                ['Days present', 'Total hours', 'Full days', 'Half days', 'Short days',
+                 'Payable days', 'Overtime', 'Missing OUT']);
             \App\Support\Csv::row($out, $periodHeader ? array_merge([$periodHeader], $head) : $head);
 
             foreach ($agg as $t) {
-                $row = [
-                    $t['worker'], $t['emp_code'], $t['vendor'], $t['company'], $t['days'],
-                    $this->hm($t['mins']), $t['full'], $t['half'], $t['short'],
-                    $this->payable($t['full'], $t['half']),
-                    $this->hm($t['ot_mins']), $t['missing'],
-                ];
+                $row = array_merge(
+                    [$t['worker'], $t['emp_code'], $t['vendor']],
+                    $withCompany ? [$t['company']] : [],
+                    [$t['days'], $this->hm($t['mins']), $t['full'], $t['half'], $t['short'],
+                     $this->payable($t['full'], $t['half']),
+                     $this->hm($t['ot_mins']), $t['missing']]);
                 \App\Support\Csv::row($out, $periodHeader ? array_merge([$t['period']], $row) : $row);
             }
             fclose($out);

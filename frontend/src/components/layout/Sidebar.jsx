@@ -42,7 +42,7 @@ const NAV = [
       { to: "/live",                  icon: Activity,     label: "Live Board",      roles: ["all"] },
       { to: "/visitors",              icon: Contact,      label: "Visitors",        roles: ["super_admin", "company_admin", "company_hr", "company_gate"] },
       { to: "/attendance",            icon: BarChart2,    label: "Attendance Log",  roles: ["all"], end: true },
-      { to: "/attendance/exceptions", icon: AlertTriangle,label: "Still Inside",    roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/attendance/exceptions", icon: AlertTriangle,label: "Still Inside",    roles: ["super_admin", "company_admin", "company_hr", "company_gate", "vendor_admin", "vendor_operator"] },
       { to: "/reports",               icon: FileSpreadsheet, label: "Reports",      roles: ["all"] },
     ],
   },

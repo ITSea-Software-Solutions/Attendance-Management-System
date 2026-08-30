@@ -269,7 +269,9 @@
       <li><b>Payable days everywhere</b> — the monthly totals export and the printable report now show full days, half days, payable days and overtime alongside hours.</li>
       <li><b>Attendance Log cleaned up</b> — company users no longer see a Company column repeating their own name. Vendors get a <b>company dropdown</b> instead, and everyone gets a <b>worker picker</b> to select one, many, or all workers, plus a <b>date-range</b> mode (with the date shown per row). Every export button follows the filters on screen.</li>
       <li><b>Safer spreadsheets</b> — exported cells that start with = + - @ (Indian phone numbers like +9198… are the common case) are now written so Excel treats them as plain text. This removes the spreadsheet/antivirus warnings some downloads triggered, and closes a formula-injection risk in exported files. Our own import and Excel conversion strip the guard automatically, so files still round-trip.</li>
+      <li><b>Your own company is never repeated</b> — applied consistently across the whole portal, not just one screen: company logins no longer see a Company column or line on the Attendance Log, Reports (preview <i>and</i> the downloaded CSV/Excel/printable files), Still Inside, Deployments or Worker Detail. Vendors and super admins keep it, and it disappears there too once they pick a single company. Reports also gained the same company dropdown and worker picker as the Attendance Log.</li>
       <li>Fixed: the company list failed to load for vendor logins (a broken query), which also blocked the new company dropdown.</li>
+      <li>Fixed for HR logins: Worker Detail treated HR as an outside vendor (wrong company picker), the Vendors page tabs did not load, and "Still Inside" was hidden from the menu for HR, gate and operator logins even though the page works for them.</li>
     </ul>
   </div>
 

@@ -3,6 +3,7 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrgScope } from "@/lib/scope";
 import { format } from "date-fns";
 import toast from "react-hot-toast";
 import {
@@ -70,8 +71,9 @@ export default function WorkerDetail() {
   const { id }   = useParams();
   const { user } = useAuth();
 
-  const isCompanyUser = ["company_admin", "company_gate"].includes(user?.role);
-  const isVendorUser  = ["vendor_admin", "vendor_operator"].includes(user?.role);
+  // Shared rule (lib/scope.js) — company_hr counts as a company user, so HR
+  // sees their own company's data, not a vendor-style company picker.
+  const { isCompanyUser, isVendorUser, showCompany } = useOrgScope();
 
   // Company filter — company users are always fixed to their own company
   const [companyId, setCompanyId]       = useState(null); // null = all
@@ -352,7 +354,7 @@ export default function WorkerDetail() {
                     <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 truncate">
                       {log.location_name
                         ? <><MapPin size={10} />{log.location_name}</>
-                        : log.company?.name
+                        : showCompany(companyId) && log.company?.name
                           ? <><Building2 size={10} />{log.company.name}</>
                           : null}
                     </p>

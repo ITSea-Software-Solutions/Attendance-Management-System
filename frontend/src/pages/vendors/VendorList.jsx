@@ -96,7 +96,7 @@ export default function VendorList() {
   const [showPass, setShowPass]     = useState(false);
 
   const isSuperAdmin  = user?.role === "super_admin";
-  const isCompanyUser = ["company_admin", "company_gate"].includes(user?.role);
+  const isCompanyUser = ["company_admin", "company_hr", "company_gate"].includes(user?.role);
   const navigate      = useNavigate();
 
   // ── Data fetching ──────────────────────────────────────────────────────────
