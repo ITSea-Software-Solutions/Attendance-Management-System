@@ -18,15 +18,19 @@ class CompanyController extends Controller
         $user = $request->user();
 
         $query = Company::query()
-            ->when(! $user->isSuperAdmin(), fn($q) => $q->where('id', $user->company_id))
+            // Company users only ever see their own; vendors are scoped by the
+            // approved-link check below (their company_id is null).
+            ->when($user->isCompanyUser(), fn($q) => $q->where('id', $user->company_id))
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
             ->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%"));
 
-        // Vendor users see only approved companies
+        // Vendor users see only companies that approved them. Note: inside a
+        // whereHas closure the builder is a plain query, so the pivot column
+        // must be named explicitly — wherePivot() is not available here.
         if ($user->isVendorUser()) {
             $query->whereHas('vendors', fn($q) => $q
-                ->where('vendor_id', $user->vendor_id)
-                ->wherePivot('status', 'approved')
+                ->where('vendors.id', $user->vendor_id)
+                ->where('company_vendors.status', 'approved')
             );
         }
 

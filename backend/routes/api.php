@@ -95,6 +95,9 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('templates/reset',    [NotificationController::class, 'resetTemplate']);
 
     // ── Workers ───────────────────────────────────────────────────────────────
+    // Compact picker list — MUST precede the resource so /workers/options
+    // is not swallowed by /workers/{worker}.
+    Route::get('workers-options', [WorkerController::class, 'options']);
     Route::apiResource('workers', WorkerController::class);
     Route::prefix('workers/{worker}')->group(function () {
         Route::get('stats',          [WorkerController::class, 'stats']);
@@ -163,7 +166,9 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('report',          [AttendanceController::class, 'report']);
         Route::get('exceptions',      [AttendanceController::class, 'exceptions']);
         Route::get('live-board',      [AttendanceController::class, 'liveBoard']);   // glanceable who-is-where
-        Route::get('export',          [AttendanceController::class, 'export']);      // CSV: ?month=YYYY-MM&type=daily|monthly
-        Route::get('printable',       [AttendanceController::class, 'printable']);   // print-friendly month report
+        Route::get('export',          [AttendanceController::class, 'export']);      // CSV: ?month= | ?from=&to= &type=daily|monthly
+        Route::get('printable',       [AttendanceController::class, 'printable']);   // print-friendly period report
+        // Hours / wage-day report: ?from=&to= (or ?month=) &group=daily|weekly|monthly|summary
+        Route::get('hours-report',    [AttendanceController::class, 'hoursReport']);
     });
 });

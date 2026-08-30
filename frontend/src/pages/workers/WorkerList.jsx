@@ -113,6 +113,14 @@ export default function WorkerList() {
         const wb = XLSX.read(await r.data.text(), { type: "string", raw: true });
         const ws = wb.Sheets[wb.SheetNames[0]];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        // Server CSVs guard formula-leading cells ("'+9198...") for Excel;
+        // an .xlsx stores text safely, so drop the guard here.
+        for (const cell of Object.keys(ws)) {
+          if (cell[0] !== "!" && typeof ws[cell].v === "string" && /^'[=+\-@]/.test(ws[cell].v)) {
+            ws[cell].v = ws[cell].v.slice(1);
+            if (ws[cell].w) ws[cell].w = ws[cell].w.replace(/^'/, "");
+          }
+        }
         // Column widths from content so the sheet opens readable in Excel.
         ws["!cols"] = (rows[0] || []).map((_, c) => ({
           wch: Math.min(32, Math.max(10, ...rows.map((row) => String(row?.[c] ?? "").length + 2))),

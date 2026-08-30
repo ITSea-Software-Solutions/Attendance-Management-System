@@ -233,9 +233,9 @@ class VendorController extends Controller
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF");
-            fputcsv($out, ['Name', 'Code', 'Contact person', 'Email', 'Phone', 'City', 'Status', 'Plan']);
+            \App\Support\Csv::row($out, ['Name', 'Code', 'Contact person', 'Email', 'Phone', 'City', 'Status', 'Plan']);
             foreach ($rows as $v) {
-                fputcsv($out, [$v->name, $v->code, $v->contact_person, $v->contact_email,
+                \App\Support\Csv::row($out, [$v->name, $v->code, $v->contact_person, $v->contact_email,
                     $v->contact_phone, $v->city, $v->status, $v->plan]);
             }
             fclose($out);

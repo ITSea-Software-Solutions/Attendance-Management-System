@@ -263,7 +263,18 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.16.0</span> The new Dashboard <span class="date">27 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.17.0</span> Hours, wage days &amp; cleaner attendance <span class="date">30 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Hours &amp; wage-day reports</b> — a new report on the Reports page converts hours worked into payable days: <b>8h or more = 1 full day, 4h or more = half day (0.5), less = a short day</b>, with overtime counted beyond a full day. Roll it up <b>day by day, weekly, monthly, or as a total per worker</b>, over <b>any date range</b> (This month / Last month / This week / Last week / Last 30 days / custom). Every file carries the wage rule in a note line so whoever opens it in Excel knows how the days were counted. Thresholds are configurable per installation.</li>
+      <li><b>Payable days everywhere</b> — the monthly totals export and the printable report now show full days, half days, payable days and overtime alongside hours.</li>
+      <li><b>Attendance Log cleaned up</b> — company users no longer see a Company column repeating their own name. Vendors get a <b>company dropdown</b> instead, and everyone gets a <b>worker picker</b> to select one, many, or all workers, plus a <b>date-range</b> mode (with the date shown per row). Every export button follows the filters on screen.</li>
+      <li><b>Safer spreadsheets</b> — exported cells that start with = + - @ (Indian phone numbers like +9198… are the common case) are now written so Excel treats them as plain text. This removes the spreadsheet/antivirus warnings some downloads triggered, and closes a formula-injection risk in exported files. Our own import and Excel conversion strip the guard automatically, so files still round-trip.</li>
+      <li>Fixed: the company list failed to load for vendor logins (a broken query), which also blocked the new company dropdown.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.16.0</span> The new Dashboard <span class="date">27 Aug 2026</span></h3>
     <ul>
       <li><b>Rebuilt for every role</b> — company, vendor and super admin each get their own dashboard: greeting hero with live presence and one-tap quick actions, KPI cards with day-over-day change, and a "Needs attention" strip that links straight to pending approvals, workers still inside, expiring deployments, Aadhaar backlogs and licence renewals.</li>
       <li><b>Graphs everywhere</b> — 30-day / 7-day attendance trend, this-week bars, today's hourly IN flow, a turnout / workforce / plans donut, and presence-by-vendor (or by-company) bars. All live, refreshed every minute.</li>

@@ -5,7 +5,8 @@ import api from "@/lib/axios";
 import AuthImg from "@/components/AuthImg";
 import PageHint from "@/components/PageHint";
 import { useAuth } from "@/contexts/AuthContext";
-import { Download, Printer, X, User } from "lucide-react";
+import MultiSelect from "@/components/MultiSelect";
+import { Download, Printer, X, User, CalendarRange, Calendar } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { LogIn, LogOut, MapPin, Building2, Search } from "lucide-react";
 
@@ -44,7 +45,11 @@ function PhotoTile({ url, label }) {
 
 export default function AttendanceList() {
   const navigate = useNavigate();
-  const [date, setDate]     = useState(format(new Date(), "yyyy-MM-dd"));
+  const today = format(new Date(), "yyyy-MM-dd");
+  const [date, setDate]     = useState(today);
+  const [rangeMode, setRangeMode] = useState(false);
+  const [from, setFrom]     = useState(format(new Date(Date.now() - 6 * 864e5), "yyyy-MM-dd"));
+  const [to, setTo]         = useState(today);
   const [search, setSearch] = useState("");
   const [page, setPage]     = useState(1);
   const [tab, setTab]       = useState("all"); // all | current | previous
@@ -52,20 +57,76 @@ export default function AttendanceList() {
   const [exportMonth, setExportMonth] = useState(new Date().toISOString().slice(0, 7));
   const [detail, setDetail] = useState(null); // clicked daily-summary row
 
-  const downloadCsv = async (type) => {
-    const r = await api.get("/attendance/export", {
-      params: { month: exportMonth, type }, responseType: "blob",
-    });
-    const url = URL.createObjectURL(r.data);
+  // A company user always looks at their OWN company — no picker, no column.
+  // Vendor/super users work across companies, so they get a dropdown.
+  const isCompanyUser = ["company_admin", "company_hr", "company_gate"].includes(user?.role);
+  const [companyId, setCompanyId] = useState("");
+  const [workerIds, setWorkerIds] = useState([]); // [] = all workers
+
+  const { data: companies } = useQuery({
+    queryKey: ["company-options"],
+    queryFn:  () => api.get("/companies", { params: { per_page: 100 } }).then((r) => r.data?.data ?? r.data),
+    enabled:  !isCompanyUser,
+    staleTime: 5 * 60_000,
+  });
+
+  const { data: workerOptions } = useQuery({
+    queryKey: ["worker-options", companyId],
+    queryFn:  () => api.get("/workers-options", {
+      params: { company_id: companyId || undefined },
+    }).then((r) => r.data),
+    staleTime: 5 * 60_000,
+  });
+
+  // Company column only earns its place when more than one can appear.
+  const showCompany = !isCompanyUser && !companyId;
+  // A range spans many days, so each row must say which day it is.
+  const cols = 7 + (showCompany ? 1 : 0) + (rangeMode ? 1 : 0);
+
+  // Filters shared by the list and by every export, so a download always
+  // matches what is on screen.
+  const scopeParams = {
+    ...(rangeMode ? { from, to } : { date }),
+    ...(companyId ? { company_id: companyId } : {}),
+    ...(workerIds.length ? { worker_ids: workerIds.join(",") } : {}),
+  };
+
+  // Exports follow the on-screen scope: the chosen period (range when the
+  // range filter is on, else the picked month) plus company / worker filters.
+  const periodParams = () => (rangeMode
+    ? { from, to }
+    : { month: exportMonth });
+
+  const filterParams = () => ({
+    ...(companyId ? { company_id: companyId } : {}),
+    ...(workerIds.length ? { worker_ids: workerIds.join(",") } : {}),
+  });
+
+  const saveBlob = (data, filename) => {
+    const url = URL.createObjectURL(data);
     const a = document.createElement("a");
-    a.href = url; a.download = `truecrew-attendance-${exportMonth}-${type}.csv`;
+    a.href = url; a.download = filename;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(url);
   };
 
+  const downloadCsv = async (type) => {
+    const r = await api.get("/attendance/export", {
+      params: { ...periodParams(), ...filterParams(), type }, responseType: "blob",
+    });
+    saveBlob(r.data, `truecrew-attendance-${rangeMode ? `${from}_to_${to}` : exportMonth}-${type}.csv`);
+  };
+
+  const downloadHours = async (group) => {
+    const r = await api.get("/attendance/hours-report", {
+      params: { ...periodParams(), ...filterParams(), group }, responseType: "blob",
+    });
+    saveBlob(r.data, `truecrew-hours-${group}-${rangeMode ? `${from}_to_${to}` : exportMonth}.csv`);
+  };
+
   const openPrintable = async () => {
     const r = await api.get("/attendance/printable", {
-      params: { month: exportMonth }, responseType: "blob",
+      params: { ...periodParams(), ...filterParams() }, responseType: "blob",
     });
     window.open(URL.createObjectURL(new Blob([r.data], { type: "text/html" })), "_blank");
   };
@@ -73,10 +134,10 @@ export default function AttendanceList() {
   const deploymentParam = tab !== "all" ? tab : undefined;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["attendance-daily", date, search, page, tab],
+    queryKey: ["attendance-daily", scopeParams, search, page, tab],
     queryFn:  () =>
       api.get("/attendance/daily-summary", {
-        params: { date, search: search || undefined, page, deployment: deploymentParam },
+        params: { ...scopeParams, search: search || undefined, page, deployment: deploymentParam },
       }).then((r) => r.data),
   });
 
@@ -92,20 +153,46 @@ export default function AttendanceList() {
         </p>
       </div>
 
-      {/* ── Month export (Excel CSV / printable PDF) ── */}
-      <div className="card flex flex-wrap items-center gap-3 py-3">
-        <span className="text-sm font-medium text-gray-700">Export month:</span>
-        <input type="month" className="input w-44 py-1.5 text-sm" value={exportMonth}
-               onChange={(e) => setExportMonth(e.target.value)} />
-        <button className="btn-secondary text-sm" onClick={() => downloadCsv("daily")}>
-          <Download size={14} /> Daily CSV
-        </button>
-        <button className="btn-secondary text-sm" onClick={() => downloadCsv("monthly")}>
-          <Download size={14} /> Monthly totals CSV
-        </button>
-        <button className="btn-secondary text-sm" onClick={openPrintable}>
-          <Printer size={14} /> Report (print / PDF)
-        </button>
+      {/* ── Exports — always follow the filters set below ── */}
+      <div className="card space-y-3 py-3">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm font-medium text-gray-700">
+            Export {rangeMode ? "range:" : "month:"}
+          </span>
+          {rangeMode ? (
+            <span className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-1.5">
+              {from} → {to} <span className="text-gray-400">(from the date filter)</span>
+            </span>
+          ) : (
+            <input type="month" className="input w-44 py-1.5 text-sm" value={exportMonth}
+                   onChange={(e) => setExportMonth(e.target.value)} />
+          )}
+          <button className="btn-secondary text-sm" onClick={() => downloadCsv("daily")}>
+            <Download size={14} /> Daily CSV
+          </button>
+          <button className="btn-secondary text-sm" onClick={() => downloadCsv("monthly")}>
+            <Download size={14} /> Totals CSV
+          </button>
+          <button className="btn-secondary text-sm" onClick={openPrintable}>
+            <Printer size={14} /> Report (print / PDF)
+          </button>
+        </div>
+        <div className="flex flex-wrap items-center gap-3 pt-2.5 border-t border-gray-100">
+          <span className="text-sm font-medium text-gray-700">Hours &amp; wage days:</span>
+          {[
+            { g: "daily",   label: "Daily hours" },
+            { g: "weekly",  label: "Weekly" },
+            { g: "monthly", label: "Monthly" },
+            { g: "summary", label: "Total summary" },
+          ].map((h) => (
+            <button key={h.g} className="btn-secondary text-sm" onClick={() => downloadHours(h.g)}>
+              <Download size={14} /> {h.label}
+            </button>
+          ))}
+          <span className="text-xs text-gray-400">
+            8h = 1 full day · 4h = half day · overtime counted past 8h
+          </span>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -130,13 +217,60 @@ export default function AttendanceList() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <input
-          type="date"
-          value={date}
-          onChange={(e) => { setDate(e.target.value); setPage(1); }}
-          className="input w-auto"
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Single day ↔ date range */}
+        <button
+          type="button"
+          onClick={() => { setRangeMode((v) => !v); setPage(1); }}
+          className="btn-secondary text-sm"
+          title={rangeMode ? "Switch to a single day" : "Switch to a date range"}
+        >
+          {rangeMode ? <><Calendar size={14} /> Single day</> : <><CalendarRange size={14} /> Date range</>}
+        </button>
+
+        {rangeMode ? (
+          <div className="flex items-center gap-2">
+            <input type="date" value={from} max={to}
+              onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="input w-auto" />
+            <span className="text-gray-400 text-sm">to</span>
+            <input type="date" value={to} min={from}
+              onChange={(e) => { setTo(e.target.value); setPage(1); }} className="input w-auto" />
+          </div>
+        ) : (
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => { setDate(e.target.value); setPage(1); }}
+            className="input w-auto"
+          />
+        )}
+
+        {/* Vendors (and super admins) work across companies — pick one */}
+        {!isCompanyUser && (
+          <select
+            className="input w-auto"
+            value={companyId}
+            onChange={(e) => { setCompanyId(e.target.value); setWorkerIds([]); setPage(1); }}
+          >
+            <option value="">All companies</option>
+            {(companies ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+        )}
+
+        {/* One, many, or all workers */}
+        <MultiSelect
+          label="Workers"
+          options={(workerOptions ?? []).map((w) => ({
+            id: w.id,
+            name: w.emp_code ? `${w.name} · #${w.emp_code}` : w.name,
+            sub: w.vendor,
+          }))}
+          value={workerIds}
+          onChange={(v) => { setWorkerIds(v); setPage(1); }}
         />
+
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={15} />
           <input
@@ -160,10 +294,15 @@ export default function AttendanceList() {
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="text-left px-5 py-3 font-medium text-gray-500 w-14">Photo</th>
+              {rangeMode && (
+                <th className="text-left px-4 py-3 font-medium text-gray-500 whitespace-nowrap">Date</th>
+              )}
               <th className="text-left px-5 py-3 font-medium text-gray-500">Worker</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">
-                <span className="flex items-center gap-1"><Building2 size={13} />Company</span>
-              </th>
+              {showCompany && (
+                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">
+                  <span className="flex items-center gap-1"><Building2 size={13} />Company</span>
+                </th>
+              )}
               <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">
                 <span className="flex items-center gap-1"><MapPin size={13} />Location</span>
               </th>
@@ -180,7 +319,7 @@ export default function AttendanceList() {
           <tbody className="divide-y divide-gray-50">
             {isLoading && SKELETON_KEYS.map((k) => (
               <tr key={k}>
-                <td colSpan={8} className="py-3 px-5">
+                <td colSpan={cols} className="py-3 px-5">
                   <div className="h-4 bg-gray-100 rounded animate-pulse w-3/4" />
                 </td>
               </tr>
@@ -188,8 +327,8 @@ export default function AttendanceList() {
 
             {!isLoading && data?.data?.length === 0 && (
               <tr>
-                <td colSpan={8} className="text-center py-12 text-gray-400">
-                  No attendance records for this date.
+                <td colSpan={cols} className="text-center py-12 text-gray-400">
+                  No attendance records for this {rangeMode ? "range" : "date"}.
                 </td>
               </tr>
             )}
@@ -224,6 +363,15 @@ export default function AttendanceList() {
                     />
                   </td>
 
+                  {rangeMode && (
+                    <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
+                      {format(new Date(`${row.work_date}T00:00:00`), "dd MMM")}
+                      <span className="block text-[11px] text-gray-400">
+                        {format(new Date(`${row.work_date}T00:00:00`), "EEE")}
+                      </span>
+                    </td>
+                  )}
+
                   {/* Worker */}
                   <td className="px-5 py-3">
                     <p className="font-medium text-gray-900 leading-tight">{row.worker_name}</p>
@@ -232,10 +380,12 @@ export default function AttendanceList() {
                     )}
                   </td>
 
-                  {/* Company */}
-                  <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
-                    {row.company_name ?? <span className="text-gray-300">—</span>}
-                  </td>
+                  {/* Company — hidden when only one company can appear */}
+                  {showCompany && (
+                    <td className="px-4 py-3 text-gray-600 hidden lg:table-cell">
+                      {row.company_name ?? <span className="text-gray-300">—</span>}
+                    </td>
+                  )}
 
                   {/* Location(s) */}
                   <td className="px-4 py-3 hidden md:table-cell">

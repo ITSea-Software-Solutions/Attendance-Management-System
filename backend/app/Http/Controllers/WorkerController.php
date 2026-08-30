@@ -268,6 +268,47 @@ class WorkerController extends Controller
     /**
      * CSV export of the caller-visible workers (bulk_import_export feature).
      */
+    /**
+     * Compact id+name list for pickers (attendance filters, report scoping).
+     * Role-scoped like every other worker query; ?company_id= narrows to
+     * workers ever deployed to that company. No pagination — capped at 2000.
+     */
+    public function options(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $q = Worker::query()->select('id', 'name', 'emp_code', 'vendor_id')->with('vendor:id,name');
+        if ($user->isVendorUser()) {
+            $q->where('vendor_id', $user->vendor_id);
+        } elseif ($user->isCompanyUser()) {
+            // Deployed to them now OR seen at their gates before — the picker
+            // must cover everyone the attendance log can show.
+            $cid = $user->company_id;
+            $q->where(fn ($x) => $x
+                ->whereHas('assignments', fn ($a) => $a->where('company_id', $cid))
+                ->orWhereHas('attendanceLogs', fn ($l) => $l->where('company_id', $cid)));
+        }
+        if ($cid = $request->company_id) {
+            // Company users cannot look outside their own company.
+            abort_if($user->isCompanyUser() && (int) $cid !== $user->company_id, 403, 'Unauthorized company.');
+            $cid = (int) $cid;
+            // Deployed there, or seen there before — matching what the
+            // attendance log for that company can actually show.
+            $q->where(fn ($x) => $x
+                ->whereHas('assignments', fn ($a) => $a->where('company_id', $cid))
+                ->orWhereHas('attendanceLogs', fn ($l) => $l->where('company_id', $cid)));
+        }
+
+        return response()->json(
+            $q->when($request->search, fn ($x, $s) => $x->where('name', 'like', "%{$s}%"))
+              ->orderBy('name')->limit(2000)->get()
+              ->map(fn ($w) => [
+                  'id' => $w->id, 'name' => $w->name,
+                  'emp_code' => $w->emp_code, 'vendor' => $w->vendor?->name,
+              ])
+        );
+    }
+
     public function export(Request $request)
     {
         $user = $request->user();
@@ -284,9 +325,9 @@ class WorkerController extends Controller
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF"); // Excel-friendly BOM
-            fputcsv($out, ['Name', 'Emp code', 'Aadhaar (masked)', 'Aadhaar verified', 'PAN', 'Joining date', 'DOB', 'Gender', 'Phone', 'Email', 'Address', 'Vendor', 'Status', 'Fingerprint', 'Face', 'Email verified', 'Phone verified']);
+            \App\Support\Csv::row($out, ['Name', 'Emp code', 'Aadhaar (masked)', 'Aadhaar verified', 'PAN', 'Joining date', 'DOB', 'Gender', 'Phone', 'Email', 'Address', 'Vendor', 'Status', 'Fingerprint', 'Face', 'Email verified', 'Phone verified']);
             foreach ($rows as $w) {
-                fputcsv($out, [
+                \App\Support\Csv::row($out, [
                     $w->name, $w->emp_code, $w->aadhaar_number_masked,
                     $w->aadhaar_verified_at ? 'yes' : 'NO — pending',
                     $w->pan_number,
@@ -355,7 +396,12 @@ class WorkerController extends Controller
             return response()->json(['message' => 'CSV needs at least a "name" column. Recognised columns: name, phone, joining_date, aadhaar_number (OPTIONAL — verify later), pan_number, address, dob, gender, email.'], 422);
         }
         $cell = function (array $row, string $field) use ($cols): string {
-            return isset($cols[$field]) ? trim((string) ($row[$cols[$field]] ?? '')) : '';
+            if (! isset($cols[$field])) {
+                return '';
+            }
+            // Strip the anti-formula guard our own exports add, so an exported
+            // file round-trips ("'+919876543210" → "+919876543210").
+            return trim(\App\Support\Csv::unguard($row[$cols[$field]] ?? ''));
         };
         // dd/mm/yyyy · dd-mm-yyyy · yyyy-mm-dd → Y-m-d (null when unparseable)
         $parseDate = function (string $v): ?string {
