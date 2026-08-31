@@ -150,7 +150,7 @@ export default function VendorDetail() {
                   <Field icon={MapPin} label="Location" value={[p.city, p.state].filter(Boolean).join(", ")} />
                   <Field icon={FileText} label="GST" value={p.gst_number} />
                   <Field icon={FileText} label="PAN" value={p.pan_number} />
-                  <Field label="Vendor code" value={p.code} />
+                  <Field label="Contractor code" value={p.code} />
                   <Field label="On TrueCrew since" value={fmtD(p.since)} />
                   <Field label="Org status" value={p.status} />
                 </div>

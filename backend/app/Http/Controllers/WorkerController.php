@@ -938,7 +938,7 @@ class WorkerController extends Controller
         $this->authorizeWorkerAccess($user, $worker);
         // The fingerprint belongs to the vendor's registration — companies
         // interact through deployments, never the biometric record.
-        abort_if($user->isCompanyUser(), 403, 'Only the owning vendor can remove a fingerprint.');
+        abort_if($user->isCompanyUser(), 403, 'Only the owning contractor can remove a fingerprint.');
 
         if ($blocked = $this->vendorEngagementBlock($user, $worker, 'remove the fingerprint')) {
             return $blocked;

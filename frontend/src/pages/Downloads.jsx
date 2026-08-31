@@ -31,7 +31,7 @@ const DOCS = [
   {
     icon: BookOpen,
     title: "Company Guide",
-    desc: "Admins, HR and gate teams — vendor approvals, deployment approvals, attendance, manual OUT, reports.",
+    desc: "Admins, HR and gate teams — contractor approvals, deployment approvals, attendance, manual OUT, reports.",
     href: "/docs/company-guide.html",
   },
   {

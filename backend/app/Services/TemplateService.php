@@ -53,13 +53,13 @@ class TemplateService
             'vars'    => ['email', 'reset_url'],
         ],
         'vendor_approved' => [
-            'label'   => 'Vendor approved by company',
+            'label'   => 'Contractor approved by company',
             'subject' => '{{company_name}} approved your access — TrueCrew',
             'body'    => "Good news!\n\n{{company_name}} has APPROVED {{vendor_name}}.\nYou can now deploy workers to their sites and mark attendance at their gates.",
             'vars'    => ['vendor_name', 'company_name'],
         ],
         'vendor_rejected' => [
-            'label'   => 'Vendor rejected by company',
+            'label'   => 'Contractor rejected by company',
             'subject' => '{{company_name}} declined your access request — TrueCrew',
             'body'    => "{{company_name}} has declined the access request from {{vendor_name}}.\nReason: {{reason}}\n\nYou can contact the company directly or submit a new request later.",
             'vars'    => ['vendor_name', 'company_name', 'reason'],
@@ -89,7 +89,7 @@ class TemplateService
             'vars'    => ['date', 'count', 'worker_lines'],
         ],
         'deployment_expiring' => [
-            'label'   => 'Deployments nearing expiry (vendor)',
+            'label'   => 'Deployments nearing expiry (contractor)',
             'subject' => '{{count}} deployment(s) ending within 3 days — TrueCrew',
             'body'    => "These deployments end soon:\n\n{{lines}}\n\nExtend them (deploy again) or plan the exit on the Deploy Workers page / app.",
             'vars'    => ['count', 'lines'],

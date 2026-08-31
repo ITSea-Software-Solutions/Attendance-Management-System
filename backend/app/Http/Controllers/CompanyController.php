@@ -152,7 +152,7 @@ class CompanyController extends Controller
                 'consented'    => false,
                 'profile'      => ['id' => $vendor->id, 'name' => $vendor->name, 'status' => $vendor->status],
                 'relationship' => $relationship,
-                'message'      => 'This vendor has not consented to share details and history yet — consent is collected with new access requests.',
+                'message'      => 'This contractor has not consented to share details and history yet — consent is collected with new access requests.',
             ]);
         }
 
@@ -230,7 +230,7 @@ class CompanyController extends Controller
 
         $existing = $company->vendors()->where('vendor_id', $vendor->id)->first();
         if (! $existing) {
-            return response()->json(['message' => 'Vendor has not requested access to this company.'], 422);
+            return response()->json(['message' => 'Contractor has not requested access to this company.'], 422);
         }
 
         // SaaS: an approved link consumes quota on BOTH orgs (skip when re-approving).
@@ -239,7 +239,7 @@ class CompanyController extends Controller
                 return response()->json($deny, 403);
             }
             if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $vendor->id), 'links')) {
-                $deny['message'] = "The vendor's " . $deny['message'];
+                $deny['message'] = "The contractor's " . $deny['message'];
                 return response()->json($deny, 403);
             }
         }
@@ -273,7 +273,7 @@ class CompanyController extends Controller
             'company_id' => $company->id,
         ]);
 
-        return response()->json(['message' => "Vendor {$vendor->name} approved for {$company->name}."]);
+        return response()->json(['message' => "Contractor {$vendor->name} approved for {$company->name}."]);
     }
 
     public function rejectVendor(Request $request, Company $company, Vendor $vendor): JsonResponse
@@ -307,7 +307,7 @@ class CompanyController extends Controller
             'reason'     => $data['reason'],
         ]);
 
-        return response()->json(['message' => 'Vendor rejected.']);
+        return response()->json(['message' => 'Contractor rejected.']);
     }
 
     public function suspendVendor(Request $request, Company $company, Vendor $vendor): JsonResponse
@@ -320,7 +320,7 @@ class CompanyController extends Controller
             'company_id' => $company->id,
         ]);
 
-        return response()->json(['message' => 'Vendor access suspended.']);
+        return response()->json(['message' => 'Contractor access suspended.']);
     }
 
     private function requireSuperAdmin(Request $request): void

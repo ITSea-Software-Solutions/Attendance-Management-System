@@ -65,7 +65,7 @@ class WorkerAssignmentController extends Controller
             ->where('company_vendors.status', 'approved')
             ->exists();
 
-        abort_unless($isApproved, 422, 'Your vendor is not approved for this company. Request approval first.');
+        abort_unless($isApproved, 422, 'Your contractor is not approved for this company. Request approval first.');
 
         abort_unless(
             $worker->status === Worker::STATUS_ACTIVE,

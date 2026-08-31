@@ -57,7 +57,7 @@ class UserController extends Controller
                     ->wherePivot('status', 'approved')->exists();
                 if (! $approved) {
                     return response()->json([
-                        'message' => 'That vendor is not approved for your company.',
+                        'message' => 'That contractor is not approved for your company.',
                     ], 403);
                 }
                 if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $data['vendor_id']), 'users')) {

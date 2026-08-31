@@ -183,7 +183,7 @@ export default function Dashboard() {
           <Kpi icon={UserCheck} label="Present today" value={k.present_today} tone="green"
             extra={<Delta now={ov.present_today} before={ov.present_yesterday} />} to="/attendance" />
           <Kpi icon={Building2} label="Companies" value={k.companies} tone="blue" to="/companies" />
-          <Kpi icon={Users} label="Vendors" value={k.vendors} tone="purple" to="/vendors" />
+          <Kpi icon={Users} label="Contractors" value={k.vendors} tone="purple" to="/vendors" />
           <Kpi icon={Fingerprint} label="Active workers" value={k.workers_active} tone="slate" to="/workers" />
         </>}
         {isCompany && <>
@@ -194,7 +194,7 @@ export default function Dashboard() {
             to="/workers" />
           <Kpi icon={AlertTriangle} label="Still inside" value={k.still_inside} tone={k.still_inside > 0 ? "amber" : "slate"}
             to="/attendance/exceptions" />
-          <Kpi icon={Users} label="Approved vendors" value={k.vendors} tone="purple" to="/vendors" />
+          <Kpi icon={Users} label="Approved contractors" value={k.vendors} tone="purple" to="/vendors" />
         </>}
         {isVendor && <>
           <Kpi icon={UserCheck} label="Present today" value={k.present_today} tone="green"

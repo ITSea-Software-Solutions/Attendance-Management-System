@@ -132,8 +132,8 @@ export default function VendorApproval() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Vendor Approvals</h1>
-        <p className="text-sm text-gray-500 mt-0.5">Manage vendor access requests per company</p>
+        <h1 className="text-2xl font-bold text-gray-900">Contractor Approvals</h1>
+        <p className="text-sm text-gray-500 mt-0.5">Manage contractor access requests per company</p>
       </div>
 
       {/* Company selector — super admin only */}
@@ -159,7 +159,7 @@ export default function VendorApproval() {
 
       {!companyId && isSuperAdmin && (
         <div className="card text-center py-12 text-gray-400">
-          <p>Select a company above to view its vendor relationships.</p>
+          <p>Select a company above to view its contractor relationships.</p>
         </div>
       )}
 
@@ -205,7 +205,7 @@ export default function VendorApproval() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left px-5 py-3 font-medium text-gray-500">Vendor</th>
+                  <th className="text-left px-5 py-3 font-medium text-gray-500">Contractor</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Contact</th>
                   <th className="text-left px-4 py-3 font-medium text-gray-500 hidden lg:table-cell">Location</th>
                   <th className="text-center px-4 py-3 font-medium text-gray-500">Status</th>

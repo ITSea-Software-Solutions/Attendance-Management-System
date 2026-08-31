@@ -177,7 +177,7 @@ export default function WorkerList() {
         This page is your worker register — click any row to open that worker's full record.
         {canImport
           ? <> Already have workers in an Excel sheet? Use <b>Import from Excel</b> — your existing file works as-is, and Aadhaar can be added later.</>
-          : <> Your vendors register workers (from their app or Excel import); workers deployed to you appear here automatically.</>}
+          : <> Your contractors register workers (from their app or Excel import); workers deployed to you appear here automatically.</>}
       </PageHint>
 
       {/* Deployment tabs */}

@@ -6,7 +6,7 @@ import toast from "react-hot-toast";
 import { Building2, Pencil, X, Check } from "lucide-react";
 
 const FIELDS = [
-  { key: "name",           label: "Vendor Name",     span: 2 },
+  { key: "name",           label: "Contractor Name",     span: 2 },
   { key: "contact_person", label: "Contact Person",  span: 1 },
   { key: "contact_email",  label: "Contact Email",   span: 1 },
   { key: "contact_phone",  label: "Contact Phone",   span: 1 },

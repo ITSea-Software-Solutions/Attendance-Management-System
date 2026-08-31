@@ -233,7 +233,7 @@ class DashboardController extends Controller
 
             if ($pendingUpgrades)        $attention[] = ['label' => 'Plan requests to verify', 'count' => $pendingUpgrades, 'to' => '/subscriptions'];
             if ($expiring)               $attention[] = ['label' => 'Licences expiring in 7 days', 'count' => $expiring, 'to' => '/subscriptions'];
-            if ($pendingVendorApprovals) $attention[] = ['label' => 'Vendor approvals pending', 'count' => $pendingVendorApprovals, 'to' => '/vendors/approval'];
+            if ($pendingVendorApprovals) $attention[] = ['label' => 'Contractor approvals pending', 'count' => $pendingVendorApprovals, 'to' => '/vendors/approval'];
         } elseif ($user->isCompanyUser()) {
             $cid = $user->company_id;
             $stillInside = $this->missingOutCount($cid);
@@ -289,7 +289,7 @@ class DashboardController extends Controller
 
             if ($pendingDeploys) $attention[] = ['label' => 'Deployments awaiting approval', 'count' => $pendingDeploys, 'to' => '/workers/assign'];
             if ($stillInside)    $attention[] = ['label' => 'Workers still inside', 'count' => $stillInside, 'to' => '/attendance/exceptions'];
-            if ($pendingVendors) $attention[] = ['label' => 'Vendor requests pending', 'count' => $pendingVendors, 'to' => '/vendors/approval'];
+            if ($pendingVendors) $attention[] = ['label' => 'Contractor requests pending', 'count' => $pendingVendors, 'to' => '/vendors/approval'];
             if ($pendingPasses)  $attention[] = ['label' => 'Gate passes awaiting decision', 'count' => $pendingPasses, 'to' => '/visitors'];
         } elseif ($user->isVendorUser()) {
             $roleView = 'vendor';

@@ -362,7 +362,7 @@ export default function Reports() {
         }
       }
       const vd = donutOf(view, colIdx(h, "Contractor", "Vendor"));
-      if (vd.length > 1) out.push({ kind: "donut", title: "Worker-days by vendor", data: vd, center: "days" });
+      if (vd.length > 1) out.push({ kind: "donut", title: "Worker-days by contractor", data: vd, center: "days" });
       if (wi >= 0 && hi >= 0)
         out.push({ kind: "rank", title: "Top workers by hours",
           data: rankOf(view, wi, { metric: (r) => hmToMins(r[hi]), display: minsToHM }) });
@@ -413,7 +413,7 @@ export default function Reports() {
           if (segs.length) out.push({ kind: "donut", title: "Day types worked", data: segs, center: "days" });
         }
         const vd = donutOf(view, colIdx(h, "Contractor", "Vendor"), { weight: (r) => (payI >= 0 ? parseFloat(r[payI]) || 0 : 1) });
-        if (vd.length > 1) out.push({ kind: "donut", title: "Payable days by vendor", data: vd, center: "days" });
+        if (vd.length > 1) out.push({ kind: "donut", title: "Payable days by contractor", data: vd, center: "days" });
       }
     }
 
@@ -426,7 +426,7 @@ export default function Reports() {
         out.push({ kind: "rank", title: "Top workers by hours", color: "#8b5cf6",
           data: rankOf(view, wi, { metric: (r) => hmToMins(r[th]), display: minsToHM }) });
       const vd = donutOf(view, colIdx(h, "Contractor", "Vendor"), { weight: (r) => (dp >= 0 ? +r[dp] || 0 : 1) });
-      if (vd.length > 1) out.push({ kind: "donut", title: "Days by vendor", data: vd, center: "days" });
+      if (vd.length > 1) out.push({ kind: "donut", title: "Days by contractor", data: vd, center: "days" });
       const cd = donutOf(view, idx("Company"), { weight: (r) => (dp >= 0 ? +r[dp] || 0 : 1) });
       if (cd.length > 1) out.push({ kind: "donut", title: "Days by company", data: cd, center: "days" });
     }
@@ -446,7 +446,7 @@ export default function Reports() {
       const gd = donutOf(view, idx("Gender"), { map: (v) => ({ M: "Male", F: "Female", O: "Other" }[v] || "—") });
       if (gd.length > 1) out.push({ kind: "donut", title: "Gender split", data: gd, center: "workers" });
       const vr = rankOf(view, colIdx(h, "Contractor", "Vendor"), { display: (v) => `${v}` });
-      if (vr.length > 1) out.push({ kind: "rank", title: "Workers per vendor", color: "#f59e0b", data: vr });
+      if (vr.length > 1) out.push({ kind: "rank", title: "Workers per contractor", color: "#f59e0b", data: vr });
     }
 
     if (loaded.id === "vendors") {

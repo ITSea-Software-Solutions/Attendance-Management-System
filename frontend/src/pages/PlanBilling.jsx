@@ -144,7 +144,7 @@ export default function PlanBilling() {
         <div className="grid sm:grid-cols-3 gap-5 mt-5">
           <Meter label="User logins" used={org.usage.users} limit={org.limits.users} />
           {org.usage.workers !== null && <Meter label="Workers" used={org.usage.workers} limit={org.limits.workers} />}
-          <Meter label="Company–vendor links" used={org.usage.links} limit={org.limits.links} />
+          <Meter label="Company–contractor links" used={org.usage.links} limit={org.limits.links} />
         </div>
       </div>
 

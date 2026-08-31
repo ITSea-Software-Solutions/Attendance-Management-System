@@ -195,7 +195,7 @@ class SyncController extends Controller
         }
         $vendorId = $user->isVendorUser() ? $user->vendor_id : null;
         if (! $vendorId) {
-            return ['uuid' => $uuid, 'status' => 'error', 'message' => 'No vendor for this account.'];
+            return ['uuid' => $uuid, 'status' => 'error', 'message' => 'No contractor for this account.'];
         }
 
         if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $vendorId), 'workers')) {

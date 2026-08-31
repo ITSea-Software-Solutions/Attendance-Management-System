@@ -32,7 +32,7 @@ class VendorController extends Controller
         // Super admin creates global vendors; a company admin can create a
         // vendor for their own company (auto-approved for that company).
         if (! $request->user()->isSuperAdmin() && $request->user()->role !== 'company_admin') {
-            abort(403, 'Only Super Admin or a Company Admin can create vendors.');
+            abort(403, 'Only Super Admin or a Company Admin can create contractors.');
         }
         // SaaS: creating an auto-approved vendor consumes one of the company's links.
         if ($request->user()->role === 'company_admin') {
@@ -90,7 +90,7 @@ class VendorController extends Controller
     {
         $user = $request->user();
         if (! $user->isSuperAdmin() && ! ($user->isVendorAdmin() && $user->vendor_id === $vendor->id)) {
-            abort(403, 'Only Vendor Admin can edit vendor details.');
+            abort(403, 'Only a Contractor Admin can edit contractor details.');
         }
 
         $data = $request->validate([
@@ -117,7 +117,7 @@ class VendorController extends Controller
         $vendor->delete();
         $this->audit->log($request->user()->id, 'vendor_deleted', Vendor::class, $vendor->id);
 
-        return response()->json(['message' => 'Vendor deleted.']);
+        return response()->json(['message' => 'Contractor deleted.']);
     }
 
     // ── Vendor requests access to a company ───────────────────────────────────
@@ -127,7 +127,7 @@ class VendorController extends Controller
         $user = $request->user();
 
         if (! $user->isSuperAdmin() && ! ($user->isVendorAdmin() && $user->vendor_id === $vendor->id)) {
-            abort(403, 'Only Vendor Admin can send company access requests.');
+            abort(403, 'Only a Contractor Admin can send company access requests.');
         }
 
         $existing = $vendor->companies()->where('company_id', $company->id)->first();
@@ -173,7 +173,7 @@ class VendorController extends Controller
         $user = $request->user();
 
         if (! $user->isSuperAdmin() && ! ($user->isVendorAdmin() && $user->vendor_id === $vendor->id)) {
-            abort(403, 'Only Vendor Admin can view company relationships.');
+            abort(403, 'Only a Contractor Admin can view company relationships.');
         }
 
         $companies = $vendor->companies()
@@ -190,7 +190,7 @@ class VendorController extends Controller
         $user = $request->user();
 
         if (! $user->isSuperAdmin() && ! ($user->isVendorAdmin() && $user->vendor_id === $vendor->id)) {
-            abort(403, 'Only Vendor Admin can view available companies.');
+            abort(403, 'Only a Contractor Admin can view available companies.');
         }
 
         $existing = $vendor->companies()

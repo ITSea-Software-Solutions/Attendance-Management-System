@@ -59,7 +59,7 @@ function genPassword() {
 
 function FieldLabel({ k }) {
   const labels = {
-    name: "Vendor Name", code: "Vendor Code",
+    name: "Contractor Name", code: "Contractor Code",
     contact_person: "Contact Person", contact_email: "Contact Email", contact_phone: "Contact Phone",
   };
   return <label className="label">{labels[k] ?? k.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase())}</label>;
@@ -125,7 +125,7 @@ export default function VendorList() {
       return vendor;
     },
     onSuccess: () => {
-      toast.success("Vendor created!");
+      toast.success("Contractor created!");
       queryClient.invalidateQueries(["vendors"]);
       queryClient.invalidateQueries(["company-vendors-list"]);
       setShowCreate(false);
@@ -138,7 +138,7 @@ export default function VendorList() {
   const updateMutation = useMutation({
     mutationFn: ({ id, data }) => api.put(`/vendors/${id}`, data),
     onSuccess: () => {
-      toast.success("Vendor updated!");
+      toast.success("Contractor updated!");
       queryClient.invalidateQueries(["vendors"]);
       setEditTarget(null);
     },
@@ -262,7 +262,7 @@ export default function VendorList() {
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-        <input type="text" placeholder="Search vendors…" value={search}
+        <input type="text" placeholder="Search contractors…" value={search}
           onChange={e => setSearch(e.target.value)} className="input pl-9" />
       </div>
 
@@ -295,7 +295,7 @@ export default function VendorList() {
               </div>
               <div>
                 <label className="label">Login Email</label>
-                <input className="input" type="email" placeholder="admin@vendor.com" value={admin.email}
+                <input className="input" type="email" placeholder="admin@contractor.com" value={admin.email}
                   onChange={e => setAdmin(a => ({ ...a, email: e.target.value }))} />
               </div>
               <div className="sm:col-span-2">
@@ -338,7 +338,7 @@ export default function VendorList() {
         {isLoading
           ? [...Array(6)].map((_, i) => <div key={i} className="card animate-pulse h-32 bg-gray-100" />)
           : vendors.length === 0
-            ? <p className="text-gray-400 text-sm col-span-3 text-center py-10">No vendors in this category.</p>
+            ? <p className="text-gray-400 text-sm col-span-3 text-center py-10">No contractors in this category.</p>
             : vendors.map(v => (
               <div
                 key={v.id}

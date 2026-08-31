@@ -19,7 +19,7 @@ class SendDeploymentAlerts extends Command
 {
     protected $signature = 'truecrew:deployment-alerts';
 
-    protected $description = 'Notify vendors about undeployed workers and deployments nearing expiry';
+    protected $description = 'Notify contractors about undeployed workers and deployments nearing expiry';
 
     public function handle(NotifyService $notify): int
     {

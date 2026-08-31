@@ -315,7 +315,7 @@ export default function UserList() {
                 <div>
                   <label className="label">Contractor</label>
                   <select className="input" required {...field("vendor_id")}>
-                    <option value="">Select vendor…</option>
+                    <option value="">Select contractor…</option>
                     {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
                   </select>
                 </div>

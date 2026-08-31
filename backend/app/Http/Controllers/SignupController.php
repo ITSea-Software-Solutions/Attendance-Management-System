@@ -62,7 +62,7 @@ class SignupController extends Controller
         if (! $isCompany && Vendor::withTrashed()->where('contact_email', $data['email'])->exists()) {
             return response()->json([
                 'message' => 'Validation failed.',
-                'errors'  => ['email' => ['A vendor with this contact email already exists.']],
+                'errors'  => ['email' => ['A contractor with this contact email already exists.']],
             ], 422);
         }
 

@@ -95,7 +95,7 @@ export default function ImportWorkersModal({ open, onClose, onImported, vendorOp
 
   const runImport = async () => {
     if (!isVendorUser && !vendorId) {
-      toast.error("Choose which vendor these workers belong to.");
+      toast.error("Choose which contractor these workers belong to.");
       return;
     }
     setBusy(true);
@@ -250,7 +250,7 @@ export default function ImportWorkersModal({ open, onClose, onImported, vendorOp
                 <div className="flex items-center gap-3">
                   <Users size={15} className="text-gray-400" />
                   <select className="input w-auto text-sm" value={vendorId} onChange={(e) => setVendorId(e.target.value)}>
-                    <option value="">These workers belong to which vendor?</option>
+                    <option value="">These workers belong to which contractor?</option>
                     {(vendorOpts ?? []).map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
                   </select>
                 </div>
