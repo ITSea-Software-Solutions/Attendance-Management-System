@@ -557,6 +557,8 @@ class AppState extends ChangeNotifier {
     String? guestPhone,
     String? purpose,
     String? photoPath,
+    String? vehicleNumber,
+    String? vehiclePhotoPath,
   }) async {
     final api = await Api.client();
     final fd = FormData.fromMap({
@@ -564,8 +566,13 @@ class AppState extends ChangeNotifier {
       'guest_name': guestName,
       if (guestPhone != null && guestPhone.isNotEmpty) 'guest_phone': guestPhone,
       if (purpose != null && purpose.isNotEmpty) 'purpose': purpose,
+      if (vehicleNumber != null && vehicleNumber.isNotEmpty)
+        'vehicle_number': vehicleNumber,
       if (photoPath != null)
         'photo': await MultipartFile.fromFile(photoPath, filename: 'guest.jpg'),
+      if (vehiclePhotoPath != null)
+        'vehicle_photo':
+            await MultipartFile.fromFile(vehiclePhotoPath, filename: 'vehicle.jpg'),
     });
     final r = await api.post('/gate-passes', data: fd);
     return Map<String, dynamic>.from(r.data as Map);

@@ -118,8 +118,10 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
     final name = TextEditingController();
     final phone = TextEditingController();
     final purpose = TextEditingController();
+    final vehicleNo = TextEditingController();
     int? hostId = hosts.first['id'] as int?;
     String? photoPath;
+    String? vehiclePhotoPath;
 
     final go = await showDialog<bool>(
       context: context,
@@ -138,6 +140,11 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
               TextField(
                   controller: purpose,
                   decoration: const InputDecoration(labelText: 'Purpose')),
+              TextField(
+                  controller: vehicleNo,
+                  textCapitalization: TextCapitalization.characters,
+                  decoration: const InputDecoration(
+                      labelText: 'Vehicle number', hintText: 'MH 12 AB 1234')),
               const SizedBox(height: 10),
               DropdownButtonFormField<int>(
                 initialValue: hostId,
@@ -161,8 +168,28 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
                 },
                 icon: Icon(photoPath == null ? Icons.photo_camera : Icons.check_circle,
                     size: 18, color: photoPath == null ? null : Colors.teal),
-                label: Text(photoPath == null ? 'Take guest photo' : 'Photo taken'),
+                label: Text(photoPath == null ? 'Take guest photo' : 'Guest photo taken'),
               ),
+              OutlinedButton.icon(
+                onPressed: () async {
+                  final shot = await captureWithCamera(context);
+                  if (shot != null) setD(() => vehiclePhotoPath = shot);
+                },
+                icon: Icon(
+                    vehiclePhotoPath == null ? Icons.directions_car : Icons.check_circle,
+                    size: 18,
+                    color: vehiclePhotoPath == null ? null : Colors.teal),
+                label: Text(vehiclePhotoPath == null
+                    ? 'Take vehicle photo'
+                    : 'Vehicle photo taken'),
+              ),
+              if (photoPath == null && vehiclePhotoPath == null)
+                const Padding(
+                  padding: EdgeInsets.only(top: 6),
+                  child: Text(
+                      'Take at least one photo — the visitor, the vehicle, or both.',
+                      style: TextStyle(fontSize: 12, color: Colors.orange)),
+                ),
             ]),
           ),
           actions: [
@@ -182,6 +209,13 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
       }
       return;
     }
+    if (photoPath == null && vehiclePhotoPath == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text('Take at least one photo — the visitor or the vehicle.')));
+      }
+      return;
+    }
     await _act(
         () => app.createGatePass(
               hostId: hostId!,
@@ -189,6 +223,8 @@ class _VisitorsScreenState extends State<VisitorsScreen> {
               guestPhone: phone.text.trim(),
               purpose: purpose.text.trim(),
               photoPath: photoPath,
+              vehicleNumber: vehicleNo.text.trim(),
+              vehiclePhotoPath: vehiclePhotoPath,
             ),
         'Could not create the pass.');
     if (mounted) {

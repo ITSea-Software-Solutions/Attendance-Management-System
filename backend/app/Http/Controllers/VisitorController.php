@@ -119,18 +119,35 @@ class VisitorController extends Controller
         abort_unless(in_array($user->role, ['super_admin', 'company_admin', 'company_gate', 'company_hr']), 403);
         $cid  = $this->companyId($request);
         $data = $request->validate([
-            'host_id'     => 'required|integer|exists:company_hosts,id',
-            'guest_name'  => 'required|string|max:120',
-            'guest_phone' => 'nullable|string|regex:/^[6-9]\d{9}$/',
-            'purpose'     => 'nullable|string|max:200',
-            'photo'       => 'nullable|image|max:5120|mimes:jpeg,png,jpg',
+            'host_id'        => 'required|integer|exists:company_hosts,id',
+            'guest_name'     => 'required|string|max:120',
+            'guest_phone'    => 'nullable|string|regex:/^[6-9]\d{9}$/',
+            'purpose'        => 'nullable|string|max:200',
+            'vehicle_number' => 'nullable|string|max:20',
+            'photo'          => 'nullable|image|max:5120|mimes:jpeg,png,jpg',
+            'vehicle_photo'  => 'nullable|image|max:5120|mimes:jpeg,png,jpg',
         ], ['guest_phone.regex' => 'Guest phone must be a 10-digit mobile number.']);
+
+        // A pass without any picture is worthless at the gate — require at
+        // least one of the two (the visitor, or the vehicle they arrived in).
+        if (! $request->hasFile('photo') && ! $request->hasFile('vehicle_photo')) {
+            return response()->json([
+                'message' => 'Capture at least one photo — the visitor or the vehicle.',
+                'errors'  => ['photo' => ['Capture at least one photo — the visitor or the vehicle.']],
+            ], 422);
+        }
 
         $host = CompanyHost::where('company_id', $cid)->where('is_active', true)->findOrFail($data['host_id']);
 
-        $photoPath = $request->hasFile('photo')
-            ? $request->file('photo')->store('visitors/'.today()->format('Y/m/d'), 'private')
-            : null;
+        $dir = 'visitors/'.today()->format('Y/m/d');
+        $photoPath        = $request->hasFile('photo') ? $request->file('photo')->store($dir, 'private') : null;
+        $vehiclePhotoPath = $request->hasFile('vehicle_photo') ? $request->file('vehicle_photo')->store($dir, 'private') : null;
+
+        // Host approval is a per-company policy. When it is switched off the
+        // gate can admit the visitor straight away; the pass still records who
+        // raised it, the photos and the host being visited.
+        $company  = \App\Models\Company::find($cid);
+        $needsOk  = (bool) (((array) ($company->settings ?? []))['require_visitor_approval'] ?? true);
 
         $seq  = GatePass::whereDate('created_at', today())->count() + 1;
         $pass = GatePass::create([
@@ -140,17 +157,24 @@ class VisitorController extends Controller
             'guest_name'    => $data['guest_name'],
             'guest_phone'   => $data['guest_phone'] ?? null,
             'purpose'       => $data['purpose'] ?? null,
-            'status'        => GatePass::STATUS_PENDING,
+            'vehicle_number' => ! empty($data['vehicle_number'])
+                ? strtoupper(preg_replace('/\s+/', '', $data['vehicle_number'])) : null,
+            'status'        => $needsOk ? GatePass::STATUS_PENDING : GatePass::STATUS_APPROVED,
+            'decided_via'   => $needsOk ? null : 'auto',
+            'decision_note' => $needsOk ? null : 'Host approval not required for this company.',
+            'decided_at'    => $needsOk ? null : now(),
             'location_name' => ($user->isGateUser() && $user->location_name) ? $user->location_name : 'Main Gate',
             'created_by'    => $user->id,
         ]);
-        if ($photoPath) {
-            $pass->forceFill(['photo_path' => $photoPath])->save();
+        if ($photoPath || $vehiclePhotoPath) {
+            $pass->forceFill(array_filter([
+                'photo_path'         => $photoPath,
+                'vehicle_photo_path' => $vehiclePhotoPath,
+            ]))->save();
         }
 
-        // Ask the host on WhatsApp (no-op until provider credentials are set —
-        // the manual decision path below keeps the gate moving either way).
-        $company = \App\Models\Company::find($cid);
+        // Ask the host on WhatsApp only when their approval is actually needed.
+        if ($needsOk) {
         app(\App\Services\NotifyService::class)->whatsapp(
             $host->phone, 'gatepass_request', [
                 'guest_name'   => $pass->guest_name,
@@ -164,9 +188,11 @@ class VisitorController extends Controller
             'company', $cid, $company?->plan ?? 'trial',
             (array) ($company?->settings ?? [])
         );
+        }
 
         $this->audit->log($user->id, 'gatepass_created', GatePass::class, $pass->id, [
             'guest' => $pass->guest_name, 'host' => $host->name, 'code' => $pass->code,
+            'vehicle' => $pass->vehicle_number, 'approval_required' => $needsOk,
         ]);
 
         return response()->json($pass->load('host:id,name,position,department'), 201);
@@ -217,13 +243,15 @@ class VisitorController extends Controller
         return response()->json($pass->fresh()->load('host:id,name,position,department'));
     }
 
+    /** ?type=vehicle serves the vehicle shot; default is the visitor's photo. */
     public function passPhoto(Request $request, GatePass $pass)
     {
         $user = $request->user();
         abort_unless($user->isSuperAdmin() || ($user->isCompanyUser() && $pass->company_id === $user->company_id), 403);
-        abort_unless($pass->photo_path, 404);
+        $path = $request->input('type') === 'vehicle' ? $pass->vehicle_photo_path : $pass->photo_path;
+        abort_unless($path, 404);
 
-        return Storage::disk('private')->response($pass->photo_path);
+        return Storage::disk('private')->response($path);
     }
 
     // ─── WhatsApp inbound webhook (Meta Cloud API) ───────────────────────────

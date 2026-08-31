@@ -13,13 +13,13 @@ class GatePass extends Model
 
     protected $fillable = [
         'code', 'company_id', 'host_id', 'guest_name', 'guest_phone',
-        'purpose', 'status', 'decided_via', 'decision_note', 'decided_at',
+        'purpose', 'vehicle_number', 'status', 'decided_via', 'decision_note', 'decided_at',
         'entry_at', 'exit_at', 'location_name', 'created_by',
     ];
 
-    protected $hidden = ['photo_path'];
+    protected $hidden = ['photo_path', 'vehicle_photo_path'];
 
-    protected $appends = ['has_photo'];
+    protected $appends = ['has_photo', 'has_vehicle_photo'];
 
     protected $casts = [
         'decided_at' => 'datetime',
@@ -30,6 +30,11 @@ class GatePass extends Model
     public function getHasPhotoAttribute(): bool
     {
         return ! empty($this->photo_path);
+    }
+
+    public function getHasVehiclePhotoAttribute(): bool
+    {
+        return ! empty($this->vehicle_photo_path);
     }
 
     public function host()

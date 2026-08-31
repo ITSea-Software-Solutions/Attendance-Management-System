@@ -346,9 +346,14 @@ class CompanyController extends Controller
         $user = $request->user();
         abort_unless($user->isSuperAdmin()
             || ($user->role === 'company_admin' && $user->company_id === $company->id), 403);
-        $data = $request->validate([
-            'require_deployment_approval' => 'required|boolean',
-        ]);
+        // Each setting is optional so a screen can save just its own toggle
+        // without clearing the others.
+        $data = array_filter($request->validate([
+            'require_deployment_approval' => 'nullable|boolean',
+            'require_visitor_approval'    => 'nullable|boolean',
+        ]), fn ($v) => $v !== null);
+        abort_if($data === [], 422, 'No settings supplied.');
+
         $company->forceFill([
             'settings' => array_merge((array) ($company->settings ?? []), $data),
         ])->save();

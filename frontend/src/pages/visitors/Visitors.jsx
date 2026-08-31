@@ -7,8 +7,9 @@ import toast from "react-hot-toast";
 import { format } from "date-fns";
 import {
   Contact, Users, Plus, Check, X, LogIn, LogOut, Camera, Pencil,
-  MessageCircle,
+  MessageCircle, Car, ShieldCheck, ShieldOff,
 } from "lucide-react";
+import LiveCapture from "@/components/LiveCapture";
 
 const STATUS_BADGE = {
   pending:  "badge-yellow",
@@ -18,6 +19,7 @@ const STATUS_BADGE = {
 };
 
 const HOST_INIT = { name: "", phone: "", position: "", department: "" };
+const PASS_INIT = { host_id: "", guest_name: "", guest_phone: "", purpose: "", vehicle_number: "" };
 
 /**
  * Visitors — gate passes (today) + the HR-maintained host list.
@@ -31,6 +33,9 @@ export default function Visitors() {
   const [tab, setTab] = useState("passes");
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [hostForm, setHostForm] = useState(null); // null | {id?, ...fields}
+  const [passForm, setPassForm] = useState(null); // null | PASS_INIT
+  const [guestShot, setGuestShot] = useState(null);   // Blob | null
+  const [vehicleShot, setVehicleShot] = useState(null);
 
   const isManager = ["super_admin", "company_admin", "company_hr"].includes(user?.role);
 
@@ -48,6 +53,42 @@ export default function Visitors() {
     queryClient.invalidateQueries(["gate-passes"]);
     queryClient.invalidateQueries(["visitor-hosts"]);
   };
+
+  // Host-approval policy for this company. When it is off, a pass is approved
+  // the moment it is raised and the gate can admit the visitor immediately.
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings", user?.company_id],
+    enabled: !!user?.company_id,
+    queryFn: () => api.get(`/companies/${user.company_id}`).then((r) => r.data?.settings ?? {}),
+  });
+  const needsApproval = companySettings?.require_visitor_approval !== false;
+
+  const saveSetting = useMutation({
+    mutationFn: (v) => api.put(`/companies/${user.company_id}/settings`, { require_visitor_approval: v }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["company-settings"] });
+      toast.success("Visitor approval setting saved.");
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Could not save the setting."),
+  });
+
+  const createPass = useMutation({
+    mutationFn: () => {
+      const fd = new FormData();
+      Object.entries(passForm).forEach(([k, v]) => { if (v) fd.append(k, v); });
+      if (guestShot) fd.append("photo", guestShot, "guest.jpg");
+      if (vehicleShot) fd.append("vehicle_photo", vehicleShot, "vehicle.jpg");
+      return api.post("/gate-passes", fd);
+    },
+    onSuccess: (r) => {
+      queryClient.invalidateQueries({ queryKey: ["gate-passes"] });
+      setPassForm(null); setGuestShot(null); setVehicleShot(null);
+      toast.success(r.data?.status === "approved"
+        ? `Pass ${r.data.code} created and approved — visitor may enter.`
+        : `Pass ${r.data?.code} created — waiting for host approval.`);
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Could not create the pass."),
+  });
 
   const decide = useMutation({
     mutationFn: ({ id, decision }) => {
@@ -97,9 +138,28 @@ export default function Visitors() {
             <Contact className="text-brand-600" size={24} /> Visitors
           </h1>
           <p className="text-sm text-gray-500 mt-1">
-            Gate passes with host approval — the host is asked on WhatsApp (YES/NO) where enabled;
-            phone answers are recorded manually with a note.
+            {needsApproval
+              ? "Gate passes need the host's approval before entry — asked on WhatsApp (YES/NO) where enabled; phone answers are recorded manually with a note."
+              : "Host approval is switched off — passes are approved as soon as they are raised and the visitor can be let in."}
           </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {isManager && (
+            <button
+              onClick={() => saveSetting.mutate(!needsApproval)}
+              disabled={saveSetting.isPending}
+              title="Whether a visitor needs the host's approval before entry"
+              className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium ${
+                needsApproval
+                  ? "border-brand-300 bg-brand-50 text-brand-700"
+                  : "border-gray-200 bg-white text-gray-500"}`}>
+              {needsApproval ? <ShieldCheck size={15} /> : <ShieldOff size={15} />}
+              Host approval: {needsApproval ? "required" : "off"}
+            </button>
+          )}
+          <button className="btn-primary" onClick={() => { setPassForm(PASS_INIT); setGuestShot(null); setVehicleShot(null); }}>
+            <Plus size={16} /> New Gate Pass
+          </button>
         </div>
       </div>
 
@@ -126,6 +186,7 @@ export default function Visitors() {
                 <thead className="bg-gray-50 text-left text-xs text-gray-500 uppercase">
                   <tr>
                     <th className="px-4 py-2">Guest</th>
+                    <th className="px-4 py-2">Vehicle</th>
                     <th className="px-4 py-2">Meets</th>
                     <th className="px-4 py-2">Status</th>
                     <th className="px-4 py-2">In / Out</th>
@@ -134,10 +195,10 @@ export default function Visitors() {
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {pLoading && (
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">Loading…</td></tr>
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">Loading…</td></tr>
                   )}
                   {!pLoading && !(passes ?? []).length && (
-                    <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">
+                    <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">
                       No passes on this date. Gate users create them in the app (Visitors tab).
                     </td></tr>
                   )}
@@ -162,6 +223,25 @@ export default function Visitors() {
                             </p>
                           </div>
                         </div>
+                      </td>
+                      <td className="px-4 py-2.5">
+                        {p.vehicle_number || p.has_vehicle_photo ? (
+                          <div className="flex items-center gap-2">
+                            <AuthImg
+                              url={p.has_vehicle_photo ? `/gate-passes/${p.id}/photo?type=vehicle` : null}
+                              alt={p.vehicle_number || "vehicle"}
+                              className="w-9 h-9 rounded-lg object-cover border border-gray-200"
+                              fallback={
+                                <div className="w-9 h-9 rounded-lg bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center">
+                                  <Car size={13} className="text-gray-300" />
+                                </div>
+                              }
+                            />
+                            <span className="font-mono text-xs text-gray-700">{p.vehicle_number || "—"}</span>
+                          </div>
+                        ) : (
+                          <span className="text-gray-300">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-2.5 text-gray-700">
                         {p.host?.name}
@@ -304,6 +384,91 @@ export default function Visitors() {
                 Save
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── New gate pass ─────────────────────────────────────────────── */}
+      {passForm && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-start justify-center p-4 overflow-y-auto"
+          onClick={() => setPassForm(null)}>
+          <div className="bg-white rounded-2xl w-full max-w-3xl my-6 p-5 space-y-4"
+            onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between">
+              <div>
+                <h2 className="text-lg font-bold text-gray-900">New Gate Pass</h2>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Capture the visitor and/or the vehicle they arrived in — at least one photo is required.
+                  {needsApproval
+                    ? " The host will be asked to approve before entry."
+                    : " Host approval is off, so this pass is usable immediately."}
+                </p>
+              </div>
+              <button className="text-gray-400 hover:text-gray-600" onClick={() => setPassForm(null)}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); createPass.mutate(); }}>
+              <div className="grid md:grid-cols-2 gap-3">
+                <div>
+                  <label className="label">Guest name *</label>
+                  <input className="input" required maxLength={120} value={passForm.guest_name}
+                    onChange={(e) => setPassForm({ ...passForm, guest_name: e.target.value })} />
+                </div>
+                <div>
+                  <label className="label">Guest mobile</label>
+                  <input className="input" inputMode="numeric" maxLength={10} placeholder="10-digit"
+                    value={passForm.guest_phone}
+                    onChange={(e) => setPassForm({ ...passForm, guest_phone: e.target.value.replace(/\D/g, "") })} />
+                </div>
+                <div>
+                  <label className="label">Meeting whom *</label>
+                  <select className="input" required value={passForm.host_id}
+                    onChange={(e) => setPassForm({ ...passForm, host_id: e.target.value })}>
+                    <option value="">Select host…</option>
+                    {(hosts ?? []).filter((h) => h.is_active).map((h) => (
+                      <option key={h.id} value={h.id}>
+                        {h.name}{h.department ? ` · ${h.department}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="label flex items-center gap-1.5"><Car size={13} /> Vehicle number</label>
+                  <input className="input uppercase" maxLength={20} placeholder="MH 12 AB 1234"
+                    value={passForm.vehicle_number}
+                    onChange={(e) => setPassForm({ ...passForm, vehicle_number: e.target.value.toUpperCase() })} />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="label">Purpose of visit</label>
+                  <input className="input" maxLength={200} placeholder="e.g. maintenance call, delivery, interview"
+                    value={passForm.purpose}
+                    onChange={(e) => setPassForm({ ...passForm, purpose: e.target.value })} />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4 pt-1">
+                <LiveCapture label="Visitor photo" facingMode="user"
+                  onCapture={(blob) => setGuestShot(blob)} />
+                <LiveCapture label="Vehicle photo" facingMode="environment"
+                  onCapture={(blob) => setVehicleShot(blob)} />
+              </div>
+
+              {!guestShot && !vehicleShot && (
+                <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  Capture at least one photo — the visitor, the vehicle, or both.
+                </p>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button type="submit" className="btn-primary"
+                  disabled={createPass.isPending || (!guestShot && !vehicleShot)}>
+                  <Plus size={15} /> Create pass
+                </button>
+                <button type="button" className="btn-secondary" onClick={() => setPassForm(null)}>Cancel</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
