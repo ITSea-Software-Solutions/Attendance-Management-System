@@ -106,11 +106,12 @@ class PayrollController extends Controller
             $out = fopen('php://output', 'w');
             fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF));
             Csv::row($out, ["Wage register {$data['period']['from']} to {$data['period']['to']}. "
-                ."Day rate = monthly rate / {$r['wage_divisor']}; OT rate = day rate / {$r['ot_divisor']}; "
+                ."Daily-wage workers are paid the day rate as entered; salaried staff divide the monthly salary by {$r['wage_divisor']}. "
+                ."OT rate = day rate / {$r['ot_divisor']}; "
                 .'payable = day rate x present days + OT hours x OT rate + arrears/bonus - advances/deductions.']);
             Csv::row($out, []);
             Csv::row($out, ['Worker', 'Emp code', 'Contractor', 'Present days', 'Absent', 'Weekly off',
-                'Holidays', 'Hours', 'OT hours', 'Monthly rate', 'Day rate', 'OT rate',
+                'Holidays', 'Hours', 'OT hours', 'Monthly salary', 'Day rate', 'OT rate',
                 'Basic amount', 'OT amount', 'Arrears', 'Bonus', 'Advance', 'Deduction',
                 'Net payable', 'Flags']);
             foreach ($data['rows'] as $row) {
@@ -156,7 +157,7 @@ class PayrollController extends Controller
             foreach ($days as $d) {
                 $head[] = (int) substr($d, 8, 2);   // day-of-month, like the paper sheet
             }
-            array_push($head, 'OT', 'OT Amt', 'Total Days', 'Monthly rate', 'Arrears', 'Payable Amount');
+            array_push($head, 'OT', 'OT Amt', 'Total Days', 'Monthly salary', 'Arrears', 'Payable Amount');
             Csv::row($out, $head);
 
             $sr = 0;

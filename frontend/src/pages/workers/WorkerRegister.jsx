@@ -256,12 +256,12 @@ export default function WorkerRegister() {
     staleTime: 30 * 60_000,
   });
 
-  // Fill an empty structure from the monthly rate, so the vendor starts from a
-  // sensible split instead of a blank grid.
+  // Fill an empty structure from whichever rate applies, so the contractor
+  // starts from a sensible split instead of a blank grid.
   const suggestHeads = async () => {
     const daily = emp.wage_type === "daily";
     const rate = Number(daily ? emp.daily_rate : emp.monthly_rate) || 0;
-    if (rate <= 0) { toast.error(`Enter the ${daily ? "day" : "monthly"} rate first.`); return; }
+    if (rate <= 0) { toast.error(`Enter the ${daily ? "daily wage" : "monthly salary"} first.`); return; }
     try {
       const div = payCatalogue?.defaults?.wage_divisor ?? 26;
       const r = await api.get("/payroll/components", {
@@ -368,6 +368,29 @@ export default function WorkerRegister() {
     } else if (existingWorker.aadhaar_number_masked) {
       setIdType("aadhaar");
     }
+
+    // Employment and wages hydrate too. Without this the tab renders from
+    // EMP_INIT on every open, so a rate that saved correctly came back blank
+    // and read as a save that had silently failed.
+    const num = (v) => (v === null || v === undefined || v === "" ? "" : Number(v));
+    setEmp({
+      designation:    existingWorker.designation    ?? "",
+      department:     existingWorker.department     ?? "",
+      skill_category: existingWorker.skill_category ?? "",
+      uan:            existingWorker.uan            ?? "",
+      pf_number:      existingWorker.pf_number      ?? "",
+      esic_number:    existingWorker.esic_number    ?? "",
+      pf_applicable:  existingWorker.pf_applicable  ?? true,
+      esi_applicable: existingWorker.esi_applicable ?? true,
+      bank_account_number: existingWorker.bank_account_number ?? "",
+      bank_ifsc:      existingWorker.bank_ifsc      ?? "",
+      bank_name:      existingWorker.bank_name      ?? "",
+      wage_type:      existingWorker.wage_type      ?? "daily",
+      daily_rate:     num(existingWorker.daily_rate),
+      monthly_rate:   num(existingWorker.monthly_rate),
+      ot_multiplier:  num(existingWorker.ot_multiplier),
+    });
+    setWageHeads(existingWorker.wage_components ?? {});
 
     setSaved(existingWorker);
     setConsent(true); // existing worker — consent captured at original registration
@@ -921,7 +944,7 @@ export default function WorkerRegister() {
               </h2>
               <p className="text-sm text-gray-500 mt-0.5">
                 Everything payroll needs. All optional here — you can complete it later from the
-                worker's page, but wages cannot be computed until the monthly rate is set.
+                worker's page, but wages cannot be computed until the daily wage is set.
               </p>
             </div>
 
@@ -1018,7 +1041,7 @@ export default function WorkerRegister() {
                   Break the rate into heads so PF, ESI and the wage register are correct.
                   {emp.wage_type === "daily"
                     ? " Amounts are PER DAY and should add up to the day rate."
-                    : " Amounts are per month and should add up to the monthly rate."}
+                    : " Amounts are PER MONTH and should add up to the monthly salary."}
                 </p>
               </div>
               <button type="button" className="btn-secondary text-sm" onClick={suggestHeads}>
@@ -1037,14 +1060,14 @@ export default function WorkerRegister() {
               </div>
               {emp.wage_type === "daily" ? (
                 <div>
-                  <label className="label">Rate per day (₹) *</label>
+                  <label className="label">Daily wage (₹) *</label>
                   <input className="input" type="number" min="0" step="10" value={emp.daily_rate}
                     onChange={(e) => setEmp({ ...emp, daily_rate: e.target.value })} />
                   <p className="text-[11px] text-gray-400 mt-1">Paid for each day present.</p>
                 </div>
               ) : (
                 <div>
-                  <label className="label">Monthly rate (₹) *</label>
+                  <label className="label">Monthly salary (₹) *</label>
                   <input className="input" type="number" min="0" step="100" value={emp.monthly_rate}
                     onChange={(e) => setEmp({ ...emp, monthly_rate: e.target.value })} />
                   <p className="text-[11px] text-gray-400 mt-1">
@@ -1085,7 +1108,7 @@ export default function WorkerRegister() {
                   ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                   : "bg-amber-50 border-amber-200 text-amber-800"}`}>
                 Heads total <b>₹{headsTotal.toLocaleString("en-IN")}</b>
-                {emp.wage_type === "daily" ? " vs day rate " : " vs monthly rate "}
+                {emp.wage_type === "daily" ? " vs daily wage " : " vs monthly salary "}
                 <b>₹{(Number(emp.wage_type === "daily" ? emp.daily_rate : emp.monthly_rate) || 0).toLocaleString("en-IN")}</b>
                 {Math.abs(headsTotal - (Number(emp.wage_type === "daily" ? emp.daily_rate : emp.monthly_rate) || 0)) < 1
                   ? " — matches."

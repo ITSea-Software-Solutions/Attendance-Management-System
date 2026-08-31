@@ -89,12 +89,33 @@ export default function Payroll() {
     enabled: ready && tab === "contractors",
   });
 
+  // Which number this worker is actually paid from. Daily is the default
+  // model; monthly is the exception for salaried staff.
+  const rateOf = (r) => (r.wage_type === "monthly" ? r.monthly_rate : r.daily_rate);
+
+  // A contractor's change to a deployed worker waits for the company, so the
+  // register has to say so — otherwise a saved rate that is legitimately not
+  // in force yet reads as a save that did nothing.
+  const { data: wageRequests } = useQuery({
+    queryKey: ["wage-requests", companyId],
+    enabled: ready,
+    queryFn: () => api.get("/payroll/wage-requests", {
+      params: companyId ? { company_id: companyId } : {},
+    }).then((r) => r.data).catch(() => []),
+  });
+  const pendingRate = (workerId) => {
+    const q = (wageRequests ?? []).find((x) => x.worker_id === workerId && x.status === "pending");
+    return q ? (q.daily_rate ?? q.monthly_rate) : null;
+  };
+
   const saveRates = useMutation({
     mutationFn: (rates) => api.post("/payroll/rates", { rates }),
     onSuccess: (r) => {
-      toast.success(r.data?.message ?? "Rates saved.");
+      toast.success(r.data?.message ?? "Rates saved.",
+        { duration: r.data?.proposed ? 7000 : 4000 });
       setRateEdits({});
       qc.invalidateQueries({ queryKey: ["payroll-register"] });
+      qc.invalidateQueries({ queryKey: ["wage-requests"] });
     },
     onError: (e) => toast.error(e.response?.data?.message ?? "Could not save rates."),
   });
@@ -122,22 +143,28 @@ export default function Payroll() {
     }
   };
 
-  const downloadExcel = async () => {
+  const toExcel = async (path, sheetName, filename) => {
     try {
       const XLSX = await import("xlsx");
-      const r = await api.get("/payroll/register-export", { params: scope, responseType: "blob" });
+      const r = await api.get(path, { params: scope, responseType: "blob" });
       const wb = XLSX.read(await r.data.text(), { type: "string", raw: true });
       const ws = wb.Sheets[wb.SheetNames[0]];
+      // Undo the CSV formula guard: the apostrophe exists so Excel treats a
+      // cell like +919876… as text, and a real .xlsx cell needs no such trick.
       for (const c of Object.keys(ws)) {
         if (c[0] !== "!" && typeof ws[c].v === "string" && /^'[=+\-@]/.test(ws[c].v)) ws[c].v = ws[c].v.slice(1);
       }
       const out = XLSX.utils.book_new();
-      XLSX.utils.book_append_sheet(out, ws, "Wage register");
-      XLSX.writeFile(out, `truecrew-wage-register-${from}_to_${to}.xlsx`);
+      XLSX.utils.book_append_sheet(out, ws, sheetName);
+      XLSX.writeFile(out, filename);
     } catch {
       toast.error("Excel export failed.");
     }
   };
+  const downloadExcel = () =>
+    toExcel("/payroll/register-export", "Wage register", `truecrew-wage-register-${from}_to_${to}.xlsx`);
+  const downloadMusterExcel = () =>
+    toExcel("/payroll/muster", "Muster", `truecrew-muster-${from}_to_${to}.xlsx`);
 
   const rows = data?.rows ?? [];
   const totals = data?.totals;
@@ -176,9 +203,12 @@ export default function Payroll() {
             onClick={() => download("/payroll/register-export", `wage-register-${from}_to_${to}.csv`)}>
             <Download size={14} /> Register CSV
           </button>
+          <button className="btn-secondary text-sm" onClick={downloadMusterExcel}>
+            <FileSpreadsheet size={14} /> Muster (Excel)
+          </button>
           <button className="btn-secondary text-sm"
             onClick={() => download("/payroll/muster", `muster-${from}_to_${to}.csv`)}>
-            <Download size={14} /> Muster sheet
+            <Download size={14} /> Muster CSV
           </button>
         </div>
       </div>
@@ -292,7 +322,7 @@ export default function Payroll() {
                       <th className="text-center px-2 py-2.5 font-medium text-gray-500">A</th>
                       <th className="text-center px-2 py-2.5 font-medium text-gray-500">WO</th>
                       <th className="text-center px-2 py-2.5 font-medium text-gray-500">OT hrs</th>
-                      <th className="text-right px-3 py-2.5 font-medium text-gray-500">Monthly rate</th>
+                      <th className="text-right px-3 py-2.5 font-medium text-gray-500">Wage rate</th>
                       <th className="text-right px-3 py-2.5 font-medium text-gray-500 hidden md:table-cell">Day rate</th>
                       <th className="text-right px-3 py-2.5 font-medium text-gray-500 hidden lg:table-cell">Basic</th>
                       <th className="text-right px-3 py-2.5 font-medium text-gray-500 hidden lg:table-cell">OT amt</th>
@@ -313,12 +343,20 @@ export default function Payroll() {
                         <td className="text-center px-2 text-gray-700">{r.ot_hours || "—"}</td>
                         <td className="px-3 py-2 text-right">
                           <input
-                            type="number" min="0" step="100"
-                            className={`input py-1 text-sm text-right w-28 ${!r.monthly_rate ? "border-amber-400 bg-amber-50" : ""}`}
-                            value={rateEdits[r.worker_id] ?? r.monthly_rate ?? ""}
+                            type="number" min="0" step={r.wage_type === "monthly" ? 100 : 10}
+                            className={`input py-1 text-sm text-right w-28 ${!rateOf(r) ? "border-amber-400 bg-amber-50" : ""}`}
+                            value={rateEdits[r.worker_id] ?? rateOf(r) ?? ""}
                             placeholder="set rate"
                             onChange={(e) => setRateEdits((p) => ({ ...p, [r.worker_id]: e.target.value }))}
                           />
+                          <span className="block text-[10.5px] text-gray-400 mt-0.5">
+                            {r.wage_type === "monthly" ? "per month" : "per day"}
+                          </span>
+                          {pendingRate(r.worker_id) && (
+                            <span className="block text-[10.5px] text-amber-600">
+                              {money(pendingRate(r.worker_id))} awaiting approval
+                            </span>
+                          )}
                         </td>
                         <td className="px-3 text-right text-gray-600 hidden md:table-cell">{r.day_rate ? money(r.day_rate) : "—"}</td>
                         <td className="px-3 text-right text-gray-600 hidden lg:table-cell">{money(r.base_amount)}</td>
@@ -358,9 +396,16 @@ export default function Payroll() {
                   <div className="flex gap-2">
                     <button className="btn-secondary text-sm" onClick={() => setRateEdits({})}>Cancel</button>
                     <button className="btn-primary text-sm" disabled={saveRates.isPending}
-                      onClick={() => saveRates.mutate(Object.entries(rateEdits).map(([id, v]) => ({
-                        worker_id: Number(id), monthly_rate: Number(v) || 0,
-                      })))}>
+                      onClick={() => saveRates.mutate(Object.entries(rateEdits).map(([id, v]) => {
+                        const row = (register?.rows ?? []).find((x) => x.worker_id === Number(id));
+                        const monthly = row?.wage_type === "monthly";
+                        return {
+                          worker_id: Number(id),
+                          wage_type: monthly ? "monthly" : "daily",
+                          ...(monthly ? { monthly_rate: Number(v) || 0 }
+                                      : { daily_rate: Number(v) || 0 }),
+                        };
+                      }))}>
                       <Save size={14} /> Save rates
                     </button>
                   </div>
