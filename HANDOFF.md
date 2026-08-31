@@ -9,7 +9,7 @@ on a new machine. `CLIENT_APP_DESIGN.md` has the client-app architecture.
 
 | What | Where |
 |------|-------|
-| Git repo | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git` — work on `main` |
+| Git repo | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git` (remote `origin`) — work on `main`. This is the ONLY repo: the original `codetechx/adharbased_attendance_system` was retired on 2026-08-31 and must not be pushed to. |
 | GitHub releases / CI | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System/releases` · `/actions` (workflow: `build-apps.yml`, triggers on `app-v*` tags) |
 | Droplet (server) | `ssh root@142.93.88.143` → app lives in `/var/www/attendance` (DigitalOcean, sfo2). Key-based auth ONLY — see "Droplet access" below |
 | Web portal (demo) | `http://142.93.88.143` (login) · public signup `http://142.93.88.143/signup` |
