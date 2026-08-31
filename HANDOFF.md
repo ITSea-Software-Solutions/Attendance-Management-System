@@ -9,7 +9,7 @@ on a new machine. `CLIENT_APP_DESIGN.md` has the client-app architecture.
 
 | What | Where |
 |------|-------|
-| Git repo | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git` — working branch `security-and-biometric-hardening` |
+| Git repo | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git` — work on `main` |
 | GitHub releases / CI | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System/releases` · `/actions` (workflow: `build-apps.yml`, triggers on `app-v*` tags) |
 | Droplet (server) | `ssh root@142.93.88.143` → app lives in `/var/www/attendance` (DigitalOcean, sfo2). Key-based auth ONLY — see "Droplet access" below |
 | Web portal (demo) | `http://142.93.88.143` (login) · public signup `http://142.93.88.143/signup` |
@@ -47,7 +47,7 @@ registration + biometric attendance SaaS.
   **self-service password reset**, email notifications (mailer=log until SMTP).
 - Apps **v0.9.13-preview** on the download page (`/download.html`):
   Android APK with SecuGen SDK inside; Windows zip (CI-built).
-- Tags: `v1.2.0`, `app-v0.9.13-preview`. Branch: `security-and-biometric-hardening`.
+- Tags: `v1.2.0`, `app-v0.9.13-preview`. Branch: `main`.
 
 **Pending / next:**
 1. **REAL capture test on HU20** — Android (v0.9.13) and Windows (v0.9.12+).
@@ -73,7 +73,9 @@ registration + biometric attendance SaaS.
 # 2. Code (your GitHub user has access):
 git clone https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git truecrew
 cd truecrew
-git checkout security-and-biometric-hardening
+# main is the working branch. The old `security-and-biometric-hardening` branch
+# was the trunk from June to 31 Aug 2026 and was merged into main (PR #1); it is
+# kept only so the release tags' history stays easy to follow.
 # 3. App deps:
 cd client
 flutter pub get
