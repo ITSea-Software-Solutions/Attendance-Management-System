@@ -56,7 +56,7 @@ export default function PayrollWages() {
     enabled: ready,
   });
 
-  const { data: detail } = useQuery({
+  const { data: detail, isPending: detailLoading } = useQuery({
     queryKey: ["wage-worker-detail", (workers ?? []).map((w) => w.id).join(",")],
     enabled: !!workers?.length,
     queryFn: async () => {
@@ -82,6 +82,7 @@ export default function PayrollWages() {
       .filter((w) => !q || `${w.name} ${w.emp_code ?? ""} ${w.vendor ?? ""}`.toLowerCase().includes(q));
   }, [workers, detail, vendorIds, search]);
 
+  const ratesLoaded = !!workers?.length && !detailLoading;
   const priced = rows.filter((w) => Number(w.daily_rate) > 0 || Number(w.monthly_rate) > 0).length;
 
   const { data: wageRequests } = useQuery({
@@ -177,7 +178,7 @@ export default function PayrollWages() {
         </div>
         {isFetching && <Loader2 size={15} className="animate-spin text-gray-400" />}
         <span className="text-sm text-gray-500 ml-auto">
-          {priced} of {rows.length} priced
+          {ratesLoaded ? `${priced} of ${rows.length} priced` : "loading rates…"}
         </span>
       </div>
 
@@ -229,7 +230,7 @@ export default function PayrollWages() {
         </div>
       )}
 
-      {rows.length > priced && (
+      {ratesLoaded && rows.length > priced && (
         <div className="card !py-3 border-l-4 border-amber-400 text-sm text-amber-800 flex items-center gap-2">
           <AlertTriangle size={15} />
           {rows.length - priced} worker(s) have no rate — they will show ₹0 on the wage register
@@ -282,7 +283,7 @@ export default function PayrollWages() {
                         onChange={(e) => setRow(w, { rate: e.target.value })} />
                     </td>
                     <td className="px-3 text-right text-gray-600">
-                      {dayRate ? money(dayRate) : "—"}
+                      {dayRate ? money(dayRate) : (ratesLoaded ? "—" : "·")}
                       {pendingFor(w.id) && (
                         <span className="block text-[10.5px] text-amber-600">
                           {money(pendingFor(w.id).daily_rate ?? pendingFor(w.id).monthly_rate ?? 0)} pending
