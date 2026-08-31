@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>TrueCrew — Vendor Guide</title>
+<title>TrueCrew — Contractor Guide</title>
 <style>
   :root {
     --accent:     #0f766e;
@@ -207,13 +207,14 @@
   <a href="#notifications">Notifications</a>
   <a href="#attendance">Attendance</a>
   <a href="#live">Live Board</a>
+  <a href="#wages">Wages</a>
   <a href="#billing">Plan &amp; billing</a>
   <a href="#faq">FAQ</a>
 </nav>
 
 <!-- HERO -->
 <div class="hero">
-  <h1>Vendor Guide</h1>
+  <h1>Contractor Guide</h1>
   <p>Register workers, deploy them to companies, track everything from the app</p>
   <div class="badges">
     <span class="badge">Platform v1.10.0</span>
@@ -235,18 +236,18 @@
       <li><b>Watch their attendance</b> — who worked, where, and for how long. Live, not on paper.</li>
     </ul>
     <p>Most of your work happens in the <b>TrueCrew app</b> — on an Android phone or a Windows PC. It works offline and syncs on its own. The web portal is there for company access requests, reports, and billing.</p>
-    <h3>Two vendor roles</h3>
+    <h3>Two contractor roles</h3>
     <div class="tablewrap">
       <table>
         <thead><tr><th>Role</th><th>Who it is for</th><th>What they can do</th></tr></thead>
         <tbody>
           <tr>
-            <td><b>Vendor Admin</b></td>
-            <td>The manager of your vendor account</td>
+            <td><b>Contractor Admin</b></td>
+            <td>The manager of your contractor account</td>
             <td>Everything — register workers, deploy them, track attendance, request company access, create operator logins, manage billing</td>
           </tr>
           <tr>
-            <td><b>Vendor Operator</b></td>
+            <td><b>Contractor Operator</b></td>
             <td>Field staff who enroll workers</td>
             <td>Register workers only</td>
           </tr>
@@ -263,7 +264,7 @@
     <ol class="flow">
       <li>
         <b>Get your account.</b>
-        Sign up at <b>/signup</b> on the web portal and choose <b>Vendor</b>. You start on the free Trial plan right away. Or, a company you work with creates your vendor account and shares the login with you.
+        Sign up at <b>/signup</b> on the web portal and choose <b>Contractor</b>. You start on the free Trial plan right away. Or, a company you work with creates your contractor account and shares the login with you.
       </li>
       <li>
         <b>Request access to companies.</b>
@@ -321,7 +322,7 @@
       <strong>No PDF? Use manual entry</strong>
       If the worker has no Aadhaar PDF, choose manual entry and type the 12-digit Aadhaar number. Aadhaar is required for every worker.
     </div>
-    <p><b>Duplicates are rejected.</b> Each Aadhaar can exist only once in TrueCrew — even across different vendors. If someone already registered this worker, the registration is refused.</p>
+    <p><b>Duplicates are rejected.</b> Each Aadhaar can exist only once in TrueCrew — even across different contractors. If someone already registered this worker, the registration is refused.</p>
   </div>
 </section>
 
@@ -478,6 +479,34 @@
   </div>
 </section>
 
+
+<!-- ═══ 10b. WAGES ═══ -->
+<section id="wages">
+  <div class="card">
+    <h2>Wages — what your workers are paid <span class="new-pill">NEW</span></h2>
+    <p>Your workers are paid a <b>rate per day</b> for each day present — that is the default
+       for contract labour. Someone on a monthly salary can be switched to <b>per month</b>,
+       and their day rate becomes the monthly figure ÷ 26.</p>
+
+    <div class="good">
+      <strong>You propose, the company agrees</strong>
+      Both you and the company can set a rate. Because the company pays it, a rate you set
+      for a worker <b>currently deployed</b> to a company is sent to that company for
+      approval rather than applied straight away. The agreed rate keeps applying until they
+      decide — nothing about the payout changes behind your back, or theirs.
+    </div>
+
+    <ul>
+      <li><b>Where</b> — <b>Payroll → Workers &amp; Wages</b>. Filter to a company or search a worker, type the new rate, add a short reason, and save.</li>
+      <li><b>What you see</b> — anything waiting sits at the top of the page as <b>Awaiting approval</b>, and the worker's row shows the pending figure under the rate in force.</li>
+      <li><b>The answer comes to you</b> — approved or rejected, you get a notification carrying the agreed figure, or the company's reason for saying no.</li>
+      <li><b>Workers not deployed anywhere</b> — nobody to approve, so your rate applies immediately.</li>
+      <li><b>When the company sets a rate</b> — you are notified with the old and the new number, so you can check a bill against it.</li>
+      <li><b>A newer proposal replaces an older one</b> — you never leave the company a queue of stale numbers to work through.</li>
+    </ul>
+  </div>
+</section>
+
 <!-- ═══ 11. PLAN & BILLING ═══ -->
 <section id="billing">
   <div class="card">
@@ -503,7 +532,7 @@
     <details>
       <summary>A worker row shows a sync error. What do I do?</summary>
       <div>
-        <p>Tap the sync icon on that row to read the reason. The most common one is a <b>duplicate Aadhaar</b> — someone (possibly another vendor) already registered this person. Each Aadhaar can exist only once in TrueCrew. Other errors usually clear on their own — the app retries on the next sync.</p>
+        <p>Tap the sync icon on that row to read the reason. The most common one is a <b>duplicate Aadhaar</b> — someone (possibly another contractor) already registered this person. Each Aadhaar can exist only once in TrueCrew. Other errors usually clear on their own — the app retries on the next sync.</p>
       </div>
     </details>
 

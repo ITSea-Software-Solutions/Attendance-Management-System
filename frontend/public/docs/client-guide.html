@@ -82,19 +82,19 @@
     <tr><td>Super Admin</td><td><code>superadmin@ams.local</code></td><td><code>Admin@12345</code></td></tr>
     <tr><td>Company Admin</td><td><code>company@ams.local</code></td><td><code>Admin@12345</code></td></tr>
     <tr><td>Gate User</td><td><code>gate@ams.local</code></td><td><code>Admin@12345</code></td></tr>
-    <tr><td>Vendor Admin</td><td><code>vendor@ams.local</code></td><td><code>Admin@12345</code></td></tr>
+    <tr><td>Contractor Admin</td><td><code>vendor@ams.local</code></td><td><code>Admin@12345</code></td></tr>
   </table></div>
   <p style="font-size:.85rem; color:var(--muted)">The demo runs fingerprint <em>simulation</em> so every flow works without a scanner attached. On production gates, a SecuGen USB fingerprint scanner does the real matching.</p>
 </div>
 
 <h2>Create your own account (free trial)</h2>
 <p>You don't need us to onboard you — open <a href="http://142.93.88.143/signup" class="mono">http://142.93.88.143/signup</a>,
-register as a <b>Company</b> (you host workers at your sites) or a <b>Vendor</b> (you supply workers),
+register as a <b>Company</b> (you host workers at your sites) or a <b>Contractor</b> (you supply workers),
 and you're in. Only your organisation name, your name, email and password are required —
 GST/PAN can be added later. Payment is settled offline: paid plans start on Trial and our team
 activates the upgrade after contact.</p>
 <div class="tablewrap"><table>
-  <tr><th>Plan</th><th>Price</th><th>Users</th><th>Workers</th><th>Company–vendor links</th><th>Support</th></tr>
+  <tr><th>Plan</th><th>Price</th><th>Users</th><th>Workers</th><th>Company–contractor links</th><th>Support</th></tr>
   <tr><td><b>Trial</b></td><td>Free</td><td>3</td><td>10</td><td>3</td><td>Community</td></tr>
   <tr><td><b>Professional</b></td><td>₹4,999/mo (offline billing)</td><td>25</td><td>500</td><td>25</td><td>Email</td></tr>
   <tr><td><b>Enterprise</b></td><td>Custom — contact us</td><td>100</td><td>5,000</td><td>100</td><td>Priority + onboarding</td></tr>
@@ -104,9 +104,9 @@ upgrade request. Hitting a limit never breaks anything — the action is simply 
 
 <h2>What the system does</h2>
 <ul>
-  <li><b>Verified worker identity.</b> Every worker is registered against their Aadhaar — upload the e-Aadhaar PDF and the form fills itself (name, DOB, gender, address, photo), or type the 12-digit number. Duplicate registrations are blocked automatically, even across different vendors.</li>
+  <li><b>Verified worker identity.</b> Every worker is registered against their Aadhaar — upload the e-Aadhaar PDF and the form fills itself (name, DOB, gender, address, photo), or type the 12-digit number. Duplicate registrations are blocked automatically, even across different contractors.</li>
   <li><b>Fingerprint attendance.</b> Workers clock IN and OUT at site gates with a fingerprint scan — no cards to lose, no buddy-punching.</li>
-  <li><b>Multi-company, multi-vendor.</b> Vendors register and manage their workforce; companies approve which vendors may deploy to their sites. Each side sees exactly their own data.</li>
+  <li><b>Multi-company, multi-contractor.</b> Contractors register and manage their workforce; companies approve which contractors may deploy to their sites. Each side sees exactly their own data.</li>
   <li><b>Deployments with date ranges.</b> A worker is deployed to a company for a defined period; attendance is only accepted while the deployment is active.</li>
   <li><b>Live reporting.</b> Daily attendance summaries, per-worker analytics with monthly breakdowns, and an “exceptions” view showing everyone currently inside.</li>
   <li><b>Document vault.</b> Aadhaar PDFs and other ID documents are stored encrypted and privately — downloadable only by authorized roles, with every access logged.</li>
@@ -117,20 +117,20 @@ upgrade request. Hitting a limit never breaks anything — the action is simply 
 <div class="tablewrap"><table>
   <tr><th>Role</th><th>Belongs to</th><th>Can do</th></tr>
   <tr><td><b>Super Admin</b></td><td>Platform</td><td>Creates companies/organisations, manages all users, sees everything</td></tr>
-  <tr><td><b>Company Admin</b></td><td>A client company</td><td>Creates &amp; approves vendors, creates gate users, views company attendance &amp; workers</td></tr>
+  <tr><td><b>Company Admin</b></td><td>A client company</td><td>Creates &amp; approves contractors, creates gate users, views company attendance &amp; workers</td></tr>
   <tr><td><b>Gate User</b></td><td>A company gate/department</td><td>Marks fingerprint IN / OUT attendance only</td></tr>
-  <tr><td><b>Vendor Admin</b></td><td>A contractor / vendor</td><td>Registers workers, requests company access, deploys workers, views their attendance</td></tr>
-  <tr><td><b>Vendor Operator</b></td><td>A contractor / vendor</td><td>Registers workers only</td></tr>
+  <tr><td><b>Contractor Admin</b></td><td>A contractor / contractor</td><td>Registers workers, requests company access, deploys workers, views their attendance</td></tr>
+  <tr><td><b>Contractor Operator</b></td><td>A contractor / contractor</td><td>Registers workers only</td></tr>
 </table></div>
 
 <h2>The flow, end to end</h2>
 <ol class="flow">
   <li><span class="who">Super admin</span><b>Create the company / organisation</b>The company admin gets login credentials.</li>
-  <li><span class="who">Company admin</span><b>Create your vendors</b>Vendors you create are approved for your company immediately — you can also issue the vendor’s admin login. (Existing vendors can still request access instead.)</li>
-  <li><span class="who">Vendor admin</span><b>Request access to the company</b><em>Company Access</em> page → send request.</li>
-  <li><span class="who">Company admin</span><b>Approve the vendor</b><em>Vendor Approvals</em> page → Approve (or reject with a reason).</li>
-  <li><span class="who">Vendor</span><b>Register workers</b>Aadhaar PDF auto-fill or manual 12-digit entry, then fingerprint enrollment. Aadhaar is mandatory; duplicates are refused.</li>
-  <li><span class="who">Vendor admin</span><b>Deploy workers to the company</b><em>Deploy Workers</em> → pick workers, company, and a date range.</li>
+  <li><span class="who">Company admin</span><b>Create your contractors</b>Contractors you create are approved for your company immediately — you can also issue the contractor’s admin login. (Existing contractors can still request access instead.)</li>
+  <li><span class="who">Contractor admin</span><b>Request access to the company</b><em>Company Access</em> page → send request.</li>
+  <li><span class="who">Company admin</span><b>Approve the contractor</b><em>Contractor Approvals</em> page → Approve (or reject with a reason).</li>
+  <li><span class="who">Contractor</span><b>Register workers</b>Aadhaar PDF auto-fill or manual 12-digit entry, then fingerprint enrollment. Aadhaar is mandatory; duplicates are refused.</li>
+  <li><span class="who">Contractor admin</span><b>Deploy workers to the company</b><em>Deploy Workers</em> → pick workers, company, and a date range.</li>
   <li><span class="who">Company admin</span><b>Create gate users</b>One login per entry point (main gate, departments, checkpoints).</li>
   <li><span class="who">Gate user</span><b>Mark attendance</b><em>Mark Attendance</em> → worker places finger → IN or OUT is recorded with score, time, and gate.</li>
   <li><span class="who">Everyone</span><b>Watch the numbers</b>Daily summaries, worker analytics, exceptions — each role sees its own slice.</li>
@@ -143,9 +143,9 @@ upgrade request. Hitting a limit never breaks anything — the action is simply 
   <p class="login">Demo login: <code>superadmin@ams.local</code></p>
   <ul>
     <li><b>Create a company:</b> Companies → Add Company → fill details → save. Then “Create Admin” to issue the company admin login.</li>
-    <li><b>Create a vendor:</b> Vendors → Add Vendor → fill details and set the vendor admin’s email + password.</li>
+    <li><b>Create a contractor:</b> Contractors → Add Contractor → fill details and set the contractor admin’s email + password.</li>
     <li><b>Manage users:</b> Users → create or edit any account, any role.</li>
-    <li>Super admin also sees every list (workers, attendance, approvals) across all companies and vendors.</li>
+    <li>Super admin also sees every list (workers, attendance, approvals) across all companies and contractors.</li>
   </ul>
 </div>
 
@@ -153,7 +153,7 @@ upgrade request. Hitting a limit never breaks anything — the action is simply 
   <h3>Company Admin</h3>
   <p class="login">Demo login: <code>company@ams.local</code></p>
   <ul>
-    <li><b>Approve a vendor:</b> Vendor Approvals → <em>Pending</em> tab → Approve. Reject requires a reason; you can also Suspend later.</li>
+    <li><b>Approve a contractor:</b> Contractor Approvals → <em>Pending</em> tab → Approve. Reject requires a reason; you can also Suspend later.</li>
     <li><b>Create gate users:</b> Users → Add User → role <em>Gate User</em> → assign the gate / department name. Create one per entry point.</li>
     <li><b>See who’s on site:</b> Attendance → Exceptions shows every worker currently IN without an OUT.</li>
     <li><b>Reports:</b> Attendance shows one row per worker per day (first IN, last OUT, hours). Click any row for that worker’s full analytics.</li>
@@ -161,7 +161,7 @@ upgrade request. Hitting a limit never breaks anything — the action is simply 
 </div>
 
 <div class="rolecard">
-  <h3>Vendor Admin &amp; Operator</h3>
+  <h3>Contractor Admin &amp; Operator</h3>
   <p class="login">Demo login: <code>vendor@ams.local</code></p>
   <ul>
     <li><b>Get access to a company:</b> Company Access → Request. Wait for the company to approve (status shows on the same page).</li>
@@ -204,7 +204,7 @@ upgrade request. Hitting a limit never breaks anything — the action is simply 
 
 <h2>FAQ &amp; troubleshooting</h2>
 <details><summary>“Too many attempts” at login</summary><p>Five wrong passwords in a minute locks the login for that minute (brute-force protection). Wait 60 seconds and try again.</p></details>
-<details><summary>“A worker with this Aadhaar number is already registered”</summary><p>Someone — possibly another vendor — has already registered this person. Each Aadhaar can exist once in the system. If you believe this is an error, contact your administrator.</p></details>
+<details><summary>“A worker with this Aadhaar number is already registered”</summary><p>Someone — possibly another contractor — has already registered this person. Each Aadhaar can exist once in the system. If you believe this is an error, contact your administrator.</p></details>
 <details><summary>Worker stuck on “Pending”</summary><p>Pending means no fingerprint yet. Open the worker → Edit → Fingerprint step → enroll. The worker turns Active automatically.</p></details>
 <details><summary>Fingerprint scanner not detected</summary><p>On gate PCs the SecuGen scanner must be plugged in and its local service running (your IT team installs this once). The demo server needs no scanner — it simulates captures.</p></details>
 <details><summary>Can’t cancel a deployment</summary><p>Deployments lock after first attendance, and can only be cancelled while the worker is clocked OUT — never while they’re inside a site.</p></details>

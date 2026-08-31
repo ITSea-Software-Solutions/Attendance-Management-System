@@ -47,7 +47,7 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.37</span> Third finger &amp; visitor vehicles <span class="date">31 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.37</span> Third finger &amp; visitor vehicles <span class="date">31 Aug 2026</span></h3>
     <ul>
       <li><b>A third finger per worker</b> — heavy manual work wears prints down, so a third finger can be enrolled during registration or added later from the worker sheet. Any of the three opens the gate.</li>
       <li><b>Vehicle on gate passes</b> — the number plate and a second photo of the vehicle. At least one photo is required, the visitor or the vehicle, so a pass can never be raised with no visual record.</li>
@@ -116,8 +116,8 @@
   <div class="rel">
     <h3><span class="tag">Apps v0.9.28</span> Company tools in the app <span class="date">17 Aug 2026</span></h3>
     <ul>
-      <li><b>Approvals tab for HR and company admins</b> — pending vendor deployments with requested dates; select many, pick allowed gates/departments (Main Gate preselected, "All gates" chip), approve in bulk or reject with a reason. Same powers as the portal.</li>
-      <li><b>Manual OUT from the Inside tab</b> — HR/admin can mark a worker OUT who left without scanning (vendors never see this).</li>
+      <li><b>Approvals tab for HR and company admins</b> — pending contractor deployments with requested dates; select many, pick allowed gates/departments (Main Gate preselected, "All gates" chip), approve in bulk or reject with a reason. Same powers as the portal.</li>
+      <li><b>Manual OUT from the Inside tab</b> — HR/admin can mark a worker OUT who left without scanning (contractors never see this).</li>
       <li><b>Attendance detail sheet</b> — tap any Activity row: all three photos (Aadhaar · registration · that mark's gate capture) plus time, gate, method, score and sync state. Camera icon marks rows that carry a gate photo.</li>
       <li>Worker list rows now show the worker's photo.</li>
     </ul>
@@ -126,18 +126,18 @@
   <div class="rel">
     <h3><span class="tag">Apps v0.9.27</span> Worker actions from the app <span class="date">17 Aug 2026</span></h3>
     <ul>
-      <li><b>Edit / Activate / Deactivate / Delete on the worker sheet</b> — vendors manage workers without the portal. Edit covers name, phone, DOB, gender.</li>
+      <li><b>Edit / Activate / Deactivate / Delete on the worker sheet</b> — contractors manage workers without the portal. Edit covers name, phone, DOB, gender.</li>
       <li><b>Engagement lock</b> — while a worker is deployed to a company (or still checked IN) delete, deactivate and fingerprint removal are refused with a clear reason; cancel the deployment first. Editing stays allowed.</li>
       <li>Registrations that never synced can be removed from the device safely.</li>
     </ul>
   </div>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.26</span> Vendor app-first <span class="date">17 Aug 2026</span></h3>
+    <h3><span class="tag">Apps v0.9.26</span> Contractor app-first <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Deployment info on every worker row</b> — where they're deployed and until when, color-coded: teal (deployed), amber (ends ≤3 days / awaiting approval), grey (not deployed). Works offline.</li>
       <li><b>Filter chips</b> — All / Deployed / Not deployed / Expiring ≤3d, computed on-device.</li>
-      <li><b>Notifications in the app</b> — a bell with unread badge opens the same feed as the portal: approvals, rejections, benched-worker and expiring-deployment digests. Vendors no longer need the website for day-to-day work.</li>
+      <li><b>Notifications in the app</b> — a bell with unread badge opens the same feed as the portal: approvals, rejections, benched-worker and expiring-deployment digests. Contractors no longer need the website for day-to-day work.</li>
     </ul>
   </div>
 
@@ -157,7 +157,7 @@
   </div>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.23</span> Stability + vendor fixes <span class="date">17 Aug 2026</span></h3>
+    <h3><span class="tag">Apps v0.9.23</span> Stability + contractor fixes <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li><b>Fixed: crash after taking a registration photo on Windows.</b> The camera now settles, saves, and closes in a safe order before leaving the capture screen.</li>
       <li><b>Fixed: "no company found" when deploying from the app</b> — the approved-companies list read the wrong field; it now matches the web portal.</li>
@@ -171,7 +171,7 @@
     <h3><span class="tag">Apps v0.9.21</span> Gate permissions <span class="date">17 Aug 2026</span></h3>
     <ul>
       <li>Gate devices honour the company's deployment approvals: pending/rejected workers never appear for matching, and gate-restricted workers only match at their allowed gates/departments.</li>
-      <li>Vendors see the approval status of each deployment; the deploy confirmation says when a deployment is waiting for company approval.</li>
+      <li>Contractors see the approval status of each deployment; the deploy confirmation says when a deployment is waiting for company approval.</li>
     </ul>
   </div>
 
@@ -230,7 +230,7 @@
     <ul>
       <li><b>Aadhaar PDF import in the app</b> — pick the e-Aadhaar PDF during registration: name, DOB, gender and Aadhaar auto-fill, and the PDF attaches to the worker's record on sync. Masked PDFs verified by last-4 match. The whole registration now completes in one place.</li>
       <li><b>Gate "verified" screen</b> — after every successful scan (finger or face): animated check, the worker's photo, name, IN/OUT with time, and a greeting. Auto-clears for the next worker.</li>
-      <li><b>Vendor tools</b> — tap a worker for live analytics (days present, hours, missed OUTs) and <b>deploy to a company</b> with a date range, right from the app.</li>
+      <li><b>Contractor tools</b> — tap a worker for live analytics (days present, hours, missed OUTs) and <b>deploy to a company</b> with a date range, right from the app.</li>
       <li><b>Android fix:</b> the USB permission dialog now appears correctly (Android 14 restriction); plugging in a scanner offers to open TrueCrew and remembers the permission.</li>
       <li><b>Windows:</b> Face attendance tab enabled (camera support added).</li>
     </ul>
@@ -264,14 +264,28 @@
   <div class="rel">
     <h3><span class="tag">Apps v0.9.0–0.9.7</span> First releases <span class="date">16 Aug 2026</span></h3>
     <ul>
-      <li>Android + Windows apps: sign in, role-based screens (vendor / gate / admin view), offline store, automatic two-way sync with duplicate-proof records, simulated + real capture paths, downloads page distribution and automated builds.</li>
+      <li>Android + Windows apps: sign in, role-based screens (contractor / gate / admin view), offline store, automatic two-way sync with duplicate-proof records, simulated + real capture paths, downloads page distribution and automated builds.</li>
     </ul>
   </div>
 
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.18.0</span> Payroll, holidays &amp; visitor approval <span class="date">31 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.18.1</span> PAN registration, wage approval &amp; one word for contractors <span class="date">31 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Register a worker with a PAN card</b> — Aadhaar is no longer the only way in. Upload a PAN card as a <b>photo or a PDF</b> (e-PAN PDFs open with the date of birth as the password) and the name, father's name, date of birth and PAN number are read off it. Aadhaar works the same way from a photo now, not just the UIDAI PDF. A worker can be registered on either document; the second one can be added later.</li>
+      <li><b>Register from the web portal</b> — registration no longer stops at the fingerprint step. A worker registered on the portal is saved as <b>Pending</b> and completes enrolment at the gate on the desktop or Android app, which is where the scanner is. Office staff can do the paperwork; the gate does the finger.</li>
+      <li><b>Wage changes are agreed, not imposed</b> — the company and the contractor can both set a day rate, but the company pays, so a rate a <b>contractor</b> proposes for a deployed worker <b>waits for the company to approve it</b>. The agreed rate keeps applying meanwhile. Both sides see the proposal, the note behind it and the decision; the contractor is told the outcome and the reason for a rejection. Workers on the bench are still priced by the contractor alone.</li>
+      <li><b>When the company sets a rate, the contractor is told</b> — with the old and the new number, so nobody discovers a change at payout.</li>
+      <li><b>One word: contractor</b> — the portal, the apps and the guides said "contractor" in some places and "contractor" in others. It is <b>contractor</b> everywhere now.</li>
+      <li><b>Attendance marking removed from the web</b> — a browser cannot reach a fingerprint scanner, so the page could never do the job. Marking lives in the desktop and Android apps, which talk to the scanner directly and work offline.</li>
+      <li>Fixed: the ID Document column was blank for company logins even when an Aadhaar PDF was on file.</li>
+      <li>Fixed: identity cards photographed on a coloured background (most real Aadhaar and PAN cards) failed to read. Digits read off a photograph are now always shown for confirmation rather than trusted silently.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.18.0</span> Payroll, holidays &amp; visitor approval <span class="date">31 Aug 2026</span></h3>
     <ul>
       <li><b>Payroll &amp; wage register</b> — a new Payroll section. Workers are paid a <b>rate per day</b> (monthly supported for staff), broken into the heads an Indian manufacturing wage sheet uses: Basic, DA/VDA, HRA, conveyance, washing, medical, night shift, incentive and special allowance. PF, ESI, professional tax and LWF are computed from those heads, with bonus and gratuity provisions shown for contractor bill verification.</li>
       <li><b>Government holidays</b> — set the year's holidays per company. They are marked automatically on the attendance log and muster, <b>paid</b> at the day rate, and anyone who works one earns overtime for the whole day.</li>
@@ -279,7 +293,7 @@
       <li><b>Employment tab at registration</b> — designation, department, skill grade, UAN, PF and ESIC numbers, bank details and the wage structure, with a suggested split from the day rate.</li>
       <li><b>Create gate passes from the portal</b>, with live photo capture, vehicle number and a vehicle photo. Host approval is now <b>optional per company</b>: switch it off and passes are usable immediately.</li>
       <li><b>One-tap host approval</b> — the host gets a link showing the visitor's photo and taps Allow or Deny. No login, works over SMS as well as WhatsApp. Gate staff can no longer approve their own visitors.</li>
-      <li>Menu rebuilt around what people actually do, and <b>Mark Attendance</b> — previously missing from the menu entirely — is now the second item for gate staff.</li>
+      <li>Menu rebuilt around what people actually do — grouped into People, Attendance, Payroll and Organisation, with duplicate entries removed.</li>
     </ul>
   </div>
 
@@ -288,23 +302,23 @@
     <ul>
       <li><b>Hours &amp; wage-day reports</b> — a new report on the Reports page converts hours worked into payable days: <b>8h or more = 1 full day, 4h or more = half day (0.5), less = a short day</b>, with overtime counted beyond a full day. Roll it up <b>day by day, weekly, monthly, or as a total per worker</b>, over <b>any date range</b> (This month / Last month / This week / Last week / Last 30 days / custom). Every file carries the wage rule in a note line so whoever opens it in Excel knows how the days were counted. Thresholds are configurable per installation.</li>
       <li><b>Payable days everywhere</b> — the monthly totals export and the printable report now show full days, half days, payable days and overtime alongside hours.</li>
-      <li><b>Attendance Log cleaned up</b> — company users no longer see a Company column repeating their own name. Vendors get a <b>company dropdown</b> instead, and everyone gets a <b>worker picker</b> to select one, many, or all workers, plus a <b>date-range</b> mode (with the date shown per row). Every export button follows the filters on screen.</li>
+      <li><b>Attendance Log cleaned up</b> — company users no longer see a Company column repeating their own name. Contractors get a <b>company dropdown</b> instead, and everyone gets a <b>worker picker</b> to select one, many, or all workers, plus a <b>date-range</b> mode (with the date shown per row). Every export button follows the filters on screen.</li>
       <li><b>Safer spreadsheets</b> — exported cells that start with = + - @ (Indian phone numbers like +9198… are the common case) are now written so Excel treats them as plain text. This removes the spreadsheet/antivirus warnings some downloads triggered, and closes a formula-injection risk in exported files. Our own import and Excel conversion strip the guard automatically, so files still round-trip.</li>
-      <li><b>Your own company is never repeated</b> — applied consistently across the whole portal, not just one screen: company logins no longer see a Company column or line on the Attendance Log, Reports (preview <i>and</i> the downloaded CSV/Excel/printable files), Still Inside, Deployments or Worker Detail. Vendors and super admins keep it, and it disappears there too once they pick a single company. Reports also gained the same company dropdown and worker picker as the Attendance Log.</li>
-      <li>Fixed: the company list failed to load for vendor logins (a broken query), which also blocked the new company dropdown.</li>
-      <li>Fixed for HR logins: Worker Detail treated HR as an outside vendor (wrong company picker), the Vendors page tabs did not load, and "Still Inside" was hidden from the menu for HR, gate and operator logins even though the page works for them.</li>
+      <li><b>Your own company is never repeated</b> — applied consistently across the whole portal, not just one screen: company logins no longer see a Company column or line on the Attendance Log, Reports (preview <i>and</i> the downloaded CSV/Excel/printable files), Still Inside, Deployments or Worker Detail. Contractors and super admins keep it, and it disappears there too once they pick a single company. Reports also gained the same company dropdown and worker picker as the Attendance Log.</li>
+      <li>Fixed: the company list failed to load for contractor logins (a broken query), which also blocked the new company dropdown.</li>
+      <li>Fixed for HR logins: Worker Detail treated HR as an outside contractor (wrong company picker), the Contractors page tabs did not load, and "Still Inside" was hidden from the menu for HR, gate and operator logins even though the page works for them.</li>
     </ul>
   </div>
 
   <div class="rel">
     <h3><span class="tag amber">Platform v1.16.0</span> The new Dashboard <span class="date">27 Aug 2026</span></h3>
     <ul>
-      <li><b>Rebuilt for every role</b> — company, vendor and super admin each get their own dashboard: greeting hero with live presence and one-tap quick actions, KPI cards with day-over-day change, and a "Needs attention" strip that links straight to pending approvals, workers still inside, expiring deployments, Aadhaar backlogs and licence renewals.</li>
-      <li><b>Graphs everywhere</b> — 30-day / 7-day attendance trend, this-week bars, today's hourly IN flow, a turnout / workforce / plans donut, and presence-by-vendor (or by-company) bars. All live, refreshed every minute.</li>
+      <li><b>Rebuilt for every role</b> — company, contractor and super admin each get their own dashboard: greeting hero with live presence and one-tap quick actions, KPI cards with day-over-day change, and a "Needs attention" strip that links straight to pending approvals, workers still inside, expiring deployments, Aadhaar backlogs and licence renewals.</li>
+      <li><b>Graphs everywhere</b> — 30-day / 7-day attendance trend, this-week bars, today's hourly IN flow, a turnout / workforce / plans donut, and presence-by-contractor (or by-company) bars. All live, refreshed every minute.</li>
       <li><b>Weekly &amp; monthly report numbers</b> — worker-days this week and this month with % change vs the previous period, plus a Reports strip: pick any month and download the daily CSV, monthly totals, or the printable report right from the dashboard.</li>
       <li>HR users now get the full company dashboard too (they previously saw an empty page).</li>
-      <li><b>Dedicated Reports page</b> — a new <b>Reports</b> entry in the menu for every role: pick a report (daily register, monthly totals, still-inside, workers directory, vendors directory), run it, and filter the preview on screen by vendor, company, gate, status or free search — the Excel/CSV download contains exactly the filtered view, and summary chips show rows, workers, total hours and missing OUTs live.</li>
-      <li><b>Report analytics</b> — every report renders its own charts, recomputed live as you filter: present-per-day curve and an arrival-time histogram for the daily register, top-workers rankings by days and hours, worker-days donuts by vendor/company, Aadhaar-verification and status donuts on the workers directory, still-inside-by-gate, and more. A "Charts" toggle collapses them when you just want the table.</li>
+      <li><b>Dedicated Reports page</b> — a new <b>Reports</b> entry in the menu for every role: pick a report (daily register, monthly totals, still-inside, workers directory, contractors directory), run it, and filter the preview on screen by contractor, company, gate, status or free search — the Excel/CSV download contains exactly the filtered view, and summary chips show rows, workers, total hours and missing OUTs live.</li>
+      <li><b>Report analytics</b> — every report renders its own charts, recomputed live as you filter: present-per-day curve and an arrival-time histogram for the daily register, top-workers rankings by days and hours, worker-days donuts by contractor/company, Aadhaar-verification and status donuts on the workers directory, still-inside-by-gate, and more. A "Charts" toggle collapses them when you just want the table.</li>
     </ul>
   </div>
 
@@ -331,7 +345,7 @@
     <ul>
       <li><b>Import an existing workforce and start the same day</b> — CSV columns: name, emp code, phone, joining date, Aadhaar number (<b>now optional</b>), PAN, address (+ dob/gender/email). Headers are matched flexibly (Excel-style "Adhar No", "Date of Joining", "Mobile No" all work); dates accept dd/mm/yyyy.</li>
       <li><b>Explicit Aadhaar-verified flag</b> on every worker — rows imported without Aadhaar land as "Aadhaar pending"; adding the number later (Edit Worker or the app) verifies them. New Workers filter (verified / pending) + pending badges + export column track the backlog.</li>
-      <li><b>Employee codes</b> — the client's own emp codes import, show everywhere (#E001), are searchable, and are protected against duplicates per vendor.</li>
+      <li><b>Employee codes</b> — the client's own emp codes import, show everywhere (#E001), are searchable, and are protected against duplicates per contractor.</li>
       <li>Per-row error reporting as before: one bad row (invalid PAN, duplicate code, missing name) never kills the file.</li>
     </ul>
   </div>
@@ -369,15 +383,15 @@
     <h3><span class="tag amber">Platform v1.9.0</span> Live Board <span class="date">18 Aug 2026</span></h3>
     <ul>
       <li><b>The whole site at a glance</b> — new Live Board page for every role: how many are inside right now (with occupancy vs expected), per gate and department with worker photos, today's hour-by-hour IN/OUT flow, and a live activity feed. Auto-refreshes every 10 seconds.</li>
-      <li>Role-aware: companies see their site, gate users their own gate, vendors their own workers. Night-shift safe — workers who checked in before midnight stay on the board until they check out.</li>
+      <li>Role-aware: companies see their site, gate users their own gate, contractors their own workers. Night-shift safe — workers who checked in before midnight stay on the board until they check out.</li>
     </ul>
   </div>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.8.0</span> Vendor detail view + consent <span class="date">18 Aug 2026</span></h3>
+    <h3><span class="tag amber">Platform v1.8.0</span> Contractor detail view + consent <span class="date">18 Aug 2026</span></h3>
     <ul>
-      <li><b>Tab-based vendor detail for companies</b> — click any vendor: organisation profile (contacts, GST/PAN), relationship timeline (requested / approved / consent), workers &amp; deployments history with you, and attendance history (man-days, currently inside, daily activity).</li>
-      <li><b>Details-sharing consent</b> — vendors now give explicit consent when requesting company access ("the company may view our profile and track our working history"); company-created vendors consent implicitly. Without consent the company sees only the vendor's name and request status.</li>
+      <li><b>Tab-based contractor detail for companies</b> — click any contractor: organisation profile (contacts, GST/PAN), relationship timeline (requested / approved / consent), workers &amp; deployments history with you, and attendance history (man-days, currently inside, daily activity).</li>
+      <li><b>Details-sharing consent</b> — contractors now give explicit consent when requesting company access ("the company may view our profile and track our working history"); company-created contractors consent implicitly. Without consent the company sees only the contractor's name and request status.</li>
     </ul>
   </div>
 
@@ -401,7 +415,7 @@
   <div class="rel">
     <h3><span class="tag amber">Platform v1.7.0</span> Approval by default + photo-verified logs <span class="date">17 Aug 2026</span></h3>
     <ul>
-      <li><b>Deployment approval is now ON by default</b> — every vendor deployment waits for HR/admin review (with gate/department selection) unless the company turns it off in the approvals panel. The toggle now loads its real saved value.</li>
+      <li><b>Deployment approval is now ON by default</b> — every contractor deployment waits for HR/admin review (with gate/department selection) unless the company turns it off in the approvals panel. The toggle now loads its real saved value.</li>
       <li><b>Attendance log shows the live gate photo</b> on every row (falls back to the registration photo). Click a row for the day detail: registration + Aadhaar + gate IN/OUT captures side by side, with times, duration, events, gates, method and match scores.</li>
       <li>Daily summary API now carries proof-photo ids, methods and best scores.</li>
     </ul>
@@ -410,16 +424,16 @@
   <div class="rel">
     <h3><span class="tag amber">Platform v1.6.1</span> Worker engagement lock <span class="date">17 Aug 2026</span></h3>
     <ul>
-      <li><b>Once a worker is engaged with a company — deployed, or currently checked IN — the vendor cannot delete, deactivate, or remove the fingerprint.</b> The API refuses with the company name and end date; cancel the deployment first. Editing details stays allowed.</li>
-      <li>Activate/deactivate now require admin roles (gate users can no longer change worker status); only the owning vendor can remove a fingerprint.</li>
-      <li>Docs reorganised into role guides: Super Admin, Company, Vendor — plus the refreshed technical Developer Guide.</li>
+      <li><b>Once a worker is engaged with a company — deployed, or currently checked IN — the contractor cannot delete, deactivate, or remove the fingerprint.</b> The API refuses with the company name and end date; cancel the deployment first. Editing details stays allowed.</li>
+      <li>Activate/deactivate now require admin roles (gate users can no longer change worker status); only the owning contractor can remove a fingerprint.</li>
+      <li>Docs reorganised into role guides: Super Admin, Company, Contractor — plus the refreshed technical Developer Guide.</li>
     </ul>
   </div>
 
   <div class="rel">
     <h3><span class="tag amber">Platform v1.6.0</span> Deployment awareness <span class="date">17 Aug 2026</span></h3>
     <ul>
-      <li><b>Daily vendor digests</b> — workers ready but not deployed, and deployments ending within 3 days (in-app for all plans; email on Professional+).</li>
+      <li><b>Daily contractor digests</b> — workers ready but not deployed, and deployments ending within 3 days (in-app for all plans; email on Professional+).</li>
       <li><b>Deployment-state filter</b> on the Workers page: Deployed now / Not deployed / Expiring in 3 days.</li>
       <li><b>Timestamps where they matter</b> — user accounts show when they were added; deployments show when they were requested and decided.</li>
     </ul>
@@ -428,16 +442,16 @@
   <div class="rel">
     <h3><span class="tag amber">Platform v1.5.1</span> Worker lifecycle &amp; fair plan counting <span class="date">17 Aug 2026</span></h3>
     <ul>
-      <li><b>Delete worker</b> — vendors can delete their workers (attendance history is preserved). Deletion is blocked while the worker is checked IN.</li>
+      <li><b>Delete worker</b> — contractors can delete their workers (attendance history is preserved). Deletion is blocked while the worker is checked IN.</li>
       <li><b>Fair plan counting</b> — a worker consumes plan quota only once they have ACTUALLY WORKED (deployed + first attendance). Registering, importing and deleting workers is free; the quota check happens at first deployment. Deleting a worked worker does not free the slot.</li>
-      <li><b>Manual OUT (company/HR only)</b> — admins and HR can administratively mark a worker OUT (forgotten check-outs, before cancelling a deployment). Vendors deliberately cannot — gate truth belongs to the company. Every manual OUT is audited with who did it.</li>
+      <li><b>Manual OUT (company/HR only)</b> — admins and HR can administratively mark a worker OUT (forgotten check-outs, before cancelling a deployment). Contractors deliberately cannot — gate truth belongs to the company. Every manual OUT is audited with who did it.</li>
     </ul>
   </div>
 
   <div class="rel">
     <h3><span class="tag amber">Platform v1.5.0</span> Department HR role &amp; preset departments <span class="date">17 Aug 2026</span></h3>
     <ul>
-      <li><b>New role: Department HR</b> — company admins create HR logins (Users page) who approve/reject vendor deployments and choose which departments each worker may enter. HR cannot manage users, settings or billing.</li>
+      <li><b>New role: Department HR</b> — company admins create HR logins (Users page) who approve/reject contractor deployments and choose which departments each worker may enter. HR cannot manage users, settings or billing.</li>
       <li><b>Preset departments</b> — a standard list (Main Gate, Security, HR, Production, Quality, Stores &amp; Warehouse, Maintenance, Dispatch, Canteen, Admin Office…) appears everywhere departments are picked; custom names still allowed.</li>
       <li><b>Main Gate preselected</b> when approving — workers can always IN/OUT at the main gate by default; HR adds more departments per worker. An "All gates" option clears the restriction.</li>
       <li>The approvals panel now explains itself: it says clearly when auto-approval is on and nothing will queue.</li>
@@ -447,9 +461,9 @@
   <div class="rel">
     <h3><span class="tag amber">Platform v1.4.0</span> Deployment approvals &amp; gate permissions <span class="date">17 Aug 2026</span></h3>
     <ul>
-      <li><b>Company-controlled deployment approval</b> — HR/managers can require approval of vendor deployments (toggle on the Deployment Approvals page). Pending workers cannot mark attendance anywhere until approved; rejections carry a reason back to the vendor.</li>
+      <li><b>Company-controlled deployment approval</b> — HR/managers can require approval of contractor deployments (toggle on the Deployment Approvals page). Pending workers cannot mark attendance anywhere until approved; rejections carry a reason back to the contractor.</li>
       <li><b>Per-gate / per-department permissions</b> — approve one or many workers at once and optionally restrict them to specific gates. The rule is enforced everywhere: web gate, both apps (online and offline), and on the server for every synced mark.</li>
-      <li>Notifications on both sides: company admins get approval requests; vendors get the decision.</li>
+      <li>Notifications on both sides: company admins get approval requests; contractors get the decision.</li>
     </ul>
   </div>
 
@@ -459,19 +473,19 @@
       <li><b>What's New inside the portal</b> — this page now lives in the sidebar for every logged-in user, so admins see each release without leaving the app.</li>
       <li><b>Weekly attendance summary email (Enterprise)</b> — every Monday morning, company admins get the previous week's per-worker days &amp; hours digest. Template editable like all others.</li>
       <li><b>Plan cards show everything</b> — signup and billing pages now list each edition's full feature set (face attendance, offline apps, exports, notifications, templates, bulk CSV, alerts, weekly reports, WhatsApp, OTP).</li>
-      <li><b>Workers page, operational by default</b> — opens on "Current (on deployment)" and adds filters: vendor, status, <b>Inside now</b> (last event is IN — on shift right now, night shifts included) and <b>Present today</b>.</li>
+      <li><b>Workers page, operational by default</b> — opens on "Current (on deployment)" and adds filters: contractor, status, <b>Inside now</b> (last event is IN — on shift right now, night shifts included) and <b>Present today</b>.</li>
     </ul>
   </div>
 
   <div class="rel">
     <h3><span class="tag amber">Platform v1.3.0</span> Notifications, templates &amp; verification suite <span class="date">16 Aug 2026</span></h3>
     <ul>
-      <li><b>Notification center</b> — a live bell in the portal header: vendor approvals/rejections, worker registrations, plan decisions, daily "IN but never OUT" alerts.</li>
-      <li><b>Editable templates</b> — super admin edits the platform defaults; companies and vendors customise their own texts (welcome, password reset, vendor approved/rejected, plan decisions, missing-OUT, IN/OUT pings) with placeholder variables. Professional+.</li>
-      <li><b>Bulk import / export</b> — workers CSV import with per-row validation report and duplicate protection; workers &amp; vendors CSV exports. Professional+.</li>
+      <li><b>Notification center</b> — a live bell in the portal header: contractor approvals/rejections, worker registrations, plan decisions, daily "IN but never OUT" alerts.</li>
+      <li><b>Editable templates</b> — super admin edits the platform defaults; companies and contractors customise their own texts (welcome, password reset, contractor approved/rejected, plan decisions, missing-OUT, IN/OUT pings) with placeholder variables. Professional+.</li>
+      <li><b>Bulk import / export</b> — workers CSV import with per-row validation report and duplicate protection; workers &amp; contractors CSV exports. Professional+.</li>
       <li><b>Worker verification steps</b> — Aadhaar, fingerprint, face, email and phone each tracked with an at-a-glance panel on the worker page; email/phone attestable today, OTP-ready.</li>
       <li><b>Plan feature matrix</b> — plan cards now list exactly which capabilities each edition includes; features enforced server-side.</li>
-      <li><b>WhatsApp IN/OUT notifications (Enterprise)</b> — plumbing complete for vendor + worker WhatsApp pings; activates when the WhatsApp Business API is connected.</li>
+      <li><b>WhatsApp IN/OUT notifications (Enterprise)</b> — plumbing complete for contractor + worker WhatsApp pings; activates when the WhatsApp Business API is connected.</li>
     </ul>
   </div>
 
@@ -480,7 +494,7 @@
     <ul>
       <li><b>Attendance exports</b> — daily CSV and monthly-totals CSV (Excel-ready) plus a print-ready month report, with a month picker on the Attendance Log.</li>
       <li><b>Per-gate scoping</b> — gate logins with a location set see only their own gate's records, everywhere.</li>
-      <li><b>Forgot password</b> — self-service reset from the sign-in page; email notifications for vendor approvals and plan decisions.</li>
+      <li><b>Forgot password</b> — self-service reset from the sign-in page; email notifications for contractor approvals and plan decisions.</li>
       <li>Fingerprint Test page removed — biometrics live in the apps now.</li>
     </ul>
   </div>
@@ -489,18 +503,18 @@
     <h3><span class="tag amber">Platform v1.1.x</span> Face attendance + SaaS <span class="date">15–16 Aug 2026</span></h3>
     <ul>
       <li><b>Camera face attendance</b> on the web gate — workers enrolled automatically from their registration photo; every mark re-verified on the server.</li>
-      <li><b>SaaS self-service:</b> public signup for companies and vendors, Trial / Professional / Enterprise plans with live usage meters, upgrade requests (offline payment), super-admin Subscriptions console.</li>
-      <li>Company admins create their own vendors (auto-approved) and gate/vendor logins.</li>
+      <li><b>SaaS self-service:</b> public signup for companies and contractors, Trial / Professional / Enterprise plans with live usage meters, upgrade requests (offline payment), super-admin Subscriptions console.</li>
+      <li>Company admins create their own contractors (auto-approved) and gate/contractor logins.</li>
     </ul>
   </div>
 
   <div class="rel">
     <h3><span class="tag amber">Platform v1.0.0</span> Launch <span class="date">15 Aug 2026</span></h3>
     <ul>
-      <li>Multi-company, multi-vendor workforce registration with vendor approval workflow.</li>
-      <li><b>Aadhaar-verified identity:</b> PDF extraction with auto-fill, masked storage (last 4 only), duplicate detection across vendors, consent capture.</li>
+      <li>Multi-company, multi-contractor workforce registration with contractor approval workflow.</li>
+      <li><b>Aadhaar-verified identity:</b> PDF extraction with auto-fill, masked storage (last 4 only), duplicate detection across contractors, consent capture.</li>
       <li>Fingerprint enrollment + gate attendance with IN/OUT tracking, daily summaries, exceptions (who's still inside), worker analytics.</li>
-      <li>Role-scoped access for super admin, company admin, gate, vendor admin and operators; full audit logging; private document storage.</li>
+      <li>Role-scoped access for super admin, company admin, gate, contractor admin and operators; full audit logging; private document storage.</li>
     </ul>
   </div>
 

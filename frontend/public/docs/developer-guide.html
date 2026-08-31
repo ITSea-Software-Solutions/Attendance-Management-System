@@ -126,12 +126,12 @@ PDF import, live-vs-Aadhaar face check, on-device 1:N fingerprint match, proof p
 in-app notifications) · <b>face attendance</b> (ArcFace, server re-verified) · <b>deployment approvals</b>
 (company HR role, per-gate/department permissions, preset departments) · <b>manual OUT</b> (HR/admin only) ·
 <b>notification suite</b> (in-app / email / WhatsApp-ready, editable templates, scheduled digests incl.
-vendor deployment alerts 08:30 IST) · exports (CSV + printable month) · per-gate scoping · password reset ·
-<b>worker lifecycle rules</b> (Aadhaar dedup, delete preserves history, vendor engagement lock: no
+contractor deployment alerts 08:30 IST) · exports (CSV + printable month) · per-gate scoping · password reset ·
+<b>worker lifecycle rules</b> (Aadhaar dedup, delete preserves history, contractor engagement lock: no
 delete/deactivate/deregister while deployed or checked IN). Role-facing manuals:
 <a href="/docs/super-admin-guide.html">Super Admin</a> ·
 <a href="/docs/company-guide.html">Company</a> ·
-<a href="/docs/vendor-guide.html">Vendor</a>.</div>
+<a href="/docs/vendor-guide.html">Contractor</a>.</div>
 
 
 <!-- NAV -->
@@ -145,7 +145,7 @@ delete/deactivate/deregister while deployed or checked IN). Role-facing manuals:
   <a href="#frontend">Frontend</a>
   <a href="#fingerprint">Fingerprint</a>
   <a href="#biometrics">Matching Internals</a>
-  <a href="#vendor-flow">Vendor Flow</a>
+  <a href="#contractor-flow">Contractor Flow</a>
   <a href="#backend-changes">Push Changes</a>
   <a href="#new-feature">New Feature</a>
   <a href="#debug">Debug</a>
@@ -512,7 +512,7 @@ Route::<span class="f">middleware</span>(<span class="s">'role:super_admin,compa
       <rect x="230" y="111" width="185" height="12" rx="0" fill="#7e22ce"/>
       <text x="323" y="114" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">company_vendors (pivot)</text>
       <text x="240" y="138" fill="#d8b4fe">company_id → companies</text>
-      <text x="240" y="154" fill="#d8b4fe">vendor_id  → vendors</text>
+      <text x="240" y="154" fill="#d8b4fe">vendor_id  → contractors</text>
       <text x="240" y="172" fill="#f59e0b">status (pending|approved</text>
       <text x="240" y="188" fill="#f59e0b">  |rejected|suspended)</text>
       <text x="240" y="204" fill="#d8b4fe">approved_at, approved_by</text>
@@ -523,7 +523,7 @@ Route::<span class="f">middleware</span>(<span class="s">'role:super_admin,compa
       <rect x="465" y="60" width="170" height="145" rx="8" fill="#1c0f00" stroke="#f97316" stroke-width="1.5"/>
       <rect x="465" y="60" width="170" height="28" rx="8" fill="#c2410c"/>
       <rect x="465" y="76" width="170" height="12" rx="0" fill="#c2410c"/>
-      <text x="550" y="79" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">vendors</text>
+      <text x="550" y="79" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">contractors</text>
       <text x="475" y="104" fill="#fdba74">id, name, code</text>
       <text x="475" y="120" fill="#fdba74">address, city, state, pin</text>
       <text x="475" y="136" fill="#fdba74">contact_person, email, phone</text>
@@ -536,7 +536,7 @@ Route::<span class="f">middleware</span>(<span class="s">'role:super_admin,compa
       <rect x="465" y="240" width="185" height="28" rx="8" fill="#a16207"/>
       <rect x="465" y="256" width="185" height="12" rx="0" fill="#a16207"/>
       <text x="557" y="259" text-anchor="middle" fill="#fff" font-weight="700" font-size="12">workers</text>
-      <text x="475" y="283" fill="#fde68a">id, vendor_id → vendors</text>
+      <text x="475" y="283" fill="#fde68a">id, vendor_id → contractors</text>
       <text x="475" y="299" fill="#fde68a">name, dob, gender</text>
       <text x="475" y="315" fill="#fde68a">aadhaar_number_masked</text>
       <text x="475" y="331" fill="#ef4444">fingerprint_template (encrypted)</text>
@@ -554,7 +554,7 @@ Route::<span class="f">middleware</span>(<span class="s">'role:super_admin,compa
       <text x="20" y="315" fill="#f59e0b">  |company_gate|vendor_admin</text>
       <text x="20" y="331" fill="#f59e0b">  |vendor_operator)</text>
       <text x="20" y="347" fill="#86efac">company_id → companies (nullable)</text>
-      <text x="20" y="363" fill="#86efac">vendor_id  → vendors (nullable)</text>
+      <text x="20" y="363" fill="#86efac">vendor_id  → contractors (nullable)</text>
       <text x="20" y="379" fill="#86efac">is_active</text>
 
       <!-- ATTENDANCE LOGS -->
@@ -576,9 +576,9 @@ Route::<span class="f">middleware</span>(<span class="s">'role:super_admin,compa
       <!-- Relationship lines -->
       <!-- companies ← company_vendors -->
       <line x1="180" y1="135" x2="230" y2="175" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>
-      <!-- vendors → company_vendors -->
+      <!-- contractors → company_vendors -->
       <line x1="465" y1="165" x2="415" y2="175" stroke="#a855f7" stroke-width="1.5" stroke-dasharray="4,3"/>
-      <!-- vendors → workers -->
+      <!-- contractors → workers -->
       <line x1="550" y1="205" x2="550" y2="240" stroke="#eab308" stroke-width="1.5"/>
       <polygon points="550,242 546,234 554,234" fill="#eab308"/>
       <!-- workers → attendance_logs -->
@@ -590,7 +590,7 @@ Route::<span class="f">middleware</span>(<span class="s">'role:super_admin,compa
 
   <div class="callout info">
     <strong>Key design decisions:</strong>
-    Vendors link to Companies through the <code>company_vendors</code> pivot — status drives whether workers appear in attendance. Workers have <code>fingerprint_template</code> stored AES-encrypted via Laravel's <code>encrypt()</code>/<code>decrypt()</code>. Aadhaar number is never stored in full — only the masked last-4-digits string. Aadhaar PDFs are stored in <code>workers.aadhaar_pdf_path</code> (private disk) via <code>AadhaarController</code> — separate from other ID documents which live in <code>worker_id_documents.document_path</code>. The <code>Worker</code> model keeps <code>aadhaar_pdf_path</code> in <code>$hidden</code> but appends <code>has_aadhaar_pdf</code> (computed accessor) so the frontend knows a PDF exists without exposing the path. Worker assignments (<code>worker_assignments</code> table) track deployments with <code>is_locked</code> set on first attendance; cancellation checks latest log type to allow cancel when the worker is checked OUT.
+    Contractors link to Companies through the <code>company_vendors</code> pivot — status drives whether workers appear in attendance. Workers have <code>fingerprint_template</code> stored AES-encrypted via Laravel's <code>encrypt()</code>/<code>decrypt()</code>. Aadhaar number is never stored in full — only the masked last-4-digits string. Aadhaar PDFs are stored in <code>workers.aadhaar_pdf_path</code> (private disk) via <code>AadhaarController</code> — separate from other ID documents which live in <code>worker_id_documents.document_path</code>. The <code>Worker</code> model keeps <code>aadhaar_pdf_path</code> in <code>$hidden</code> but appends <code>has_aadhaar_pdf</code> (computed accessor) so the frontend knows a PDF exists without exposing the path. Worker assignments (<code>worker_assignments</code> table) track deployments with <code>is_locked</code> set on first attendance; cancellation checks latest log type to allow cancel when the worker is checked OUT.
   </div>
 </section>
 
@@ -607,7 +607,7 @@ Route::<span class="f">middleware</span>(<span class="s">'role:super_admin,compa
 backend/app/
 ├── <span class="p">Http/Controllers/</span>
 │   ├── Auth/AuthController.php         <span class="c"># login, logout, me</span>
-│   ├── CompanyController.php           <span class="c"># CRUD + vendor approval actions</span>
+│   ├── CompanyController.php           <span class="c"># CRUD + contractor approval actions</span>
 │   ├── VendorController.php            <span class="c"># CRUD + company access request</span>
 │   ├── WorkerController.php            <span class="c"># CRUD + fingerprint + stats() + servePhoto()</span>
 │   ├── WorkerAssignmentController.php  <span class="c"># deploy; cancel even when locked if worker not IN</span>
@@ -624,7 +624,7 @@ backend/app/
 │   ├── User.php      <span class="c"># isSuperAdmin(), isCompanyUser(), etc.</span>
 │   ├── Worker.php    <span class="c"># STATUS_* constants, softDeletes</span>
 │   ├── Company.php   <span class="c"># approvedVendors() relationship</span>
-│   ├── Vendor.php    <span class="c"># companies() BelongsToMany</span>
+│   ├── Contractor.php    <span class="c"># companies() BelongsToMany</span>
 │   └── AttendanceLog.php <span class="c"># TYPE_IN/OUT, today() scope</span>
 │
 └── <span class="p">Services/</span>
@@ -704,10 +704,10 @@ frontend/src/
     ├── Login.jsx
     ├── Dashboard.jsx
     ├── companies/CompanyList.jsx
-    ├── vendors/
+    ├── contractors/
     │   ├── VendorList.jsx        <span class="c"># role-aware: super_admin global, company users get approval tabs</span>
     │   ├── VendorApproval.jsx    <span class="c"># Pending/Approved/Rejected/Suspended/All tabs</span>
-    │   └── VendorCompanyAccess.jsx <span class="c"># vendor admin requests access</span>
+    │   └── VendorCompanyAccess.jsx <span class="c"># contractor admin requests access</span>
     ├── workers/
     │   ├── WorkerList.jsx        <span class="c"># All/Current/Previous tabs; row click → detail</span>
     │   ├── WorkerDetail.jsx      <span class="c"># analytics: stats, monthly breakdown, history (role-scoped)</span>
@@ -806,7 +806,7 @@ frontend/src/
       <rect x="105" y="120" width="430" height="20" rx="4" fill="#fff7ed"/>
       <text x="320" y="134" text-anchor="middle" fill="#c2410c" font-size="10" font-weight="600">2. GET /api/attendance/worker-templates?company_id=X</text>
 
-      <!-- backend queries DB for approved vendors -->
+      <!-- backend queries DB for approved contractors -->
       <line x1="540" y1="155" x2="758" y2="155" stroke="#a855f7" stroke-width="1.5"/>
       <polygon points="760,155 753,151 753,159" fill="#a855f7"/>
       <text x="650" y="149" text-anchor="middle" fill="#7e22ce" font-size="9">SELECT vendor_id FROM company_vendors</text>
@@ -891,14 +891,14 @@ frontend/src/
   <span class="c">// Resolve company — gate user implicit, super_admin must pass param</span>
   $companyId = $request-><span class="f">input</span>(<span class="s">'company_id'</span>) ?? $user->company_id;
 
-  <span class="c">// Get approved vendor IDs for this company from pivot</span>
+  <span class="c">// Get approved contractor IDs for this company from pivot</span>
   $approvedVendorIds = DB::<span class="f">table</span>(<span class="s">'company_vendors'</span>)
     -><span class="f">where</span>(<span class="s">'company_id'</span>, $companyId)
     -><span class="f">where</span>(<span class="s">'status'</span>, <span class="s">'approved'</span>)
     -><span class="f">pluck</span>(<span class="s">'vendor_id'</span>);
 
   <span class="c">// Get active workers with enrolled fingerprints</span>
-  $workers = Worker::<span class="f">with</span>(<span class="s">'vendor'</span>)
+  $workers = Worker::<span class="f">with</span>(<span class="s">'contractor'</span>)
     -><span class="f">whereIn</span>(<span class="s">'vendor_id'</span>, $approvedVendorIds)
     -><span class="f">whereNotNull</span>(<span class="s">'fingerprint_template'</span>)
     -><span class="f">where</span>(<span class="s">'status'</span>, Worker::STATUS_ACTIVE)
@@ -935,13 +935,13 @@ Mantra) — scores the live scan against <i>both</i> templates and keeps the wor
 <i>across workers</i> only, so a worker's own two fingers can never trigger a false ambiguity.
 Thresholds are unchanged (fingerprint 40/200, margin 10; Mantra raw 14000/margin 7000).
 Deleting biometrics clears both templates; <code>slot=2</code> on DELETE removes only the backup.
-Sync pull delivers both templates to marking devices (app DB v7); vendors still receive neither.
+Sync pull delivers both templates to marking devices (app DB v7); contractors still receive neither.
 </div>
 
 <h3>Fingerprint — SecuGen SGFPM (the manufacturer's own matcher)</h3>
 <p>Templates are <b>ISO 19794-2 FMD</b> (~400 bytes, base64 over the wire), captured on SecuGen
 HU20-series scanners. Matching runs <b>on the gate device</b> with SecuGen's licensed minutiae
-matcher — the same MINEX-lineage algorithm the vendor certifies, which is the best matcher
+matcher — the same MINEX-lineage algorithm the contractor certifies, which is the best matcher
 available for these devices (no open-source matcher scores ISO templates better on SecuGen
 captures than SecuGen's own):</p>
 <ul>
@@ -1008,37 +1008,37 @@ buddy-punching (a borrowed finger AND a borrowed face won't both pass). Marks wi
       cross-check flags mismatches. Planned: MiniFASNet-class silent PAD in the pdf-service before any
       unsupervised deployment.</li>
   <li><b>onnxruntime 1.18.1 → 1.2x</b> bump pending a droplet rebuild window (CPU EP is stable; no behavior change expected).</li>
-  <li><b>SourceAFIS</b> as an optional vendor-neutral server matcher (would enable web-gate matching and
+  <li><b>SourceAFIS</b> as an optional contractor-neutral server matcher (would enable web-gate matching and
       non-SecuGen scanners; on-device SGFPM stays primary).</li>
   <li><b>Threshold calibration</b> — thresholds are vendor/community defaults; once real gate volume exists,
       calibrate FAR/FRR from the stored scores (<code>fingerprint_score</code>, <code>face_score</code>) per site.</li>
 </ul>
 </section>
 
-<section id="vendor-flow">
-  <div class="sec-title"><span class="num">8</span>Vendor–Company Approval — Code Flow</div>
+<section id="contractor-flow">
+  <div class="sec-title"><span class="num">8</span>Contractor–Company Approval — Code Flow</div>
   <div class="grid2">
     <div class="card">
-      <h3>Vendor sends request</h3>
-      <div class="fp">POST /api/vendors/{vendor}/request-company/{company}</div>
+      <h3>Contractor sends request</h3>
+      <div class="fp">POST /api/vendors/{contractor}/request-company/{company}</div>
       <div class="code">
 <span class="c">// VendorController::requestCompany()</span>
-$existing = $vendor->companies()
+$existing = $contractor->companies()
   -><span class="f">where</span>(<span class="s">'company_id'</span>, $company->id)-><span class="f">first</span>();
 
 <span class="k">if</span> ($existing) <span class="c">// already pending/approved/etc</span>
   <span class="k">return</span> <span class="n">422</span>;
 
 <span class="c">// Creates row in company_vendors pivot</span>
-$vendor->companies()-><span class="f">attach</span>($company->id, [
+$contractor->companies()-><span class="f">attach</span>($company->id, [
   <span class="s">'status'</span> => <span class="s">'pending'</span>,
 ]);
       </div>
       <h3 style="margin-top:14px">Company approves</h3>
-      <div class="fp">POST /api/companies/{company}/vendors/{vendor}/approve</div>
+      <div class="fp">POST /api/companies/{company}/vendors/{contractor}/approve</div>
       <div class="code">
 <span class="c">// CompanyController::approveVendor()</span>
-$company->vendors()-><span class="f">updateExistingPivot</span>($vendor->id, [
+$company->contractors()-><span class="f">updateExistingPivot</span>($contractor->id, [
   <span class="s">'status'</span>      => <span class="s">'approved'</span>,
   <span class="s">'approved_at'</span> => <span class="f">now</span>(),
   <span class="s">'approved_by'</span> => $user->id,
@@ -1051,7 +1051,7 @@ $company->vendors()-><span class="f">updateExistingPivot</span>($vendor->id, [
       <div class="code">
 <span class="c">// Fetches all companies + request status in one call</span>
 <span class="k">const</span> { data } = <span class="f">useQuery</span>({
-  queryKey: [<span class="s">'vendor-available-companies'</span>, vendorId],
+  queryKey: [<span class="s">'contractor-available-companies'</span>, vendorId],
   queryFn: () =>
     api.<span class="f">get</span>(<span class="s">`/vendors/${vendorId}/available-companies`</span>)
        .<span class="f">then</span>(r => r.data),
@@ -1065,8 +1065,8 @@ $company->vendors()-><span class="f">updateExistingPivot</span>($vendor->id, [
       <h3 style="margin-top:14px">Frontend — VendorApproval.jsx</h3>
       <div class="code">
 <span class="c">// Company admin sees requests + acts on them</span>
-<span class="k">const</span> { data: vendors } = <span class="f">useQuery</span>({
-  queryKey: [<span class="s">'company-vendors'</span>, companyId],
+<span class="k">const</span> { data: contractors } = <span class="f">useQuery</span>({
+  queryKey: [<span class="s">'company-contractors'</span>, companyId],
   queryFn: () =>
     api.<span class="f">get</span>(<span class="s">`/companies/${companyId}/vendors`</span>).<span class="f">then</span>(r => r.data),
 });
@@ -1156,7 +1156,7 @@ docker compose up -d
       <div class="code">
 <span class="c">// WorkerController::stats()</span>
 <span class="c">// Company users always see their own company only.</span>
-<span class="c">// Vendor users may pass ?company_id=X to filter.</span>
+<span class="c">// Contractor users may pass ?company_id=X to filter.</span>
 $companyId = $auth-><span class="f">isCompanyUser</span>()
   ? $auth->company_id
   : $request-><span class="f">input</span>(<span class="s">'company_id'</span>);
@@ -1262,21 +1262,21 @@ Route::<span class="f">get</span>(<span class="s">'workers/{worker}/photo'</span
       <h3>VendorList — Role-Aware Data Source</h3>
       <div class="fp">frontend/src/pages/vendors/VendorList.jsx</div>
       <div class="code">
-<span class="c">// Super admin → global vendor list (search, create, edit)</span>
+<span class="c">// Super admin → global contractor list (search, create, edit)</span>
 <span class="k">const</span> { data } = <span class="f">useQuery</span>({
-  queryKey: [<span class="s">'vendors'</span>, search],
+  queryKey: [<span class="s">'contractors'</span>, search],
   queryFn:  () => api.<span class="f">get</span>(<span class="s">'/vendors'</span>, { params: { search } }),
   enabled:  !isCompanyUser,
 });
 
 <span class="c">// Company users → company-specific relationships with pivot status</span>
 <span class="k">const</span> { data: companyVendors } = <span class="f">useQuery</span>({
-  queryKey: [<span class="s">'company-vendors-list'</span>, user?.company_id],
+  queryKey: [<span class="s">'company-contractors-list'</span>, user?.company_id],
   queryFn:  () => api.<span class="f">get</span>(<span class="s">`/companies/${user.company_id}/vendors`</span>),
   enabled:  isCompanyUser,
 });
 <span class="c">// Then filter by tab: v.pivot?.status === filter</span>
-<span class="c">// Cards show both vendor status + approval status badges</span>
+<span class="c">// Cards show both contractor status + approval status badges</span>
       </div>
     </div>
   </div>
@@ -1599,7 +1599,7 @@ php artisan queue:work          <span class="c"># process queue jobs</span>
         <tr><td><span class="badge bg-purple">super_admin</span></td><td>superadmin@ams.local</td><td>Admin@12345</td></tr>
         <tr><td><span class="badge bg-blue">company_admin</span></td><td>company@ams.local</td><td>Admin@12345</td></tr>
         <tr><td><span class="badge bg-cyan">company_gate</span></td><td>gate@ams.local</td><td>Admin@12345</td></tr>
-        <tr><td><span class="badge bg-orange">vendor_admin</span></td><td>vendor@ams.local</td><td>Admin@12345</td></tr>
+        <tr><td><span class="badge bg-orange">vendor_admin</span></td><td>contractor@ams.local</td><td>Admin@12345</td></tr>
       </tbody>
     </table>
   </div>

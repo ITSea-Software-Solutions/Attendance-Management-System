@@ -269,13 +269,13 @@
 <section id="overview">
   <div class="card">
     <h2>1. What TrueCrew is</h2>
-    <p>TrueCrew is a workforce attendance platform for sites that use contract labor. Vendor companies register their workers with an Aadhaar-verified identity and a fingerprint. Companies approve those vendors and receive the workers. At the gate, each worker marks IN and OUT with a fingerprint or face scan. There is no paper register and no proxy attendance — every record is tied to a verified person, a time, and a gate.</p>
+    <p>TrueCrew is a workforce attendance platform for sites that use contract labor. Contractor companies register their workers with an Aadhaar-verified identity and a fingerprint. Companies approve those contractors and receive the workers. At the gate, each worker marks IN and OUT with a fingerprint or face scan. There is no paper register and no proxy attendance — every record is tied to a verified person, a time, and a gate.</p>
     <p><strong>The whole system in four steps:</strong></p>
     <ul class="flow">
-      <li><span class="n">1</span><strong>Vendors register workers</strong> Each worker is enrolled with their Aadhaar (verified identity) and a fingerprint. A photo enables face attendance too.</li>
-      <li><span class="n">2</span><strong>Vendors deploy workers to companies</strong> A deployment says which worker goes to which company, and for which dates. It waits for the company's approval by default, and can be limited to specific gates.</li>
+      <li><span class="n">1</span><strong>Contractors register workers</strong> Each worker is enrolled with their Aadhaar (verified identity) and a fingerprint. A photo enables face attendance too.</li>
+      <li><span class="n">2</span><strong>Contractors deploy workers to companies</strong> A deployment says which worker goes to which company, and for which dates. It waits for the company's approval by default, and can be limited to specific gates.</li>
       <li><span class="n">3</span><strong>Workers mark IN / OUT at the gate</strong> A fingerprint or face scan identifies the worker in seconds — on the web gate or on the Android / Windows apps, even offline.</li>
-      <li><span class="n">4</span><strong>Everyone sees role-scoped attendance</strong> Companies see attendance at their site. Vendors see their own workers. You, the Super Admin, see everything.</li>
+      <li><span class="n">4</span><strong>Everyone sees role-scoped attendance</strong> Companies see attendance at their site. Contractors see their own workers. You, the Super Admin, see everything.</li>
     </ul>
   </div>
 </section>
@@ -284,19 +284,19 @@
 <section id="your-role">
   <div class="card">
     <h2>2. Your role</h2>
-    <p>You are the platform owner. Nothing on TrueCrew is hidden from you. Every company, vendor, worker, attendance record, and plan is visible in your portal.</p>
+    <p>You are the platform owner. Nothing on TrueCrew is hidden from you. Every company, contractor, worker, attendance record, and plan is visible in your portal.</p>
     <p><strong>What only the Super Admin can do:</strong></p>
     <ul class="plain">
-      <li><strong>Create organisations</strong> — set up companies and vendors, each with their first admin login.</li>
+      <li><strong>Create organisations</strong> — set up companies and contractors, each with their first admin login.</li>
       <li><strong>Manage all users</strong> — create, edit, or disable any user account on the platform, in any organisation.</li>
       <li><strong>Control subscriptions</strong> — approve or reject upgrade requests, or set any organisation's plan directly.</li>
       <li><strong>Edit global notification templates</strong> — the default texts every organisation starts with.</li>
-      <li><strong>Override safety locks</strong> — for example, remove a worker that a vendor cannot (see <a href="#workers">Worker lifecycle rules</a>).</li>
+      <li><strong>Override safety locks</strong> — for example, remove a worker that a contractor cannot (see <a href="#workers">Worker lifecycle rules</a>).</li>
       <li><strong>Watch everything</strong> — dashboards, attendance views, exports, and the audit log across all organisations.</li>
     </ul>
     <div class="callout tip">
       <strong>Day-to-day work belongs to the organisations.</strong>
-      Companies approve vendors and deployments; vendors register and deploy workers. Your job is to set organisations up, keep plans in order, and step in when something needs an override.
+      Companies approve contractors and deployments; contractors register and deploy workers. Your job is to set organisations up, keep plans in order, and step in when something needs an override.
     </div>
   </div>
 </section>
@@ -305,7 +305,7 @@
 <section id="organisations">
   <div class="card">
     <h2>3. Organisations</h2>
-    <p>There are two kinds of organisations. A <strong>company</strong> runs a site and receives workers. A <strong>vendor</strong> supplies the workers. Organisations reach TrueCrew in three ways — you create them, they sign up themselves, or a company creates its own vendor.</p>
+    <p>There are two kinds of organisations. A <strong>company</strong> runs a site and receives workers. A <strong>contractor</strong> supplies the workers. Organisations reach TrueCrew in three ways — you create them, they sign up themselves, or a company creates its own contractor.</p>
 
     <h3>Create a company (Companies page)</h3>
     <ol class="steps">
@@ -314,22 +314,22 @@
       <li><strong>Share the credentials.</strong> Send the login email and password to the Company Admin and confirm they can sign in.</li>
     </ol>
 
-    <h3>Create a vendor (Vendors page)</h3>
-    <p>Your Vendors page is the global list — every vendor on the platform. Creating a vendor works the same way as a company: fill in the details, create the Vendor Admin login, and share the credentials.</p>
+    <h3>Create a contractor (Contractors page)</h3>
+    <p>Your Contractors page is the global list — every contractor on the platform. Creating a contractor works the same way as a company: fill in the details, create the Contractor Admin login, and share the credentials.</p>
 
     <h3>Self-signup</h3>
-    <p>Anyone can sign up at <strong>/signup</strong> as a Company or a Vendor. New organisations start on the free <strong>Trial</strong> plan. If they pick a paid plan during signup, an upgrade request is filed for you to approve (see <a href="#plans">Subscriptions &amp; plans</a>).</p>
+    <p>Anyone can sign up at <strong>/signup</strong> as a Company or a Contractor. New organisations start on the free <strong>Trial</strong> plan. If they pick a paid plan during signup, an upgrade request is filed for you to approve (see <a href="#plans">Subscriptions &amp; plans</a>).</p>
 
     <div class="callout info">
-      <strong>Company admins can create their own vendors.</strong>
-      A company can add a vendor it already works with. That vendor is auto-approved for the company and inherits the company's plan. You will see these vendors on your global Vendors page like any other.
+      <strong>Company admins can create their own contractors.</strong>
+      A company can add a contractor it already works with. That contractor is auto-approved for the company and inherits the company's plan. You will see these contractors on your global Contractors page like any other.
     </div>
 
-    <h3>Vendor detail &amp; sharing consent (new in v1.8)</h3>
-    <p>Companies can click any vendor in their list to open a <strong>vendor detail view</strong> — the organisation's profile and contacts, the relationship timeline, the workers and deployments that vendor has with them, and the vendor's attendance history at their site.</p>
+    <h3>Contractor detail &amp; sharing consent (new in v1.8)</h3>
+    <p>Companies can click any contractor in their list to open a <strong>contractor detail view</strong> — the organisation's profile and contacts, the relationship timeline, the workers and deployments that contractor has with them, and the contractor's attendance history at their site.</p>
     <ul class="plain">
-      <li><strong>Consent is collected on the access request.</strong> When a vendor asks for access to a company, it explicitly consents to sharing these details. Vendors a company creates itself consent implicitly.</li>
-      <li><strong>No consent, no details.</strong> Without it, the company sees only the vendor's name and the request status.</li>
+      <li><strong>Consent is collected on the access request.</strong> When a contractor asks for access to a company, it explicitly consents to sharing these details. Contractors a company creates itself consent implicitly.</li>
+      <li><strong>No consent, no details.</strong> Without it, the company sees only the contractor's name and the request status.</li>
     </ul>
   </div>
 </section>
@@ -351,12 +351,12 @@
           <tr>
             <td><span class="tag tag-blue">Company Admin</span></td>
             <td>Company</td>
-            <td>Approves or suspends vendors. Creates gate and HR users, plus vendor logins. Manages company settings, views attendance, handles Plan &amp; Billing.</td>
+            <td>Approves or suspends contractors. Creates gate and HR users, plus contractor logins. Manages company settings, views attendance, handles Plan &amp; Billing.</td>
           </tr>
           <tr>
             <td><span class="tag tag-blue">Department HR</span></td>
             <td>Company</td>
-            <td>Approves or rejects vendor deployments and chooses which departments or gates each worker may use. Can mark a manual OUT, and maintains the visitor Hosts list. Nothing else — no users, settings, or billing.</td>
+            <td>Approves or rejects contractor deployments and chooses which departments or gates each worker may use. Can mark a manual OUT, and maintains the visitor Hosts list. Nothing else — no users, settings, or billing.</td>
           </tr>
           <tr>
             <td><span class="tag tag-blue">Gate User</span></td>
@@ -364,13 +364,13 @@
             <td>Marks IN / OUT attendance, by fingerprint or face, at their gate — and creates visitor gate passes. Nothing else.</td>
           </tr>
           <tr>
-            <td><span class="tag tag-amber">Vendor Admin</span></td>
-            <td>Vendor</td>
-            <td>Registers and deploys workers. Can edit, deactivate, or delete their own workers (see the lifecycle rules below). Handles the vendor's Plan &amp; Billing.</td>
+            <td><span class="tag tag-amber">Contractor Admin</span></td>
+            <td>Contractor</td>
+            <td>Registers and deploys workers. Can edit, deactivate, or delete their own workers (see the lifecycle rules below). Handles the contractor's Plan &amp; Billing.</td>
           </tr>
           <tr>
-            <td><span class="tag tag-amber">Vendor Operator</span></td>
-            <td>Vendor</td>
+            <td><span class="tag tag-amber">Contractor Operator</span></td>
+            <td>Contractor</td>
             <td>Registers workers only.</td>
           </tr>
         </tbody>
@@ -378,7 +378,7 @@
     </div>
     <div class="callout tip">
       <strong>Who creates whom?</strong>
-      You can create any user. Company Admins create their own gate users, HR users, and vendor logins. Vendor Admins create their own operators. Plan limits cap how many users each organisation can have.
+      You can create any user. Company Admins create their own gate users, HR users, and contractor logins. Contractor Admins create their own operators. Plan limits cap how many users each organisation can have.
     </div>
   </div>
 </section>
@@ -410,7 +410,7 @@
         </tbody>
       </table>
     </div>
-    <p><em>Company links</em> are the number of company–vendor relationships an organisation can hold.</p>
+    <p><em>Company links</em> are the number of company–contractor relationships an organisation can hold.</p>
 
     <h3>How payment works (offline)</h3>
     <p>TrueCrew does not take payment online. Money changes hands outside the system — bank transfer, UPI, cheque, whatever you agree. The portal just tracks the request and the decision:</p>
@@ -435,16 +435,16 @@
   <div class="card">
     <h2>6. Deployment approvals &amp; permissions</h2>
     <p>This is a company-side feature, but you should know how it works — it changes who can pass a gate.</p>
-    <p><strong>Approval is required by default</strong> (since v1.7) for every company: each new vendor deployment waits for the company's HR or admin to review it. A company that prefers instant deployments can switch the requirement off in its approvals panel. While approval is required:</p>
+    <p><strong>Approval is required by default</strong> (since v1.7) for every company: each new contractor deployment waits for the company's HR or admin to review it. A company that prefers instant deployments can switch the requirement off in its approvals panel. While approval is required:</p>
     <ul class="plain">
       <li>Each new deployment waits in a <strong>pending</strong> queue for the company's HR or admin.</li>
       <li>A pending worker <strong>cannot mark attendance anywhere</strong> at that company until approved.</li>
-      <li>Rejections carry a reason back to the vendor.</li>
+      <li>Rejections carry a reason back to the contractor.</li>
       <li>On approval, the company can <strong>restrict the worker to specific gates or departments</strong>. The rule is enforced everywhere — web gate, both apps (even offline), and on the server for every synced mark.</li>
     </ul>
     <div class="callout info">
       <strong>Your own deployments skip the queue.</strong>
-      A deployment you create yourself as Super Admin is approved automatically — handy for demos and corrections. Vendor deployments always follow the company's setting.
+      A deployment you create yourself as Super Admin is approved automatically — handy for demos and corrections. Contractor deployments always follow the company's setting.
     </div>
 
     <h3>Preset departments</h3>
@@ -464,7 +464,7 @@
     </div>
     <div class="callout tip">
       <strong>Both sides are notified.</strong>
-      Company admins get a notification when a deployment needs approval; the vendor gets the decision. Gate devices pick up approvals automatically within about 90 seconds.
+      Company admins get a notification when a deployment needs approval; the contractor gets the decision. Gate devices pick up approvals automatically within about 90 seconds.
     </div>
   </div>
 </section>
@@ -490,16 +490,16 @@
     <ul class="plain">
       <li>Every worker is registered with Aadhaar — either by importing the e-Aadhaar PDF (details auto-fill) or by typing the 12-digit number.</li>
       <li><strong>The raw Aadhaar number is never stored.</strong> TrueCrew keeps only the masked last four digits and a secure one-way code used for duplicate checks.</li>
-      <li><strong>Duplicates are rejected across all vendors.</strong> The same Aadhaar cannot be registered twice on the platform, even by different vendors.</li>
+      <li><strong>Duplicates are rejected across all contractors.</strong> The same Aadhaar cannot be registered twice on the platform, even by different contractors.</li>
     </ul>
 
     <h3>The engagement lock (new in v1.6.1)</h3>
     <div class="callout rule">
       <strong>A working worker is protected.</strong>
-      Once a worker is deployed to a company — or is currently checked IN — the vendor cannot <em>delete</em> the worker, <em>deactivate</em> them, or <em>remove their fingerprint</em>. The deployment must be cancelled first. This stops a vendor from silently pulling a worker's identity out from under a company mid-engagement.
+      Once a worker is deployed to a company — or is currently checked IN — the contractor cannot <em>delete</em> the worker, <em>deactivate</em> them, or <em>remove their fingerprint</em>. The deployment must be cancelled first. This stops a contractor from silently pulling a worker's identity out from under a company mid-engagement.
     </div>
     <ul class="plain">
-      <li>To remove a worker, the vendor cancels the deployment first (the worker must be checked OUT), then deletes.</li>
+      <li>To remove a worker, the contractor cancels the deployment first (the worker must be checked OUT), then deletes.</li>
       <li><strong>You, the Super Admin, can override the lock</strong> when there is a genuine reason.</li>
       <li><strong>Deleting a worker never deletes their attendance.</strong> The history stays for company records and audits.</li>
     </ul>
@@ -577,7 +577,7 @@
             <td>Workers who marked IN but never OUT that day.</td>
           </tr>
           <tr>
-            <td><strong>Vendor deployment digest</strong></td>
+            <td><strong>Contractor deployment digest</strong></td>
             <td>Daily, 08:30 IST</td>
             <td>Workers who are ready but not deployed (benched), and deployments ending within 3 days.</td>
           </tr>
@@ -708,12 +708,12 @@
 
   <details>
     <summary>Where do Aadhaar PDFs and ID documents live? Are they public?</summary>
-    <div>No. All documents are kept in <strong>private storage</strong> — there are no public web links to them. A document can only be downloaded by a signed-in user whose role allows it: the vendor that owns the worker, or a company the worker is associated with. Every download goes through this permission check.</div>
+    <div>No. All documents are kept in <strong>private storage</strong> — there are no public web links to them. A document can only be downloaded by a signed-in user whose role allows it: the contractor that owns the worker, or a company the worker is associated with. Every download goes through this permission check.</div>
   </details>
 
   <details>
-    <summary>Why can't a vendor delete or deactivate a worker?</summary>
-    <div>The <strong>engagement lock</strong>. Once a worker is deployed to a company — or is currently checked IN — the vendor cannot delete them, deactivate them, or remove their fingerprint. The deployment must be cancelled first (and the worker must be checked OUT). This protects companies from losing a worker mid-engagement. As Super Admin, you can override the lock when there is a genuine reason. Deleting a worker never deletes their attendance history.</div>
+    <summary>Why can't a contractor delete or deactivate a worker?</summary>
+    <div>The <strong>engagement lock</strong>. Once a worker is deployed to a company — or is currently checked IN — the contractor cannot delete them, deactivate them, or remove their fingerprint. The deployment must be cancelled first (and the worker must be checked OUT). This protects companies from losing a worker mid-engagement. As Super Admin, you can override the lock when there is a genuine reason. Deleting a worker never deletes their attendance history.</div>
   </details>
 
   <details>
@@ -728,7 +728,7 @@
 
   <details>
     <summary>How do we test with duplicate Aadhaar numbers?</summary>
-    <div>In production, the same Aadhaar is always rejected across all vendors — that is the point of the check. <strong>Test environments may disable the duplicate check</strong> so demo workers can share a number. Ask the technical team whether your test server has it disabled.</div>
+    <div>In production, the same Aadhaar is always rejected across all contractors — that is the point of the check. <strong>Test environments may disable the duplicate check</strong> so demo workers can share a number. Ask the technical team whether your test server has it disabled.</div>
   </details>
 
   <details>

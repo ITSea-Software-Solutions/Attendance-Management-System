@@ -105,6 +105,13 @@
   ol.steps p { margin: 2px 0 0; color: var(--muted); font-size: .93rem; }
 
   /* ── TABLES ─────────────────────────────────── */
+  .new-pill {
+    display: inline-block; vertical-align: middle;
+    background: var(--accent); color: #fff;
+    font-size: 11px; font-weight: 700; letter-spacing: .5px;
+    padding: 2px 10px; border-radius: 999px; margin-left: 10px;
+  }
+
   .tablewrap { overflow-x: auto; margin: 14px 0 4px; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   th {
@@ -196,7 +203,7 @@
   <a href="#overview">How it works</a>
   <a href="#roles">Roles</a>
   <a href="#getting-started">Getting started</a>
-  <a href="#vendors">Vendors</a>
+  <a href="#contractors">Contractors</a>
   <a href="#approvals">Approvals</a>
   <a href="#gate">Gate attendance</a>
   <a href="#photos">Photo proof</a>
@@ -204,6 +211,7 @@
   <a href="#live-board">Live Board</a>
   <a href="#visitors">Visitors</a>
   <a href="#reports">Reports</a>
+  <a href="#payroll">Payroll</a>
   <a href="#records">Records</a>
   <a href="#rules">Rules</a>
   <a href="#billing">Billing</a>
@@ -227,15 +235,15 @@
 <section id="overview">
   <h2>How TrueCrew works for your company</h2>
   <div class="card">
-    <p>TrueCrew tracks contract workers at your site — who came, when, through which gate, and for how long. Your vendors do the paperwork. You stay in control.</p>
+    <p>TrueCrew tracks contract workers at your site — who came, when, through which gate, and for how long. Your contractors do the paperwork. You stay in control.</p>
     <ol class="steps">
       <li>
-        <b>Vendors register their workers</b>
-        <p>Each worker is registered with a verified Aadhaar identity and an enrolled fingerprint. The vendor does this — not you.</p>
+        <b>Contractors register their workers</b>
+        <p>Each worker is registered with a verified Aadhaar identity and an enrolled fingerprint. The contractor does this — not you.</p>
       </li>
       <li>
         <b>You approve access</b>
-        <p>You decide which vendors may work with your company. By default, every single deployment then waits for your approval too — and you choose which gates each worker may use.</p>
+        <p>You decide which contractors may work with your company. By default, every single deployment then waits for your approval too — and you choose which gates each worker may use.</p>
       </li>
       <li>
         <b>Workers scan at your gates</b>
@@ -248,7 +256,7 @@
     </ol>
     <div class="note">
       <strong>The simple split</strong>
-      Vendors own worker registration. Your company owns the gates, the approvals, and the attendance record. Nobody can change what happened at your gate — not even the vendor.
+      Contractors own worker registration. Your company owns the gates, the approvals, and the attendance record. Nobody can change what happened at your gate — not even the contractor.
     </div>
   </div>
 </section>
@@ -267,12 +275,12 @@
           <tr>
             <td><b>Company Admin</b></td>
             <td>The site or HR manager who runs TrueCrew for your company</td>
-            <td>Everything below, plus: create users, approve vendors, change company settings, and manage the plan and billing.</td>
+            <td>Everything below, plus: create users, approve contractors, change company settings, and manage the plan and billing.</td>
           </tr>
           <tr>
             <td><b>Company HR</b></td>
             <td>The person who decides which workers may enter, and where</td>
-            <td>Approves or rejects vendor deployments, chooses each worker's allowed departments and gates, and records manual OUTs. Nothing else — no users, no settings, no billing.</td>
+            <td>Approves or rejects contractor deployments, chooses each worker's allowed departments and gates, and records manual OUTs. Nothing else — no users, no settings, no billing.</td>
           </tr>
           <tr>
             <td><b>Gate user</b></td>
@@ -303,30 +311,30 @@
         <p>Also on the <b>Users</b> page. HR users handle deployment approvals and manual OUTs — nothing more. Handy when approvals should not wait for the admin.</p>
       </li>
       <li>
-        <b>Create your own vendors (optional)</b>
-        <p>If you bring your own contractor, create the vendor yourself — it is auto-approved for your company. You can also create that vendor's admin login and hand it over to them.</p>
+        <b>Create your own contractors (optional)</b>
+        <p>If you bring your own contractor, create the contractor yourself — it is auto-approved for your company. You can also create that contractor's admin login and hand it over to them.</p>
       </li>
       <li>
-        <b>Approve external vendors</b>
-        <p>Vendors who signed up on their own send you an access request. Open <b>Vendor Approvals</b> — it has <b>Pending / Approved / Rejected / Suspended</b> tabs. Approve, or reject with a reason (the vendor sees the reason). You can suspend an approved vendor at any time, and re-approve them later.</p>
+        <b>Approve external contractors</b>
+        <p>Contractors who signed up on their own send you an access request. Open <b>Contractor Approvals</b> — it has <b>Pending / Approved / Rejected / Suspended</b> tabs. Approve, or reject with a reason (the contractor sees the reason). You can suspend an approved contractor at any time, and re-approve them later.</p>
       </li>
     </ol>
   </div>
 </section>
 
-<!-- ══════════════ 4. KNOW YOUR VENDORS ══════════════ -->
-<section id="vendors">
-  <h2>Know your vendors</h2>
+<!-- ══════════════ 4. KNOW YOUR CONTRACTORS ══════════════ -->
+<section id="contractors">
+  <h2>Know your contractors</h2>
   <div class="card">
-    <p>Click any vendor on your <b>Vendors</b> page to open a full vendor detail view — the vendor's complete story with your company, in three tabs:</p>
+    <p>Click any contractor on your <b>Contractors</b> page to open a full contractor detail view — the contractor's complete story with your company, in three tabs:</p>
     <ul class="plain">
-      <li><b>Overview</b> — the vendor's organisation profile (contacts, GST/PAN) and your relationship timeline: when they requested access, when you approved, when they consented to share details.</li>
-      <li><b>Workers &amp; Deployments</b> — every worker the vendor has deployed to you, past and present, with dates and approval status.</li>
-      <li><b>Attendance</b> — the vendor's attendance history at your site: man-days, who is currently inside, and daily activity.</li>
+      <li><b>Overview</b> — the contractor's organisation profile (contacts, GST/PAN) and your relationship timeline: when they requested access, when you approved, when they consented to share details.</li>
+      <li><b>Workers &amp; Deployments</b> — every worker the contractor has deployed to you, past and present, with dates and approval status.</li>
+      <li><b>Attendance</b> — the contractor's attendance history at your site: man-days, who is currently inside, and daily activity.</li>
     </ul>
     <div class="note">
-      <strong>Available with the vendor's consent</strong>
-      Vendors give this consent when they send you an access request ("the company may view our profile and track our working history"). Vendors you created yourself consent automatically. Without consent you see only the vendor's name and request status.
+      <strong>Available with the contractor's consent</strong>
+      Contractors give this consent when they send you an access request ("the company may view our profile and track our working history"). Contractors you created yourself consent automatically. Without consent you see only the contractor's name and request status.
     </div>
   </div>
 </section>
@@ -335,7 +343,7 @@
 <section id="approvals">
   <h2>Departments &amp; deployment approvals</h2>
   <div class="card">
-    <p><b>Deployment approval is ON by default for your company.</b> When a vendor deploys a worker to your site, the deployment waits for your HR or admin to approve it — and to choose the worker's departments and gates — before the worker can enter. Prefer to let approved vendors deploy freely? Switch off <b>Require deployment approval</b> with the toggle on the approvals panel.</p>
+    <p><b>Deployment approval is ON by default for your company.</b> When a contractor deploys a worker to your site, the deployment waits for your HR or admin to approve it — and to choose the worker's departments and gates — before the worker can enter. Prefer to let approved contractors deploy freely? Switch off <b>Require deployment approval</b> with the toggle on the approvals panel.</p>
 
     <h3>Preset departments and gates</h3>
     <p>When you approve a worker, you choose where they may go. TrueCrew ships with a standard list — and you can always add your own names:</p>
@@ -356,7 +364,7 @@
     <h3>The approval flow</h3>
     <ol class="steps">
       <li>
-        <b>A vendor deploys a worker to your company</b>
+        <b>A contractor deploys a worker to your company</b>
         <p>With a start and end date.</p>
       </li>
       <li>
@@ -373,7 +381,7 @@
       </li>
       <li>
         <b>Approve — or Reject with a reason</b>
-        <p>The vendor sees your decision and the reason. Rejected workers never appear at any gate.</p>
+        <p>The contractor sees your decision and the reason. Rejected workers never appear at any gate.</p>
       </li>
     </ol>
     <div class="good">
@@ -471,7 +479,7 @@
     <p>Workers sometimes leave without scanning OUT. TrueCrew makes these cases easy to spot and easy to close.</p>
     <ul class="plain">
       <li><b>The Exceptions page</b> lists everyone currently IN — workers who scanned in but have not scanned out yet. Check it at the end of each shift.</li>
-      <li><b>HR or admin can record a manual OUT</b>, with a reason — on the portal, or straight from the app's Inside tab. Vendors cannot — the record of who was inside your site belongs to your company. Every manual OUT is logged with who recorded it.</li>
+      <li><b>HR or admin can record a manual OUT</b>, with a reason — on the portal, or straight from the app's Inside tab. Contractors cannot — the record of who was inside your site belongs to your company. Every manual OUT is logged with who recorded it.</li>
       <li><b>A daily missing-OUT digest</b> goes out at 21:00 IST — as an in-app notification, and by email on plans that include email alerts — so forgotten check-outs never wait until month-end.</li>
     </ul>
   </div>
@@ -490,7 +498,7 @@
     </ul>
     <div class="note">
       <strong>Everyone gets their own view</strong>
-      Every role sees the Live Board. Your company sees the whole site; a gate login sees only its own gate; vendors see only their own workers. Night shifts are handled correctly — a worker who scanned in before midnight stays on the board until they scan out.
+      Every role sees the Live Board. Your company sees the whole site; a gate login sees only its own gate; contractors see only their own workers. Night shifts are handled correctly — a worker who scanned in before midnight stays on the board until they scan out.
     </div>
   </div>
 </section>
@@ -571,6 +579,69 @@
   </div>
 </section>
 
+
+<!-- ══════════════ 11b. PAYROLL ══════════════ -->
+<section id="payroll">
+  <h2>Payroll &amp; wages <span class="new-pill">NEW</span></h2>
+  <div class="card">
+    <p>Attendance is only half the job — what it is worth is the other half. Payroll turns
+       the attendance you already trust into a wage register, with no re-keying.</p>
+
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Page</th><th>What it is for</th></tr></thead>
+        <tbody>
+          <tr><td><b>Wage Register</b></td>
+              <td>The payout sheet for a pay period: days present, payable days, overtime hours, gross, deductions and net per worker — plus a contractor-wise summary for verifying a bill, and a muster in the familiar P / A / WO / H grid.</td></tr>
+          <tr><td><b>Workers &amp; Wages</b></td>
+              <td>What each worker is paid. Set a rate for one worker or a whole crew, filtered to one contractor or several.</td></tr>
+          <tr><td><b>Payroll Settings</b></td>
+              <td>The year's government holidays, your weekly off, and overtime multipliers per skill grade.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Rates are paid per day</h3>
+    <p>This is built for daily-wage and contract labour, so the day rate is the default: a
+       worker earns it for each day present. Staff paid a monthly salary can be switched to
+       <b>per month</b>, and their day rate becomes the monthly figure ÷ 26.</p>
+
+    <div class="good">
+      <strong>A wage change is agreed, not imposed</strong>
+      You and the contractor can both set a rate. Because you pay it, a rate a
+      <b>contractor</b> proposes for a worker deployed to you waits for <b>your approval</b> —
+      the agreed rate keeps applying until you decide. The proposal, the contractor's note
+      and your decision are all visible to both sides, and every decision is audited.
+      Workers not deployed anywhere are priced by their contractor alone.
+    </div>
+
+    <ul class="plain">
+      <li><b>Approving a change</b> — open <b>Payroll → Workers &amp; Wages</b>. Pending proposals sit at the top of the page showing the current rate, the proposed rate and the reason. Approve or Reject; a rejection can carry your reason, and the contractor is told either way.</li>
+      <li><b>Setting a rate yourself</b> — type it in the Rate column and save. The contractor is notified with the old and new figures, so nobody discovers a change at payout.</li>
+      <li><b>Only a company admin approves.</b> HR can run the register and read the rates, but cannot agree a new one.</li>
+    </ul>
+
+    <h3>Government holidays</h3>
+    <ul class="plain">
+      <li>Add the year's holidays under <b>Payroll → Settings</b>. They are marked automatically on the attendance log and the muster.</li>
+      <li>A holiday is <b>paid</b> at the day rate, whether or not anyone works.</li>
+      <li>Anyone who <i>does</i> work a holiday earns <b>overtime for the whole day</b>, at the holiday multiplier.</li>
+    </ul>
+
+    <h3>Deductions and heads</h3>
+    <p>Wages are split into the heads an Indian manufacturing wage sheet uses — Basic, DA/VDA,
+       HRA, conveyance, washing, medical, night shift, incentive and special allowance — and
+       PF, ESI, professional tax and LWF are computed from them, with bonus and gratuity
+       provisions shown so you can check a contractor's bill line by line.</p>
+    <div class="warn">
+      <strong>Confirm your state's rates before the first live payout</strong>
+      Professional tax and Labour Welfare Fund differ by state; the defaults follow
+      Maharashtra. PF and ESI rates and ceilings are set centrally and are configurable.
+      Have your accountant confirm the figures for your state once, and they stay set.
+    </div>
+  </div>
+</section>
+
 <!-- ══════════════ 12. WORKER RECORDS & DOCUMENTS ══════════════ -->
 <section id="records">
   <h2>Worker records &amp; documents</h2>
@@ -578,7 +649,7 @@
     <ul class="plain">
       <li><b>You see the workers that concern you</b> — everyone currently deployed to your site, plus past workers who attended before. The Workers page opens on the current deployment view, with filters like "Inside now" and "Present today".</li>
       <li><b>You can download documents</b> — the Aadhaar PDF and other ID documents of any worker associated with your company. Documents are stored privately, and every download is logged.</li>
-      <li><b>Verification badges</b> — each worker's detail page shows what has been verified: Aadhaar, fingerprint, face photo, and email and phone (which your team or the vendor can attest manually until OTP checks arrive).</li>
+      <li><b>Verification badges</b> — each worker's detail page shows what has been verified: Aadhaar, fingerprint, face photo, and email and phone (which your team or the contractor can attest manually until OTP checks arrive).</li>
     </ul>
   </div>
 </section>
@@ -589,7 +660,7 @@
   <div class="card">
     <p>TrueCrew enforces a few hard rules so your attendance record always stays truthful:</p>
     <ul class="plain">
-      <li><b>A vendor cannot remove a worker who is on your site.</b> While a worker is deployed to you — or still checked IN — the vendor cannot delete, deactivate, or de-register them. The deployment must be cancelled first, and your team must mark the worker OUT.</li>
+      <li><b>A contractor cannot remove a worker who is on your site.</b> While a worker is deployed to you — or still checked IN — the contractor cannot delete, deactivate, or de-register them. The deployment must be cancelled first, and your team must mark the worker OUT.</li>
       <li><b>Deployments lock after the first attendance.</b> Once a worker has scanned at your gate, that deployment cannot be quietly removed or rewritten.</li>
       <li><b>A locked deployment can only be cancelled once the worker is OUT.</b> Nobody can cancel a deployment while the worker is still inside your site.</li>
     </ul>
@@ -605,8 +676,8 @@
   <h2>Plan &amp; billing</h2>
   <div class="card">
     <ul class="plain">
-      <li><b>Live usage meters.</b> The <b>Plan &amp; Billing</b> page shows exactly where you stand against your plan's limits: users, workers, and vendor links.</li>
-      <li><b>Fair counting.</b> A worker only counts against your plan once they have actually worked — deployed and marked their first attendance. Registering or importing workers is free, so vendors can prepare their crew without touching your quota.</li>
+      <li><b>Live usage meters.</b> The <b>Plan &amp; Billing</b> page shows exactly where you stand against your plan's limits: users, workers, and contractor links.</li>
+      <li><b>Fair counting.</b> A worker only counts against your plan once they have actually worked — deployed and marked their first attendance. Registering or importing workers is free, so contractors can prepare their crew without touching your quota.</li>
       <li><b>Easy upgrades.</b> Hitting a limit never breaks anything — the action is simply blocked with a clear message. Send an upgrade request from the billing page; the platform team confirms it. Offline payment is supported — no card needed.</li>
     </ul>
   </div>
@@ -641,9 +712,9 @@
   </details>
 
   <details>
-    <summary>Why can't I edit a vendor's workers?</summary>
+    <summary>Why can't I edit a contractor's workers?</summary>
     <div>
-      You can view workers and download their documents, but registration belongs to the vendor — they registered the worker and hold the consent. If a name, photo, or fingerprint needs correcting, ask the vendor to update it. What you control is access: approvals, allowed gates, and the attendance record itself.
+      You can view workers and download their documents, but registration belongs to the contractor — they registered the worker and hold the consent. If a name, photo, or fingerprint needs correcting, ask the contractor to update it. What you control is access: approvals, allowed gates, and the attendance record itself.
     </div>
   </details>
 
@@ -676,9 +747,9 @@
   </details>
 
   <details>
-    <summary>Can I temporarily stop a vendor?</summary>
+    <summary>Can I temporarily stop a contractor?</summary>
     <div>
-      Yes. On <b>Vendor Approvals → Approved</b>, click <b>Suspend</b>. Their workers stop matching at your gates immediately. You can re-approve the vendor at any time — no new request needed. Use <b>Reject</b> (with a reason) only when you want to formally decline a vendor's request.
+      Yes. On <b>Contractor Approvals → Approved</b>, click <b>Suspend</b>. Their workers stop matching at your gates immediately. You can re-approve the contractor at any time — no new request needed. Use <b>Reject</b> (with a reason) only when you want to formally decline a contractor's request.
     </div>
   </details>
 </section>
