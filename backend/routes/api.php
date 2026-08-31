@@ -194,6 +194,8 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('muster',              [PayrollController::class, 'muster']);
         Route::get('contractor-summary',  [PayrollController::class, 'contractorSummary']);
         Route::post('rates',              [PayrollController::class, 'saveRates']);
+        Route::get('wage-requests',       [PayrollController::class, 'wageRequests']);
+        Route::post('wage-requests/{id}/decide', [PayrollController::class, 'decideWageRequest']);
         Route::post('adjustments',        [PayrollController::class, 'storeAdjustment']);
         Route::delete('adjustments/{id}', [PayrollController::class, 'deleteAdjustment']);
         Route::post('overrides',          [PayrollController::class, 'storeOverride']);

@@ -196,17 +196,33 @@ class PayrollController extends Controller
             'rates.*.ot_divisor'    => 'nullable|integer|min:1|max:24',
             'rates.*.ot_multiplier' => 'nullable|numeric|min:0|max:4',
             'rates.*.wage_components' => 'nullable|array',
+            'note'                  => 'nullable|string|max:255',
         ]);
 
         $updated = 0;
+        $proposed = 0;
+        $notify = [];
         foreach ($data['rates'] as $r) {
             $worker = Worker::find($r['worker_id']);
             if (! $worker) {
                 continue;
             }
-            // A vendor may only price their own workers.
+            // A contractor may only price their own workers.
             if ($user->isVendorUser() && $worker->vendor_id !== $user->vendor_id) {
                 continue;
+            }
+
+            // The company pays, so the company agrees the number. A change
+            // proposed by the contractor waits for approval; the agreed rate
+            // stays in force meanwhile. Nobody to approve (worker on the
+            // bench) means it simply applies.
+            if ($user->isVendorUser()) {
+                $companyId = $this->payingCompanyFor($worker);
+                if ($companyId) {
+                    $this->proposeWageChange($worker, $companyId, $r, $user, $data['note'] ?? null);
+                    $proposed++;
+                    continue;
+                }
             }
             // Only touch what was actually sent, so editing a day rate never
             // wipes a structure or an overtime override set elsewhere.
@@ -222,13 +238,182 @@ class PayrollController extends Controller
             if ($fields === []) {
                 continue;
             }
+            $before = $worker->wage_type === 'monthly' ? $worker->monthly_rate : $worker->daily_rate;
             $worker->forceFill($fields)->save();
             $updated++;
+
+            // The company set the number directly — the contractor is paid on
+            // it, so tell them rather than letting them find out at payout.
+            if (! $user->isVendorUser() && $worker->vendor_id) {
+                $after = $worker->wage_type === 'monthly' ? $worker->monthly_rate : $worker->daily_rate;
+                if ((string) $before !== (string) $after) {
+                    $notify[] = [$worker, $before, $after];
+                }
+            }
         }
 
-        $this->audit->log($user->id, 'wage_rates_updated', Worker::class, null, ['count' => $updated]);
+        foreach ($notify as [$w, $before, $after]) {
+            $vendorUsers = \App\Models\User::where('vendor_id', $w->vendor_id)
+                ->where('role', 'vendor_admin')->get();
+            app(\App\Services\NotifyService::class)->inApp($vendorUsers, 'wage_rate_set',
+                "Rate set by the company: {$w->name}",
+                sprintf('%s %s (was %s).%s',
+                    '₹'.number_format((float) $after),
+                    $w->wage_type === 'monthly' ? 'per month' : 'per day',
+                    $before ? '₹'.number_format((float) $before) : 'no rate',
+                    ($data['note'] ?? null) ? ' Note: '.$data['note'] : ''),
+                ['worker_id' => $w->id]);
+        }
 
-        return response()->json(['message' => "{$updated} wage rate(s) saved.", 'updated' => $updated]);
+        $this->audit->log($user->id, 'wage_rates_updated', Worker::class, null,
+            ['count' => $updated, 'proposed' => $proposed]);
+
+        $parts = [];
+        if ($updated)  { $parts[] = "{$updated} wage rate(s) saved."; }
+        if ($proposed) { $parts[] = "{$proposed} change(s) sent to the company for approval."; }
+
+        return response()->json([
+            'message'  => $parts ? implode(' ', $parts) : 'Nothing to change.',
+            'updated'  => $updated,
+            'proposed' => $proposed,
+        ]);
+    }
+
+    /** The company currently paying for this worker, if any. */
+    private function payingCompanyFor(Worker $worker): ?int
+    {
+        return \App\Models\WorkerAssignment::where('worker_id', $worker->id)
+            ->where('status', \App\Models\WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
+            ->whereDate('end_date', '>=', today())
+            ->orderByDesc('start_date')
+            ->value('company_id');
+    }
+
+    /** Record a contractor's proposed rate for the company to decide on. */
+    private function proposeWageChange(Worker $worker, int $companyId, array $r, $user, ?string $note): void
+    {
+        // One open request per worker: a newer proposal replaces the old one
+        // rather than leaving the company a queue of stale numbers.
+        \App\Models\WageChangeRequest::where('worker_id', $worker->id)
+            ->where('status', \App\Models\WageChangeRequest::STATUS_PENDING)
+            ->update(['status' => \App\Models\WageChangeRequest::STATUS_REJECTED,
+                      'decision_note' => 'Superseded by a newer proposal.',
+                      'decided_at' => now()]);
+
+        \App\Models\WageChangeRequest::create([
+            'worker_id'    => $worker->id,
+            'company_id'   => $companyId,
+            'vendor_id'    => $worker->vendor_id,
+            'wage_type'    => $r['wage_type'] ?? $worker->wage_type ?? 'daily',
+            'daily_rate'   => $r['daily_rate'] ?? null,
+            'monthly_rate' => $r['monthly_rate'] ?? null,
+            'wage_components' => $r['wage_components'] ?? null,
+            'current_wage_type'    => $worker->wage_type,
+            'current_daily_rate'   => $worker->daily_rate,
+            'current_monthly_rate' => $worker->monthly_rate,
+            'status'       => \App\Models\WageChangeRequest::STATUS_PENDING,
+            'note'         => $note,
+            'requested_by' => $user->id,
+        ]);
+
+        $was  = $worker->wage_type === 'monthly' ? $worker->monthly_rate : $worker->daily_rate;
+        $now  = ($r['wage_type'] ?? $worker->wage_type) === 'monthly'
+            ? ($r['monthly_rate'] ?? null) : ($r['daily_rate'] ?? null);
+        $per  = ($r['wage_type'] ?? $worker->wage_type) === 'monthly' ? 'per month' : 'per day';
+        $body = trim(sprintf('%s proposes %s %s for %s (was %s).%s',
+            $worker->vendor?->name ?? 'The contractor',
+            '₹'.number_format((float) $now), $per, $worker->name,
+            $was ? '₹'.number_format((float) $was) : 'no rate',
+            $note ? ' Note: '.$note : ''));
+
+        $admins = \App\Models\User::where('company_id', $companyId)
+            ->whereIn('role', ['company_admin', 'company_hr'])->get();
+        app(\App\Services\NotifyService::class)->inApp($admins, 'wage_change_requested',
+            "Wage change proposed: {$worker->name}", $body,
+            ['worker_id' => $worker->id]);
+    }
+
+    /** GET /payroll/wage-requests — what is waiting for a decision. */
+    public function wageRequests(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user->isGateUser(), 403, 'Gate logins do not have payroll access.');
+
+        // Deliberately NOT scope(): a contractor works across several companies
+        // and must see every request they are waiting on, even when the page
+        // has no company picked. Only company users are pinned to one company.
+        $rows = \App\Models\WageChangeRequest::with(['worker:id,name,emp_code', 'vendor:id,name', 'company:id,name', 'requestedBy:id,name'])
+            ->when($user->isCompanyUser(), fn ($q) => $q->where('company_id', $user->company_id))
+            ->when($user->isVendorUser(), fn ($q) => $q->where('vendor_id', $user->vendor_id))
+            ->when(! $user->isCompanyUser() && $request->filled('company_id'),
+                fn ($q) => $q->where('company_id', (int) $request->input('company_id')))
+            ->when($request->input('status', 'pending') !== 'all',
+                fn ($q) => $q->where('status', $request->input('status', 'pending')))
+            ->orderByDesc('created_at')->limit(200)->get();
+
+        return response()->json($rows);
+    }
+
+    public function decideWageRequest(Request $request, int $id): JsonResponse
+    {
+        // Check who is asking BEFORE resolving scope, so a contractor gets a
+        // straight "not yours to approve" rather than a scope error.
+        $user = $request->user();
+        abort_if($user->isVendorUser(), 403, 'Only the company can approve a wage change.');
+        abort_unless(in_array($user->role, ['company_admin', 'super_admin'], true), 403,
+            'Only the company admin can approve a wage change.');
+
+        $data = $request->validate([
+            'decision' => 'required|in:approved,rejected',
+            'note'     => 'nullable|string|max:255',
+        ]);
+
+        $req = \App\Models\WageChangeRequest::findOrFail($id);
+        // A company admin may only decide their own company's requests; a super
+        // admin decides for whichever company the request belongs to.
+        abort_if($user->isCompanyUser() && $req->company_id !== $user->company_id, 403,
+            'That request belongs to another company.');
+        abort_unless($req->status === \App\Models\WageChangeRequest::STATUS_PENDING, 422,
+            'This request has already been decided.');
+
+        if ($data['decision'] === 'approved') {
+            $worker = Worker::findOrFail($req->worker_id);
+            $worker->forceFill(array_filter([
+                'wage_type'       => $req->wage_type,
+                'daily_rate'      => $req->daily_rate,
+                'monthly_rate'    => $req->monthly_rate,
+                'wage_components' => $req->wage_components,
+            ], fn ($v) => $v !== null))->save();
+        }
+
+        $req->forceFill([
+            'status'        => $data['decision'],
+            'decision_note' => $data['note'] ?? null,
+            'decided_by'    => $user->id,
+            'decided_at'    => now(),
+        ])->save();
+
+        $this->audit->log($user->id, 'wage_change_'.$data['decision'],
+            Worker::class, $req->worker_id, $data);
+
+        // The contractor proposed it; they need to hear the answer.
+        $vendorUsers = \App\Models\User::where('vendor_id', $req->vendor_id)
+            ->whereIn('role', ['vendor_admin'])->get();
+        $rate = $req->wage_type === 'monthly' ? $req->monthly_rate : $req->daily_rate;
+        app(\App\Services\NotifyService::class)->inApp($vendorUsers, 'wage_change_decided',
+            ($data['decision'] === 'approved' ? 'Wage change approved: ' : 'Wage change rejected: ')
+                .($req->worker?->name ?? 'worker'),
+            $data['decision'] === 'approved'
+                ? '₹'.number_format((float) $rate).' is now the agreed rate.'
+                : 'The previous rate stays in force.'.($data['note'] ? ' Reason: '.$data['note'] : ''),
+            ['worker_id' => $req->worker_id]);
+
+        return response()->json([
+            'message' => $data['decision'] === 'approved'
+                ? 'Approved — the new rate is now in force.'
+                : 'Rejected — the previous rate stays in force.',
+        ]);
     }
 
     /** POST /payroll/adjustments — arrears, advances, deductions, bonuses. */

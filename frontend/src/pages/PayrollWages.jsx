@@ -5,7 +5,8 @@ import toast from "react-hot-toast";
 import PageHint from "@/components/PageHint";
 import MultiSelect from "@/components/MultiSelect";
 import { useOrgScope } from "@/lib/scope";
-import { IndianRupee, Save, Search, AlertTriangle, Loader2, Building2 } from "lucide-react";
+import { IndianRupee, Save, Search, AlertTriangle, Loader2, Building2,
+  Check, X, Clock3 } from "lucide-react";
 
 const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
@@ -83,6 +84,28 @@ export default function PayrollWages() {
 
   const priced = rows.filter((w) => Number(w.daily_rate) > 0 || Number(w.monthly_rate) > 0).length;
 
+  const { data: wageRequests } = useQuery({
+    queryKey: ["wage-requests", companyId],
+    enabled: ready,
+    queryFn: () => api.get("/payroll/wage-requests", {
+      params: companyId ? { company_id: companyId } : {},
+    }).then((r) => r.data).catch(() => []),
+    refetchInterval: 60_000,
+  });
+  const pendingFor = (id) => (wageRequests ?? []).find((r) => r.worker_id === id && r.status === "pending");
+
+  const decide = useMutation({
+    mutationFn: ({ id, decision }) => api.post(`/payroll/wage-requests/${id}/decide`,
+      { decision }, { params: companyId ? { company_id: companyId } : {} }),
+    onSuccess: (r) => {
+      toast.success(r.data?.message ?? "Done.");
+      qc.invalidateQueries({ queryKey: ["wage-requests"] });
+      qc.invalidateQueries({ queryKey: ["wage-worker-detail"] });
+      qc.invalidateQueries({ queryKey: ["payroll-register"] });
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Could not record the decision."),
+  });
+
   const save = useMutation({
     mutationFn: () => api.post("/payroll/rates", {
       rates: Object.entries(edits).map(([id, e]) => ({
@@ -94,8 +117,10 @@ export default function PayrollWages() {
       })),
     }),
     onSuccess: (r) => {
-      toast.success(r.data?.message ?? "Rates saved.");
+      toast.success(r.data?.message ?? "Rates saved.",
+        { duration: r.data?.proposed ? 7000 : 4000 });
       setEdits({});
+      qc.invalidateQueries({ queryKey: ["wage-requests"] });
       qc.invalidateQueries({ queryKey: ["wage-worker-detail"] });
       qc.invalidateQueries({ queryKey: ["payroll-register"] });
     },
@@ -127,8 +152,9 @@ export default function PayrollWages() {
       <PageHint id="payroll-wages">
         Daily-wage labour is paid a <b>rate per day</b> for each day present — that is the
         default. Switch a supervisor or staff member to <b>per month</b> and their day rate
-        becomes the monthly figure ÷ 26. Whoever sets the amount, company or contractor,
-        the other side sees the same number.
+        becomes the monthly figure ÷ 26. Both sides can set a rate, but since the company
+        pays, a change proposed by a <b>contractor for a deployed worker waits for the
+        company to approve it</b> — the agreed rate keeps applying meanwhile.
       </PageHint>
 
       <div className="card !py-3.5 flex flex-wrap items-center gap-3">
@@ -154,6 +180,54 @@ export default function PayrollWages() {
           {priced} of {rows.length} priced
         </span>
       </div>
+
+      {(wageRequests ?? []).some((r) => r.status === "pending") && (
+        <div className="card space-y-3">
+          <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+            <Clock3 size={16} className="text-amber-500" />
+            {isVendorUser ? "Waiting for the company to approve" : "Wage changes to approve"}
+          </h2>
+          <p className="text-sm text-gray-500">
+            {isVendorUser
+              ? "The previous rate stays in force until the company agrees."
+              : "A contractor has proposed these rates. The current rate keeps applying until you approve."}
+          </p>
+          <div className="divide-y divide-gray-50 border-t border-gray-100">
+            {(wageRequests ?? []).filter((r) => r.status === "pending").map((r) => (
+              <div key={r.id} className="flex items-center justify-between gap-3 py-2.5 flex-wrap">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-gray-900">
+                    {r.worker?.name}
+                    {r.vendor?.name && <span className="text-gray-400 font-normal"> · {r.vendor.name}</span>}
+                  </p>
+                  <p className="text-[12px] text-gray-500">
+                    {money(r.current_daily_rate ?? r.current_monthly_rate ?? 0)}
+                    {" → "}
+                    <b className="text-gray-800">{money(r.daily_rate ?? r.monthly_rate ?? 0)}</b>
+                    {r.wage_type === "daily" ? " per day" : " per month"}
+                    {r.note ? ` · ${r.note}` : ""}
+                  </p>
+                </div>
+                {!isVendorUser && (
+                  <div className="flex gap-2">
+                    <button className="btn-secondary text-xs py-1 text-green-700"
+                      disabled={decide.isPending}
+                      onClick={() => decide.mutate({ id: r.id, decision: "approved" })}>
+                      <Check size={13} /> Approve
+                    </button>
+                    <button className="btn-secondary text-xs py-1 text-red-600"
+                      disabled={decide.isPending}
+                      onClick={() => decide.mutate({ id: r.id, decision: "rejected" })}>
+                      <X size={13} /> Reject
+                    </button>
+                  </div>
+                )}
+                {isVendorUser && <span className="badge badge-yellow text-xs">Awaiting approval</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {rows.length > priced && (
         <div className="card !py-3 border-l-4 border-amber-400 text-sm text-amber-800 flex items-center gap-2">
@@ -207,7 +281,14 @@ export default function PayrollWages() {
                         value={rate} placeholder="set rate"
                         onChange={(e) => setRow(w, { rate: e.target.value })} />
                     </td>
-                    <td className="px-3 text-right text-gray-600">{dayRate ? money(dayRate) : "—"}</td>
+                    <td className="px-3 text-right text-gray-600">
+                      {dayRate ? money(dayRate) : "—"}
+                      {pendingFor(w.id) && (
+                        <span className="block text-[10.5px] text-amber-600">
+                          {money(pendingFor(w.id).daily_rate ?? pendingFor(w.id).monthly_rate ?? 0)} pending
+                        </span>
+                      )}
+                    </td>
                   </tr>
                 );
               })}
