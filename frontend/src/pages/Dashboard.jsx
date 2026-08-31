@@ -141,13 +141,15 @@ export default function Dashboard() {
     { label: "Live Board", to: "/live", icon: Activity },
     { label: "Workers", to: "/workers", icon: Users },
   ] : isCompany ? [
+    // Only offer what this role can actually open — every link here is
+    // checked against the route guards in App.jsx.
     ...(role !== "company_hr" ? [{ label: "Mark Attendance", to: "/attendance/mark", icon: Fingerprint }] : []),
     { label: "Live Board", to: "/live", icon: Activity },
-    { label: "Approvals", to: "/workers/assign", icon: CheckCircle },
+    ...(role !== "company_gate" ? [{ label: "Approvals", to: "/workers/assign", icon: CheckCircle }] : []),
     { label: "Visitors", to: "/visitors", icon: Camera },
   ] : [
     { label: "Register Worker", to: "/workers/register", icon: Users },
-    { label: "Deploy Workers", to: "/workers/assign", icon: ArrowRight },
+    ...(role === "vendor_admin" ? [{ label: "Deploy Workers", to: "/workers/assign", icon: ArrowRight }] : []),
     { label: "Attendance", to: "/attendance", icon: CalendarDays },
   ];
 

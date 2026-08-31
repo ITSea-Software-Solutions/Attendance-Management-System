@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/axios";
@@ -7,8 +7,7 @@ import toast from "react-hot-toast";
 import {
   Search, Plus, Eye, EyeOff, RefreshCw, Copy, Pencil,
   ToggleLeft, ToggleRight, X, MoreVertical,
-  CheckCircle, Clock, PauseCircle, XCircle, Download,
-} from "lucide-react";
+  CheckCircle, Clock, PauseCircle, XCircle, Download, ShieldCheck } from "lucide-react";
 
 function CardMenu({ vendor, onEdit, onToggle }) {
   const [open, setOpen] = useState(false);
@@ -190,14 +189,22 @@ export default function VendorList() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold">Vendors</h1>
+          <h1 className="text-2xl font-bold">Contractors</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {isCompanyUser ? "Vendors associated with your company" : "Registered vendor companies"}
+            {isCompanyUser ? "Labour contractors supplying workers to your company" : "Registered contractor companies"}
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* The approval queue lives one click away instead of a second
+              menu item that repeats this same list. */}
+          {counts?.pending > 0 && (
+            <Link to="/vendors/approval"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">
+              <ShieldCheck size={15} /> {counts.pending} awaiting approval
+            </Link>
+          )}
           <button
             className="btn-secondary text-sm"
             title="Professional+ feature"
@@ -220,7 +227,7 @@ export default function VendorList() {
           </button>
           {(isSuperAdmin || user?.role === "company_admin") && (
             <button className="btn-primary" onClick={() => { setShowCreate(true); setForm(VENDOR_INIT); setAdmin(ADMIN_INIT); }}>
-              <Plus size={16} /> Add Vendor
+              <Plus size={16} /> Add Contractor
             </button>
           )}
         </div>
@@ -263,7 +270,7 @@ export default function VendorList() {
       {showCreate && (
         <div className="card space-y-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">New Vendor</h2>
+            <h2 className="font-semibold text-gray-900">New Contractor</h2>
             <button onClick={() => setShowCreate(false)}><X size={18} className="text-gray-400" /></button>
           </div>
 
