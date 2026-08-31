@@ -80,16 +80,6 @@ docker-compose exec -T backend php artisan storage:link --force 2>/dev/null || t
 info "Optimizing..."
 docker-compose exec -T backend php artisan optimize --force 2>/dev/null || true
 
-# ── 5. Biometric agent (local, not in Docker) ─────────────────────────────────
-info "Installing biometric agent npm packages..."
-if command -v npm >/dev/null 2>&1; then
-  (cd biometric-agent && npm install --silent)
-  info "Biometric agent installed. Start it separately: cd biometric-agent && npm start"
-else
-  warn "npm not found — install Node.js 18+ to run the biometric agent."
-  warn "Download: https://nodejs.org"
-fi
-
 # ── Done ──────────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${NC}"
@@ -105,8 +95,5 @@ echo -e "${GREEN}║${NC}    company@ams.local     /  Admin@12345               
 echo -e "${GREEN}║${NC}    gate@ams.local        /  Admin@12345                  ${GREEN}║${NC}"
 echo -e "${GREEN}║${NC}    vendor@ams.local      /  Admin@12345                  ${GREEN}║${NC}"
 echo -e "${GREEN}╠══════════════════════════════════════════════════════════╣${NC}"
-echo -e "${GREEN}║${NC}  Hamster Pro 20 Biometric Agent (run on this PC):        ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}    cd biometric-agent && npm start                       ${GREEN}║${NC}"
-echo -e "${GREEN}║${NC}    See biometric-agent/INSTALL.md for SDK setup          ${GREEN}║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════╝${NC}"
 echo ""

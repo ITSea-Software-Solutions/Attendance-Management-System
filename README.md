@@ -2,20 +2,24 @@
 
 > Product name: **TrueCrew** (हाज़री — "attendance"). Internal/technical codename remains **AMS** (repo, containers `ams_*`, API paths) — do not rename infrastructure.
 
-Enterprise-grade multi-company, multi-vendor labor registration and biometric attendance system built on Laravel + React.
+Enterprise multi-company, multi-contractor labour registration, biometric attendance
+and wage system built on Laravel + React, with offline-first Android and Windows apps.
+
+> **Wording:** user-facing text says **contractor**. The database, API and role keys
+> still say `vendor` (`vendor_id`, `vendor_admin`, `/api/vendors`) — do not rename them.
 
 ---
 
 ## Architecture
 
-### System overview (v1.0 web + v0.9 client apps)
+### System overview (web v1.19.0 · apps v0.9.38)
 
 ```mermaid
 flowchart LR
   subgraph Clients
     WEB["Web portal (React+Vite)\nsuper admin · company admin\nvendor · gate"]
     APP["Flutter app (client/)\nAndroid + Windows\nvendor + gate, OFFLINE-first"]
-    SG["SecuGen scanner\nSGIBIOSRV localhost:8443\n(gate PCs / Windows)"]
+    SG["SecuGen / Mantra scanner\nUSB (Android) · bundled DLLs (Windows)"]
   end
   subgraph Server["DigitalOcean droplet (docker compose)"]
     NG[nginx :80]
@@ -27,8 +31,7 @@ flowchart LR
   end
   WEB -->|/  + /api| NG
   APP -->|"/api (login online; then offline\nqueue → idempotent sync by UUID)"| NG
-  WEB -.->|fingerprint capture| SG
-  APP -.->|"Windows capture (v0.9)\nAndroid USB-OTG SDK (v1.0)"| SG
+  APP -.->|"on-device capture + matching\n(the browser cannot reach a scanner)"| SG
   NG --> BE
   BE --> MY
   BE --> RD
@@ -40,51 +43,66 @@ flowchart LR
 - **Offline model:** app keeps an encrypted local SQLite copy; events (registrations,
   attendance marks) queue with client UUIDs and push idempotently; master data pulls
   role-scoped bundles — **server wins** on master data, events are append-only.
-- **Biometrics:** web + Windows app capture via SGIBIOSRV; demo/sim mode works with
-  no hardware. Android USB-OTG SecuGen SDK and face (InsightFace) are the next phases
-  — full matrix in `CLIENT_APP_DESIGN.md`.
+- **Biometrics live in the apps only.** A browser cannot reach a fingerprint scanner,
+  so attendance marking was removed from the web portal. The Android and Windows apps
+  capture and match on-device (SecuGen + Mantra drivers, DLLs bundled — zero setup on
+  Windows), and the server re-verifies every mark. Up to **three fingers** per worker;
+  face matching via InsightFace. Sim mode works with no hardware.
+- **Payroll** converts attendance into wages: daily rate by default (this is built for
+  contract labour, not salaried staff), Indian wage heads, PF/ESI/PT/LWF, paid
+  government holidays and overtime. See `CLAUDE.md` for the rules.
 
 ### Repository layout
 
 ```
-attendance_system/
-├── client/                     # Flutter app (Android + Windows) — offline-first
+truecrew/
+├── client/                     # Flutter app (Android + Windows) — offline-first,
+│   │                           #   owns ALL biometrics; scanner DLLs ship inside
+│   └── windows/sgfp/           # SecuGen x64 runtime DLLs (committed, CI-bundled)
 ├── docker-compose.yml          # All services wired together
+├── docker-compose.local.yml    # Local dev override (Mac port clashes + sim mode)
 ├── init.sh                     # One-time setup script
 ├── .env.example                # Copy to .env before starting
 │
 ├── nginx/                      # Reverse proxy config
 ├── docker/mysql/               # MySQL init SQL + seed
+├── deploy/production/          # Production pack (setup.sh, TLS nginx, annotated .env)
 │
-├── backend/                    # Laravel 11 (PHP 8.3 + FPM)
+├── backend/                    # Laravel 11 (PHP 8.4 + FPM)
 │   ├── app/Http/Controllers/   # API controllers (per resource)
-│   │   ├── AttendanceController.php     # mark, templates, daily-summary, exceptions
-│   │   ├── AadhaarController.php        # extract, upload, download (role-scoped)
+│   │   ├── AttendanceController.php     # mark, daily-summary, exports, manual entry
+│   │   ├── PayrollController.php        # wage register, muster, rates, holidays
 │   │   ├── WorkerController.php         # CRUD + fingerprint + stats + photo
-│   │   ├── WorkerIdDocumentController.php # store/download worker docs (images + PDF)
-│   │   ├── WorkerAssignmentController.php # deploy workers, current/previous filter
+│   │   ├── AadhaarController.php        # extract, upload, download (role-scoped)
+│   │   ├── PanController.php            # same, for PAN cards
+│   │   ├── VisitorController.php        # gate passes + host approval
 │   │   └── ...
-│   ├── app/Models/             # Eloquent models
-│   ├── app/Services/           # AuditService, BiometricService
+│   ├── app/Services/           # Audit, Biometric, Payroll, Notify, Plan,
+│   │                           #   Template, Face, Aadhaar
+│   ├── app/Support/Csv.php     # CSV writer that neutralises formula injection
 │   ├── database/migrations/    # Full schema history
 │   └── routes/api.php          # All API routes
 │
 ├── frontend/                   # React 18 + Vite + Tailwind CSS
 │   └── src/
-│       ├── pages/
+│       ├── pages/              # Dashboard, Reports, Payroll{,Wages,Settings},
+│       │   │                   #   Signup, PlanBilling, Subscriptions, Downloads
 │       │   ├── companies/      # CompanyList
-│       │   ├── vendors/        # VendorList (role-aware tabs), VendorApproval, VendorCompanyAccess
+│       │   ├── vendors/        # VendorList, VendorApproval, VendorDetail,
+│       │   │                   #   VendorCompanyAccess  (shown as "Contractors")
 │       │   ├── workers/        # WorkerList, WorkerDetail, WorkerRegister, WorkerAssign
 │       │   ├── users/          # UserList
-│       │   └── attendance/     # AttendanceMark, AttendanceList (daily summary), Exceptions
-│       └── components/         # Sidebar, FingerprintCapture, etc.
+│       │   ├── visitors/       # Visitors (gate passes)
+│       │   └── attendance/     # AttendanceList (daily summary), Exceptions, LiveBoard
+│       ├── components/         # Sidebar, MultiSelect, LiveCapture,
+│       │                       #   ManualAttendance, ImportWorkersModal, charts
+│       └── lib/scope.js        # useOrgScope() — the single own-company display rule
 │
-├── pdf-service/                # Python FastAPI — Aadhaar PDF extraction
-│   └── main.py                 # PDF text + photo extraction via pdfplumber
-│
-└── client/                     # Flutter apps (Windows + Android) — these own
-                                #   all biometrics; scanner DLLs ship inside
-    └── winbio_server.py        # Alternative: Windows Biometric Framework (WBF)
+└── pdf-service/                # Python FastAPI
+    ├── main.py                 # HTTP surface
+    ├── card_ocr.py             # Shared Aadhaar/PAN card reader (never thresholds)
+    ├── aadhaar_parser.py       # Aadhaar PDF + photo
+    └── pan_parser.py           # PAN PDF (password = DOB) + photo
 ```
 
 ---
@@ -103,13 +121,15 @@ bash init.sh
 
 ### 2. Start / Stop
 ```bash
-# Start all services
-start.bat          # Windows
-docker compose up -d   # Any OS
-
-# Stop
-down.bat
+docker compose up -d      # any OS
+docker compose down
 ```
+On a Mac, add the local override — it avoids host port clashes and turns on sim mode:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d
+```
+Windows users can use `up.bat` / `down.bat`, which also create `.env` and generate an
+`APP_KEY` on first run.
 
 ### 3. Access the application
 
@@ -118,6 +138,9 @@ down.bat
 | App (UI)    | http://localhost      |
 | API         | http://localhost/api  |
 | PDF Service | http://localhost:8001 |
+
+Redis has no published host port — it clashed with other local projects. Reach it with
+`docker exec ams_redis redis-cli`.
 
 ### Default Login Credentials
 
@@ -133,52 +156,52 @@ down.bat
 ## Core Business Flow
 
 ```
-Super Admin
-  ├── Creates Company  (with optional company_admin login)
-  └── Creates Vendor   (with optional vendor_admin login)
-          │
-          ▼
-Vendor Admin
-  └── Sends access request to Company
-          │
-          ▼
-Company Admin
-  └── Approves the Vendor
-          │
-          ▼
-Vendor Admin / Operator
-  └── Registers Workers
-        ├── Uploads Aadhaar PDF (auto-extracted via Python)
-        ├── Enrolls Fingerprint (via SecuGen scanner)
-        └── Deploys Worker to Company (WorkerAssign)
-          │
-          ▼
-Company Admin
-  └── Creates Gate Users (one per entry point)
-          │
-          ▼
-Gate User (at company site)
-  └── Marks IN / OUT via fingerprint scan
-        → Attendance logged against: Worker ↔ Vendor ↔ Company
-          │
-          ▼
-Vendor Admin / Company Admin
-  └── Views attendance in daily-summary view
-      Click worker row → Worker Detail analytics page
-      (stats, monthly breakdown, deployment history)
+0. Anyone signs up at /signup as a Company or a Contractor (free trial)
+       │
+       ▼
+1. Company Admin creates their own contractors (auto-approved), or a contractor
+   signs up and requests access, which the company approves
+       │
+       ▼
+2. Contractor Admin registers workers
+       ├── Aadhaar OR PAN — photo or PDF, auto-extracted
+       ├── Employment tab: designation, grade, PF/ESI, bank, wage rate
+       └── Fingerprint enrolled at the gate in the app (web registration
+           saves the worker as "pending" until then)
+       │
+       ▼
+3. Contractor deploys a worker to a company for a date range
+       └── Company Admin or HR approves it, and picks the gates they may use
+       │
+       ▼
+4. Gate user marks IN / OUT in the desktop or Android app (offline-capable);
+   the server re-verifies every mark
+       └── A day the gate missed → "Add a missed day": the company enters it,
+           or the contractor raises it and the company approves
+       │
+       ▼
+5. Payroll converts those days into wages
+       ├── Rate per day (monthly supported for salaried staff)
+       ├── Paid government holidays, overtime, PF/ESI/PT/LWF
+       ├── A rate the contractor proposes waits for company approval
+       └── Wage register / muster / per-contractor bill — Excel or CSV
 ```
 
 ---
 
 ## Roles & Permissions
 
-| Role              | What they can do                                                              |
-|-------------------|-------------------------------------------------------------------------------|
-| `super_admin`     | Full access — create companies, vendors, all users, view everything           |
-| `company_admin`   | Approve/reject vendors, create gate users, view attendance at their company   |
-| `company_gate`    | Mark fingerprint attendance at their company only                             |
-| `vendor_admin`    | Register/manage workers, deploy to companies, view worker attendance          |
-| `vendor_operator` | Register workers only                                                         |
+| Role              | What they can do                                                                    |
+|-------------------|-------------------------------------------------------------------------------------|
+| `super_admin`     | Platform owner — creates orgs, manages all users, sets plans                         |
+| `company_admin`   | Creates & approves contractors, gate users, billing; **approves wage changes**       |
+| `company_hr`      | Approves deployments and manual attendance, assigns departments; no users/billing    |
+| `company_gate`    | Marks IN/OUT at their gate, **in the desktop or Android app**; raises visitor passes |
+| `vendor_admin`    | Registers workers, deploys them, proposes wage rates, raises missed days             |
+| `vendor_operator` | Registers workers only                                                               |
+
+`company_hr` can approve a manual attendance day but **not** a wage change — agreeing a
+new cost is the admin's call. A contractor can propose either and decide neither.
 
 ---
 
@@ -192,17 +215,42 @@ Vendor Admin / Company Admin
 
 ### Attendance
 - **AttendanceList** (`/attendance`) — Daily summary grouped view: per worker per day shows First IN, Last OUT, duration, and status (Inside / Done / Incomplete). All / Current Workers / Previous Workers tabs. Row click → Worker Detail
-- **AttendanceMark** (`/attendance/mark`) — Fingerprint IN/OUT with SecuGen scanner
-- **Exceptions** (`/attendance/exceptions`) — Workers currently checked IN without an OUT
+- **Exceptions** (`/attendance/exceptions`, shown as *Still Inside*) — Workers checked IN without an OUT
+- **LiveBoard** (`/live`) — Who is on site right now: occupancy, per-gate cards, hourly flow
+- **Manual attendance** — *Add a missed day* on the Attendance Log records a day the gate
+  missed. A company admin or HR enters it directly; a contractor raises it and the company
+  approves. Only against an approved deployment, never over a day that already has logs,
+  reason mandatory, and always stamped `method=manual`
 
-### Vendors
+> **Attendance marking is not in the web portal.** A browser cannot reach a fingerprint
+> scanner, so it lives in the desktop and Android apps.
+
+### Contractors (`vendor` internally)
 - **VendorList** (`/vendors`) — Super admin: full global list + create/edit. Company users: approval-status tabs (Approved / Pending / Suspended / Rejected / All) showing only their company's vendor relationships
 - **VendorApproval** (`/vendors/approval`) — Pending / Approved / Rejected / Suspended tabs with counts; approve, reject with reason, suspend, re-approve
-- **VendorCompanyAccess** (`/vendors/company-access`) — Vendor-side: request access to companies, track statuses
+- **VendorCompanyAccess** (`/vendors/company-access`) — Contractor-side: request access to companies, track statuses
+- **VendorDetail** (`/vendors/:id`) — Company view of one contractor, gated on their consent
+
+### Payroll
+- **Payroll** (`/payroll`) — Wage register for a pay cycle, muster grid, per-contractor
+  billing summary. Excel and CSV. Filter to one contractor, several, or all
+- **PayrollWages** (`/payroll/wages`) — What each worker is paid. A rate a **contractor**
+  proposes for a deployed worker waits for the company to approve it; the agreed rate
+  keeps applying meanwhile. Per-row button to fix a missed attendance day
+- **PayrollSettings** (`/payroll/settings`) — Government holidays, weekly offs, overtime
+  multipliers per skill grade
+
+### Everything else
+- **Dashboard** (`/dashboard`) — Role-aware KPIs, trends, charts, attention chips
+- **Reports** (`/reports`) — Report tiles, client-side filters, Excel/CSV of exactly the
+  filtered view, hours-to-wage-days conversion (8h = 1 day, 4h = half)
+- **Visitors** (`/visitors`) — Gate passes with live photo, vehicle number and photo;
+  one-tap host approval by link. Gate staff raise, admin/HR decide
+- **Signup** (`/signup`, public), **PlanBilling** (`/billing`), **Subscriptions** (`/subscriptions`)
 
 ---
 
-## Aadhaar Integration
+## Identity: Aadhaar **or** PAN
 
 1. On Worker Register page, click **Open UIDAI Portal**
 2. Worker logs in on UIDAI site, completes OTP, downloads masked Aadhaar PDF
@@ -211,29 +259,46 @@ Vendor Admin / Company Admin
 5. PDF stored on private disk (never web-accessible); served via authenticated download endpoint
 6. Company users can download a worker's Aadhaar PDF if the worker has ever been deployed to or attended at their company
 
-**PDF Password format:** first 4 letters of name (uppercase) + birth year
-Example: Name "Narendra", Born 1955 → password `NARE1955`
+**Aadhaar PDF password:** first 4 letters of name (uppercase) + birth year —
+"Narendra", born 1955 → `NARE1955`. **e-PAN PDF password:** date of birth as `DDMMYYYY`.
+
+A worker can be registered on **either** document; the other can be added later.
+Both accept a **photo or a PDF** — `pdf-service/card_ocr.py` reads real cards
+(it upscales and stretches contrast but never thresholds: Indian ID cards print on
+colour gradients, and a threshold erases the text). A number read off a *photograph*
+always returns `needs_number_confirmation` and routes to pre-filled manual entry —
+OCR digits are never trusted silently.
 
 ---
 
-## Fingerprint Integration (SecuGen SGIBIOSRV)
+## Biometrics
 
-### Gate PC Setup
-1. Install SecuGen SGIBIOSRV (included in FDx SDK)
-2. Connect SecuGen device (Hamster Pro, etc.)
-3. Start the SGIBIOSRV service
-4. On first use, open `https://localhost:8443` in browser and accept the certificate
+Marking happens in the **apps**, not the browser — a web page cannot reach a scanner.
+
+### Gate station setup
+- **Windows:** unzip the app and plug the scanner in. The SecuGen x64 runtime DLLs are
+  committed in `client/windows/sgfp/` and bundled by CI, so there is nothing to install.
+- **Android:** plug the scanner into USB-OTG and grant the permission prompt.
+  SecuGen and Mantra (MFS100) are supported; L1-registered devices such as the MFS110
+  are Aadhaar-locked and cannot be used for ordinary attendance.
 
 ### How matching works
 ```
-Gate PC Browser
-  → POST https://localhost:8443/SGIFPCapture   (capture live fingerprint)
-  → GET  /api/attendance/worker-templates      (fetch all enrolled templates for approved vendors)
-  → POST https://localhost:8443/SGIMatchScore  (1:N match in parallel, per worker)
-  → Best match above score 40/200 → confirm → POST /api/attendance/mark
+App (Android / Windows)
+  → capture on-device
+  → match 1:N against the local encrypted template store
+      · up to THREE fingers per worker — Worker::enrolledTemplates() is the single
+        list every matcher reads, so a new slot cannot be half-supported
+      · best score per worker, then an ambiguity margin across workers:
+        two workers scoring too close is a rescan, never a guess
+  → POST /api/attendance/mark   → the server re-verifies before writing
 ```
 
----
+- Face matching (InsightFace, 512-D) runs the same way, with its own margin, and a
+  liveness/PAD hook that rejects spoofs when a model is configured.
+- Gate cameras attach a proof photo to each mark; a queued job compares it with the
+  enrolled face and flags a mismatch.
+- **Sim mode** works with no hardware for demos and local development.
 
 ## Worker Deployment (WorkerAssign)
 
@@ -252,7 +317,7 @@ Workers can be explicitly deployed to specific companies with a date range. The 
 | `ams_backend`     | Laravel PHP-FPM            | 9000 (internal) |
 | `ams_frontend`    | React/Vite dev server      | 5173            |
 | `ams_mysql`       | MySQL 8                    | 3306            |
-| `ams_redis`       | Cache & queue broker       | 6379            |
+| `ams_redis`       | Cache & queue broker       | internal only   |
 | `ams_pdf_service` | Python Aadhaar extractor   | 8001            |
 | `ams_queue`       | Laravel queue worker       | —               |
 
@@ -328,6 +393,43 @@ GET  /api/sync/pull      POST /api/sync/push       ← client app offline sync (
 
 ---
 
+### Payroll
+```
+GET  /api/payroll/register              ?from&to (or ?month) &company_id &vendor_ids &worker_ids
+GET  /api/payroll/register-export       wage register CSV (head-wise + statutory)
+GET  /api/payroll/muster                the paper muster grid: P/A/WO/H + daily OT row
+GET  /api/payroll/contractor-summary    what each contractor should bill
+POST /api/payroll/rates                 set rates — a contractor's change to a deployed
+                                        worker becomes a request instead
+GET  /api/payroll/wage-requests         pending rate proposals
+POST /api/payroll/wage-requests/{id}/decide      company_admin / super only
+POST /api/payroll/adjustments           arrear | advance | deduction | bonus
+POST /api/payroll/overrides             manual OT / day status, records the approver
+GET/POST/DELETE /api/payroll/holidays   company holiday calendar (paid flag per holiday)
+```
+`vendor_ids` takes one contractor or several. A contractor login is always pinned to its
+own `vendor_id`, so the parameter can never widen their scope.
+
+### Manual attendance
+```
+POST /api/attendance/manual                       company enters it; contractor requests it
+GET  /api/attendance/manual-requests
+POST /api/attendance/manual-requests/{id}/decide  company_admin / company_hr / super
+POST /api/attendance/manual-out                   close a shift left open
+```
+
+### Visitors, plans, sync, notifications
+```
+POST /api/gate-passes  ·  POST /api/gate-passes/{id}/decide  ·  /move  ·  /photo
+GET  /api/visitor-pass/{token}        PUBLIC, throttled — one-tap host approval
+GET  /api/plan  ·  POST /api/plan/request-upgrade  ·  /plan/requests/{id}/payment
+GET  /api/sync/pull  ·  POST /api/sync/push        offline apps, idempotent by client UUID
+GET  /api/notifications  ·  POST /api/notifications/read
+GET  /api/workers-export  ·  POST /api/workers-import       CSV bulk (Professional+)
+```
+
+---
+
 ## Security
 
 - **Authentication:** Laravel Sanctum token (7-day expiry)
@@ -336,8 +438,20 @@ GET  /api/sync/pull      POST /api/sync/push       ← client app offline sync (
 - **Fingerprint templates:** AES-encrypted at rest via Laravel `encrypt()`
 - **Aadhaar PDFs:** Stored on private disk (not web-accessible), served via authenticated download
 - **ID documents:** Stored on private disk; company users may download only for workers deployed at their company
-- **Audit log:** Every sensitive action (worker created, fingerprint enrolled, Aadhaar downloaded, attendance marked) logged with user ID, timestamp, and IP
-- **HTTPS:** Required in production — add SSL certificate to nginx config
+- **Audit log:** Every sensitive action (worker created, fingerprint enrolled, Aadhaar
+  downloaded, attendance marked, wage or manual-attendance decision) logged with user ID,
+  timestamp and IP
+- **Aadhaar / PAN dedup:** stored as an HMAC-SHA256 hash keyed by `APP_KEY`; a duplicate
+  registration across contractors is rejected with a 422. The raw number is never persisted
+- **Rate limiting:** 5/min per IP on login; separate throttles on signup, password reset
+  and the public visitor-approval link
+- **CSV injection:** `App\Support\Csv` neutralises cells starting `= + - @` in every export
+  (Indian phone numbers like `+9198…` are the common case). The importer and the frontend
+  parsers strip the guard, so files still round-trip
+- **Biometric ambiguity margins:** two workers scoring too close is a rescan, never a guess.
+  The server re-verifies every mark and there is no dev byte-similarity matcher in the build
+- **Plan limits** enforced server-side at every create path, including the offline sync push
+- **HTTPS:** required in production — see `deploy/production/nginx-production.conf`
 
 ---
 
@@ -352,10 +466,7 @@ GET  /api/sync/pull      POST /api/sync/push       ← client app offline sync (
 - [ ] Restrict DB port (3306) — do not expose publicly
 - [ ] Set up automated MySQL backups
 - [ ] Test fingerprint enrollment and matching end-to-end before go-live
-
-
-Role	Email	Password
-Super Admin	superadmin@ams.local	Admin@12345
-Company Admin	company@ams.local	Admin@12345
-Gate User	gate@ams.local	Admin@12345
-Vendor Admin	vendor@ams.local	Admin@12345
+- [ ] **Confirm professional tax and LWF for the client's state** — both are state-specific
+      and the defaults in `backend/config/payroll.php` follow Maharashtra
+- [ ] Configure SMTP, and MSG91 / WhatsApp credentials if those channels are wanted
+- [ ] `php artisan truecrew:test-comms` to verify email, SMS, WhatsApp and payment config
