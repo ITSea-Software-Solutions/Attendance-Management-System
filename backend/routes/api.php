@@ -175,6 +175,7 @@ Route::middleware('auth:sanctum')->group(function () {
 
     // ── Payroll / wage register ───────────────────────────────────────────────
     Route::prefix('payroll')->group(function () {
+        Route::get('components',          [PayrollController::class, 'componentsCatalogue']);
         Route::get('register',            [PayrollController::class, 'register']);
         Route::get('register-export',     [PayrollController::class, 'registerExport']);
         Route::get('muster',              [PayrollController::class, 'muster']);

@@ -40,6 +40,10 @@ class Worker extends Model
         'aadhaar_number_masked',
         'aadhaar_data_extracted',
         'notes',
+        'designation', 'department', 'skill_category',
+        'uan', 'pf_number', 'esic_number', 'pf_applicable', 'esi_applicable',
+        'bank_account_number', 'bank_ifsc', 'bank_name',
+        'monthly_rate', 'wage_divisor', 'ot_divisor', 'ot_multiplier', 'wage_components',
     ];
 
     protected $hidden = [
@@ -62,6 +66,9 @@ class Worker extends Model
         'phone_verified_at'       => 'datetime',
         'aadhaar_verified_at'     => 'datetime',
         'joining_date'            => 'date',
+        'wage_components' => 'array',
+        'pf_applicable'   => 'boolean',
+        'esi_applicable'  => 'boolean',
     ];
 
     // ─── Relationships ─────────────────────────────────────────────────────────

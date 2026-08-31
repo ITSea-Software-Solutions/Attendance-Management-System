@@ -198,11 +198,17 @@ class VisitorController extends Controller
         return response()->json($pass->load('host:id,name,position,department'), 201);
     }
 
-    /** Manual decision: host answered by phone/in person, or WhatsApp is not set up. */
+    /**
+     * Manual decision: the host answered by phone or in person, or WhatsApp is
+     * not set up. Deliberately NOT available to gate logins — the gate raises
+     * the request, it does not get to approve its own visitor. Admin and HR
+     * record the host's answer; the host can also reply on WhatsApp directly.
+     */
     public function decidePass(Request $request, GatePass $pass): JsonResponse
     {
         $user = $request->user();
-        abort_unless(in_array($user->role, ['super_admin', 'company_admin', 'company_gate', 'company_hr']), 403);
+        abort_unless(in_array($user->role, ['super_admin', 'company_admin', 'company_hr']), 403,
+            'Only the company admin or HR can record the host\'s decision.');
         abort_unless($user->isSuperAdmin() || $pass->company_id === $user->company_id, 403);
         abort_unless($pass->status === GatePass::STATUS_PENDING, 422, 'Pass already decided.');
         $data = $request->validate([

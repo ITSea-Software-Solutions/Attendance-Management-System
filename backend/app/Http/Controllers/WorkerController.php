@@ -203,6 +203,24 @@ class WorkerController extends Controller
             'emp_code'               => 'nullable|string|max:30',
             'pan_number'             => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
             'joining_date'           => 'nullable|date',
+            // Employment & statutory (the vendor fills these on the Employment tab)
+            'designation'            => 'nullable|string|max:80',
+            'department'             => 'nullable|string|max:80',
+            'skill_category'         => 'nullable|in:unskilled,semi_skilled,skilled,highly_skilled',
+            'uan'                    => ['nullable', 'string', 'regex:/^\d{12}$/'],
+            'pf_number'              => 'nullable|string|max:30',
+            'esic_number'            => 'nullable|string|max:20',
+            'pf_applicable'          => 'nullable|boolean',
+            'esi_applicable'         => 'nullable|boolean',
+            'bank_account_number'    => 'nullable|string|max:24',
+            'bank_ifsc'              => ['nullable', 'string', 'regex:/^[A-Z]{4}0[A-Z0-9]{6}$/'],
+            'bank_name'              => 'nullable|string|max:80',
+            'monthly_rate'           => 'nullable|numeric|min:0|max:9999999',
+            'wage_divisor'           => 'nullable|integer|min:1|max:31',
+            'ot_divisor'             => 'nullable|integer|min:1|max:24',
+            'wage_components'        => 'nullable|array',
+            'wage_components.*'      => 'nullable|numeric|min:0|max:9999999',
+
             // Aadhaar is MANDATORY — via one of two paths:
             //   extract path: masked + hash returned by /aadhaar/extract
             //   manual path : full 12-digit number (hashed & masked here, then discarded)
@@ -692,6 +710,24 @@ class WorkerController extends Controller
             'notes'   => 'nullable|string',
             'emp_code'     => 'nullable|string|max:30',
             'pan_number'   => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
+            // Employment & statutory (the vendor fills these on the Employment tab)
+            'designation'            => 'nullable|string|max:80',
+            'department'             => 'nullable|string|max:80',
+            'skill_category'         => 'nullable|in:unskilled,semi_skilled,skilled,highly_skilled',
+            'uan'                    => ['nullable', 'string', 'regex:/^\d{12}$/'],
+            'pf_number'              => 'nullable|string|max:30',
+            'esic_number'            => 'nullable|string|max:20',
+            'pf_applicable'          => 'nullable|boolean',
+            'esi_applicable'         => 'nullable|boolean',
+            'bank_account_number'    => 'nullable|string|max:24',
+            'bank_ifsc'              => ['nullable', 'string', 'regex:/^[A-Z]{4}0[A-Z0-9]{6}$/'],
+            'bank_name'              => 'nullable|string|max:80',
+            'monthly_rate'           => 'nullable|numeric|min:0|max:9999999',
+            'wage_divisor'           => 'nullable|integer|min:1|max:31',
+            'ot_divisor'             => 'nullable|integer|min:1|max:24',
+            'wage_components'        => 'nullable|array',
+            'wage_components.*'      => 'nullable|numeric|min:0|max:9999999',
+
             'joining_date' => 'nullable|date',
             // Optional on edit: add/replace Aadhaar (legacy workers may lack it)
             'aadhaar_number'        => 'nullable|string|regex:/^\d{12}$/',

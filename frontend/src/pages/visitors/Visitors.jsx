@@ -262,7 +262,12 @@ export default function Visitors() {
                       </td>
                       <td className="px-4 py-2.5">
                         <div className="flex gap-1.5">
-                          {p.status === "pending" && (
+                          {p.status === "pending" && !isManager && (
+                            <span className="text-[11px] text-gray-400 italic">
+                              waiting for host
+                            </span>
+                          )}
+                          {p.status === "pending" && isManager && (
                             <>
                               <button className="btn-secondary text-xs px-2 py-1 text-green-700"
                                 onClick={() => decide.mutate({ id: p.id, decision: "approved" })}>

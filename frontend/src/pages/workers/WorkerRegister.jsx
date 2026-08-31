@@ -11,8 +11,7 @@ import FingerprintCapture from "@/components/FingerprintCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CheckCircle, ChevronRight, User, CreditCard, Fingerprint,
-  Upload, Camera, FileText, RefreshCw, AlertCircle, VideoOff, Download,
-} from "lucide-react";
+  Upload, Camera, FileText, RefreshCw, AlertCircle, VideoOff, Download, Briefcase, IndianRupee, Landmark } from "lucide-react";
 import { format } from "date-fns";
 
 // ─── LivePhotoCapture ─────────────────────────────────────────────────────────
@@ -154,6 +153,7 @@ const ID_TYPES = [
 const STEPS = [
   { id: "id_doc",      label: "Aadhaar",     icon: CreditCard  },
   { id: "details",     label: "Details",     icon: User        },
+  { id: "employment",  label: "Employment",  icon: Briefcase   },
   { id: "fingerprint", label: "Fingerprint", icon: Fingerprint },
   { id: "photo",       label: "Photo",       icon: Camera      },
   { id: "confirm",     label: "Confirm",     icon: CheckCircle },
@@ -202,6 +202,60 @@ export default function WorkerRegister() {
   const [fpSlot, setFpSlot]     = useState(1);      // 1 = primary, 2 = backup finger
   const [fpOffer, setFpOffer]   = useState(0);     // 1 = offer 2nd finger, 2 = offer 3rd
   const [savedWorker, setSaved] = useState(null);
+
+  // ── Employment & wages (step 2) ─────────────────────────────────────────
+  const EMP_INIT = {
+    designation: "", department: "", skill_category: "",
+    uan: "", pf_number: "", esic_number: "",
+    pf_applicable: true, esi_applicable: true,
+    bank_account_number: "", bank_ifsc: "", bank_name: "",
+    monthly_rate: "",
+  };
+  const [emp, setEmp] = useState(EMP_INIT);
+  const [wageHeads, setWageHeads] = useState({});   // { basic: 9000, da: 3600, ... }
+  const [savingEmp, setSavingEmp] = useState(false);
+
+  const { data: payCatalogue } = useQuery({
+    queryKey: ["payroll-components"],
+    queryFn: () => api.get("/payroll/components").then((r) => r.data),
+    staleTime: 30 * 60_000,
+  });
+
+  // Fill an empty structure from the monthly rate, so the vendor starts from a
+  // sensible split instead of a blank grid.
+  const suggestHeads = async () => {
+    const rate = Number(emp.monthly_rate) || 0;
+    if (rate <= 0) { toast.error("Enter the monthly rate first."); return; }
+    try {
+      const r = await api.get("/payroll/components", { params: { monthly_rate: rate } });
+      setWageHeads(r.data?.suggested ?? {});
+      toast.success("Suggested split filled in — adjust as needed.");
+    } catch { toast.error("Could not build a suggestion."); }
+  };
+
+  const headsTotal = Object.values(wageHeads).reduce((a, b) => a + (Number(b) || 0), 0);
+
+  const saveEmployment = async (goNext = true) => {
+    if (!savedWorker) return;
+    setSavingEmp(true);
+    try {
+      const payload = {
+        ...emp,
+        monthly_rate: emp.monthly_rate === "" ? null : Number(emp.monthly_rate),
+        wage_components: Object.fromEntries(
+          Object.entries(wageHeads).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)])),
+      };
+      const r = await api.put(`/workers/${savedWorker.id}`, payload);
+      setSaved(r.data?.worker ?? r.data ?? savedWorker);
+      toast.success("Employment details saved.");
+      if (goNext) setStep(2);
+    } catch (e) {
+      const errs = e.response?.data?.errors;
+      toast.error(errs ? Object.values(errs).flat()[0] : "Could not save employment details.");
+    } finally {
+      setSavingEmp(false);
+    }
+  };
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
@@ -375,7 +429,7 @@ export default function WorkerRegister() {
           headers: { "Content-Type": "multipart/form-data" },
         }).catch(() => {});
       }
-      setStep(2);
+      setStep(3);
     },
     onError: (err) => {
       const errs = err.response?.data?.errors;
@@ -391,7 +445,7 @@ export default function WorkerRegister() {
       await api.post(`/workers/${savedWorker.id}/fingerprint`, { template, quality, slot: fpSlot });
       if (fpSlot === 3) {
         toast.success("Third finger enrolled — any of the three verifies at the gate.");
-        setStep(3);
+        setStep(4);
       } else if (fpSlot === 2) {
         toast.success("Backup finger enrolled — either finger now verifies at the gate.");
         setFpOffer(2); // offer a third
@@ -422,7 +476,7 @@ export default function WorkerRegister() {
       }).catch(() => {});
       setUploadingPhoto(false);
     }
-    setStep(4);
+    setStep(5);
   };
 
   // ── Step 4: finish ────────────────────────────────────────────────────────
@@ -463,7 +517,7 @@ export default function WorkerRegister() {
         <p className="text-gray-500 text-sm mt-1">
           {isEdit
             ? `Editing: ${existingWorker?.name ?? "…"}`
-            : "ID Document → Details → Fingerprint → Photo → Confirm"}
+            : "ID Document → Details → Employment → Fingerprint → Photo → Confirm"}
         </p>
       </div>
 
@@ -736,8 +790,173 @@ export default function WorkerRegister() {
         </form>
       )}
 
-      {/* ── Step 2: Fingerprint ───────────────────────────────────────────────── */}
+
+      {/* ── Step 2: Employment, statutory & wage structure ─────────────────── */}
       {step === 2 && savedWorker && (
+        <div className="space-y-4">
+          <div className="card space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Briefcase size={17} className="text-brand-600" /> Employment details
+              </h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Everything payroll needs. All optional here — you can complete it later from the
+                worker's page, but wages cannot be computed until the monthly rate is set.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="label">Designation</label>
+                <input className="input" maxLength={80} placeholder="e.g. Machine Operator"
+                  value={emp.designation} onChange={(e) => setEmp({ ...emp, designation: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">Department</label>
+                <input className="input" maxLength={80} placeholder="e.g. Press Shop"
+                  value={emp.department} onChange={(e) => setEmp({ ...emp, department: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">Skill category</label>
+                <select className="input" value={emp.skill_category}
+                  onChange={(e) => setEmp({ ...emp, skill_category: e.target.value })}>
+                  <option value="">Select…</option>
+                  <option value="unskilled">Unskilled</option>
+                  <option value="semi_skilled">Semi-skilled</option>
+                  <option value="skilled">Skilled</option>
+                  <option value="highly_skilled">Highly skilled</option>
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">Minimum wages are set against this grade.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="card space-y-4">
+            <h2 className="font-semibold text-gray-900">Statutory (PF / ESI)</h2>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="label">UAN</label>
+                <input className="input" inputMode="numeric" maxLength={12} placeholder="12 digits"
+                  value={emp.uan} onChange={(e) => setEmp({ ...emp, uan: e.target.value.replace(/\D/g, "") })} />
+              </div>
+              <div>
+                <label className="label">PF number</label>
+                <input className="input" maxLength={30} value={emp.pf_number}
+                  onChange={(e) => setEmp({ ...emp, pf_number: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">ESIC number</label>
+                <input className="input" maxLength={20} value={emp.esic_number}
+                  onChange={(e) => setEmp({ ...emp, esic_number: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex gap-5 flex-wrap">
+              {[["pf_applicable", "PF applicable"], ["esi_applicable", "ESI applicable"]].map(([k, label]) => (
+                <label key={k} className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" className="w-4 h-4" checked={emp[k]}
+                    onChange={(e) => setEmp({ ...emp, [k]: e.target.checked })} />
+                  {label}
+                </label>
+              ))}
+              <span className="text-[11px] text-gray-400 self-center">
+                ESI applies while gross stays under ₹{payCatalogue?.statutory?.esi?.gross_ceiling ?? 21000}.
+              </span>
+            </div>
+          </div>
+
+          <div className="card space-y-4">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Landmark size={16} className="text-brand-600" /> Bank account (for wage transfer)
+            </h2>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="label">Account number</label>
+                <input className="input" maxLength={24} value={emp.bank_account_number}
+                  onChange={(e) => setEmp({ ...emp, bank_account_number: e.target.value.replace(/\s/g, "") })} />
+              </div>
+              <div>
+                <label className="label">IFSC</label>
+                <input className="input uppercase" maxLength={11} placeholder="HDFC0001234"
+                  value={emp.bank_ifsc}
+                  onChange={(e) => setEmp({ ...emp, bank_ifsc: e.target.value.toUpperCase() })} />
+              </div>
+              <div>
+                <label className="label">Bank name</label>
+                <input className="input" maxLength={80} value={emp.bank_name}
+                  onChange={(e) => setEmp({ ...emp, bank_name: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card space-y-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <IndianRupee size={16} className="text-brand-600" /> Wage structure
+                </h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Monthly rate is what payroll divides by {payCatalogue?.defaults?.wage_divisor ?? 26} to
+                  get the day rate. Break it into heads so PF, ESI and the wage register are correct.
+                </p>
+              </div>
+              <button type="button" className="btn-secondary text-sm" onClick={suggestHeads}>
+                <RefreshCw size={14} /> Suggest split
+              </button>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="label">Monthly rate (₹) *</label>
+                <input className="input" type="number" min="0" step="100" value={emp.monthly_rate}
+                  onChange={(e) => setEmp({ ...emp, monthly_rate: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-3">
+              {(payCatalogue?.components ?? []).filter((c) => c.type === "earning").map((c) => (
+                <div key={c.code}>
+                  <label className="label flex items-center gap-1.5">
+                    {c.label}
+                    {c.pf && <span className="text-[10px] bg-blue-50 text-blue-600 px-1 rounded">PF</span>}
+                    {c.esi && <span className="text-[10px] bg-violet-50 text-violet-600 px-1 rounded">ESI</span>}
+                  </label>
+                  <input className="input" type="number" min="0" step="10"
+                    value={wageHeads[c.code] ?? ""}
+                    onChange={(e) => setWageHeads({ ...wageHeads, [c.code]: e.target.value })} />
+                </div>
+              ))}
+            </div>
+
+            {headsTotal > 0 && (
+              <div className={`text-sm rounded-lg px-3 py-2 border ${
+                Math.abs(headsTotal - (Number(emp.monthly_rate) || 0)) < 1
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+                Heads total <b>₹{headsTotal.toLocaleString("en-IN")}</b>
+                {" vs monthly rate "}
+                <b>₹{(Number(emp.monthly_rate) || 0).toLocaleString("en-IN")}</b>
+                {Math.abs(headsTotal - (Number(emp.monthly_rate) || 0)) < 1
+                  ? " — matches."
+                  : " — these should normally match."}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button type="button" className="btn-primary" disabled={savingEmp}
+              onClick={() => saveEmployment(true)}>
+              Save &amp; Continue
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setStep(3)}>
+              Skip for now
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Step 2: Fingerprint ───────────────────────────────────────────────── */}
+      {step === 3 && savedWorker && (
         <>
           {/* Backup-finger offer after the primary enrolls */}
           {fpOffer ? (
@@ -757,7 +976,7 @@ export default function WorkerRegister() {
                   onClick={() => { setFpSlot(fpOffer === 2 ? 3 : 2); setFpOffer(0); }}>
                   <Fingerprint size={14} /> {fpOffer === 2 ? "Scan third finger" : "Scan backup finger"}
                 </button>
-                <button type="button" className="btn-secondary" onClick={() => setStep(3)}>
+                <button type="button" className="btn-secondary" onClick={() => setStep(4)}>
                   {fpOffer === 2 ? "Skip — two fingers are enough" : "Skip — one finger is enough"}
                 </button>
               </div>
@@ -791,7 +1010,7 @@ export default function WorkerRegister() {
               </div>
 
               <div className="flex gap-3 pt-2 border-t border-gray-100">
-                <button type="button" onClick={() => setStep(3)} className="btn-primary">
+                <button type="button" onClick={() => setStep(4)} className="btn-primary">
                   Keep & Continue
                 </button>
                 <button type="button" onClick={() => { setFpSlot(1); setReEnrollFP(true); }} className="btn-secondary">
@@ -818,7 +1037,7 @@ export default function WorkerRegister() {
               <FingerprintCapture
                 worker={savedWorker}
                 onCaptured={handleFingerprintCaptured}
-                onSkip={() => setStep(3)}
+                onSkip={() => setStep(4)}
               />
             </div>
           )}
@@ -826,7 +1045,7 @@ export default function WorkerRegister() {
       )}
 
       {/* ── Step 3: Photo ─────────────────────────────────────────────────────── */}
-      {step === 3 && savedWorker && (
+      {step === 4 && savedWorker && (
         <div className="card space-y-5">
           <div>
             <h2 className="font-semibold text-gray-900">Worker Photos</h2>
@@ -890,7 +1109,7 @@ export default function WorkerRegister() {
           </div>
 
           <div className="flex gap-3 pt-2 border-t border-gray-100">
-            <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
+            <button type="button" className="btn-secondary" onClick={() => setStep(3)}>Back</button>
             <button
               type="button"
               onClick={handlePhotoContinue}
@@ -904,7 +1123,7 @@ export default function WorkerRegister() {
       )}
 
       {/* ── Step 4: Confirm ───────────────────────────────────────────────────── */}
-      {step === 4 && savedWorker && (
+      {step === 5 && savedWorker && (
         <div className="card text-center space-y-4">
           {/* Photos side-by-side */}
           <div className="flex gap-3 justify-center">

@@ -56,6 +56,26 @@ class PayrollController extends Controller
         return [$companyId, $from, $to, $opts];
     }
 
+    /**
+     * GET /payroll/components — the wage-head catalogue and statutory rates,
+     * so the registration form and the register render from one definition.
+     * ?monthly_rate= also returns a suggested split for that rate.
+     */
+    public function componentsCatalogue(Request $request): JsonResponse
+    {
+        $rate = (float) $request->input('monthly_rate', 0);
+
+        return response()->json([
+            'components' => PayrollService::components(),
+            'statutory'  => config('payroll.statutory'),
+            'defaults'   => [
+                'wage_divisor' => (int) config('payroll.wage_divisor', 26),
+                'ot_divisor'   => (int) config('payroll.ot_divisor', 8),
+            ],
+            'suggested'  => $rate > 0 ? PayrollService::suggestStructure($rate) : null,
+        ]);
+    }
+
     /** GET /payroll/register — the wage register as JSON. */
     public function register(Request $request): JsonResponse
     {

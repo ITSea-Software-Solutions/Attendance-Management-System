@@ -57,6 +57,158 @@ class PayrollService
             : (array) config('payroll.weekly_offs', [0]);
     }
 
+
+    // ── Wage heads & statutory ───────────────────────────────────────────────
+
+    /** The head catalogue, as configured. */
+    public static function components(): array
+    {
+        return (array) config('payroll.components', []);
+    }
+
+    /** Suggest a structure from a monthly rate, for a worker with none saved. */
+    public static function suggestStructure(float $monthlyRate): array
+    {
+        $out = [];
+        foreach (self::components() as $c) {
+            if (($c['type'] ?? '') !== 'earning' || empty($c['pct_of'])) {
+                continue;
+            }
+            if (isset($c['pct_of']['gross'])) {
+                $out[$c['code']] = round($monthlyRate * $c['pct_of']['gross'] / 100, 2);
+            }
+        }
+        // Percent-of-basic heads resolve after basic is known.
+        foreach (self::components() as $c) {
+            if (($c['type'] ?? '') !== 'earning' || empty($c['pct_of']['basic'])) {
+                continue;
+            }
+            $out[$c['code']] = round(($out['basic'] ?? 0) * $c['pct_of']['basic'] / 100, 2);
+        }
+        // Whatever the named heads do not account for lands in special allowance.
+        $named = array_sum($out);
+        if ($monthlyRate > $named) {
+            $out['special'] = round(($out['special'] ?? 0) + $monthlyRate - $named, 2);
+        }
+
+        return $out;
+    }
+
+    /**
+     * Earnings for one worker for the period, head by head.
+     * Heads are paid pro-rata on present days (payable days / divisor).
+     */
+    private function earningHeads(Worker $w, float $monthlyRate, int $presentDays, int $divisor): array
+    {
+        $structure = (array) ($w->wage_components ?: []);
+        if ($structure === [] && $monthlyRate > 0) {
+            $structure = self::suggestStructure($monthlyRate);
+        }
+        $ratio = $divisor > 0 ? $presentDays / $divisor : 0;
+
+        $heads = [];
+        foreach (self::components() as $c) {
+            if (($c['type'] ?? '') !== 'earning') {
+                continue;
+            }
+            $monthly = (float) ($structure[$c['code']] ?? 0);
+            if ($monthly <= 0) {
+                continue;
+            }
+            $heads[$c['code']] = [
+                'label'   => $c['label'],
+                'monthly' => round($monthly, 2),
+                'earned'  => round($monthly * $ratio, 2),
+                'pf'      => (bool) ($c['pf'] ?? false),
+                'esi'     => (bool) ($c['esi'] ?? false),
+            ];
+        }
+
+        return $heads;
+    }
+
+    /** Professional tax for a monthly gross, using the configured slabs. */
+    private function professionalTax(float $gross, Carbon $periodEnd): float
+    {
+        $pt = (array) config('payroll.statutory.pt', []);
+        if (empty($pt['enabled']) || $gross <= 0) {
+            return 0.0;
+        }
+        $amount = 0.0;
+        foreach ((array) ($pt['slabs'] ?? []) as [$upTo, $value]) {
+            if ($gross <= $upTo) {
+                $amount = (float) $value;
+                break;
+            }
+        }
+        if ($amount > 0 && (int) $periodEnd->month === 2) {
+            $amount += (float) ($pt['february_extra'] ?? 0);
+        }
+
+        return round($amount, 2);
+    }
+
+    /**
+     * Statutory deductions and employer contributions for one worker-period.
+     * PF applies to PF-eligible heads; ESI to the whole gross while it stays
+     * under the ceiling.
+     */
+    private function statutory(Worker $w, array $heads, float $otAmount, Carbon $periodEnd): array
+    {
+        $pfCfg  = (array) config('payroll.statutory.pf', []);
+        $esiCfg = (array) config('payroll.statutory.esi', []);
+
+        $pfWages  = 0.0;
+        $esiWages = 0.0;
+        foreach ($heads as $h) {
+            if ($h['pf'])  { $pfWages  += $h['earned']; }
+            if ($h['esi']) { $esiWages += $h['earned']; }
+        }
+        $esiWages += $otAmount;   // overtime counts for ESI, not for PF
+
+        $out = [
+            'pf_wages' => round($pfWages, 2), 'pf_employee' => 0.0, 'pf_employer' => 0.0,
+            'pf_eps' => 0.0, 'pf_admin' => 0.0, 'pf_edli' => 0.0,
+            'esi_wages' => round($esiWages, 2), 'esi_employee' => 0.0, 'esi_employer' => 0.0,
+            'pt' => 0.0, 'lwf_employee' => 0.0, 'lwf_employer' => 0.0,
+            'bonus_provision' => 0.0, 'gratuity_provision' => 0.0,
+        ];
+
+        if (! empty($pfCfg['enabled']) && $w->pf_applicable && $pfWages > 0) {
+            $base = (! empty($pfCfg['cap_at_ceiling']))
+                ? min($pfWages, (float) ($pfCfg['wage_ceiling'] ?? 15000))
+                : $pfWages;
+            $out['pf_employee'] = round($base * ($pfCfg['employee_pct'] ?? 12) / 100, 2);
+            $out['pf_eps']      = round($base * ($pfCfg['eps_pct'] ?? 8.33) / 100, 2);
+            $out['pf_employer'] = round($base * ($pfCfg['employer_pct'] ?? 12) / 100, 2);
+            $out['pf_admin']    = round($base * ($pfCfg['admin_pct'] ?? 0.5) / 100, 2);
+            $out['pf_edli']     = round($base * ($pfCfg['edli_pct'] ?? 0.5) / 100, 2);
+        }
+
+        if (! empty($esiCfg['enabled']) && $w->esi_applicable
+            && $esiWages > 0 && $esiWages <= (float) ($esiCfg['gross_ceiling'] ?? 21000)) {
+            $out['esi_employee'] = round($esiWages * ($esiCfg['employee_pct'] ?? 0.75) / 100, 2);
+            $out['esi_employer'] = round($esiWages * ($esiCfg['employer_pct'] ?? 3.25) / 100, 2);
+        }
+
+        $gross = array_sum(array_column($heads, 'earned')) + $otAmount;
+        $out['pt'] = $this->professionalTax($gross, $periodEnd);
+
+        $lwf = (array) config('payroll.statutory.lwf', []);
+        if (! empty($lwf['enabled']) && in_array((int) $periodEnd->month, (array) ($lwf['months'] ?? []), true)) {
+            $out['lwf_employee'] = (float) ($lwf['employee'] ?? 0);
+            $out['lwf_employer'] = (float) ($lwf['employer'] ?? 0);
+        }
+
+        $bonus = (array) config('payroll.statutory.bonus', []);
+        $out['bonus_provision'] = round(min($pfWages, (float) ($bonus['ceiling'] ?? 7000))
+            * ($bonus['pct'] ?? 8.33) / 100, 2);
+        $out['gratuity_provision'] = round($pfWages
+            * (config('payroll.statutory.gratuity.pct', 4.81)) / 100, 2);
+
+        return $out;
+    }
+
     /**
      * Build the register.
      *
@@ -218,7 +370,21 @@ class PayrollService
 
             $base     = round($dayRate * $present, 2);
             $otAmount = round($otHours * $otRate, 2);
-            $net      = round($base + $otAmount + $adj['arrear'] + $adj['bonus'] - $adj['advance'] - $adj['deduction'], 2);
+
+            // Head-wise earnings, and the statutory that follows from them.
+            $heads    = $this->earningHeads($w, $rate, $present, $wDiv);
+            $headsSum = round(array_sum(array_column($heads, 'earned')), 2);
+            // With no structure saved the single day-rate figure IS the gross.
+            $earnings = $heads === [] ? $base : $headsSum;
+            $stat     = $this->statutory($w, $heads, $otAmount, $to);
+
+            $gross      = round($earnings + $otAmount, 2);
+            $deductions = round(
+                $stat['pf_employee'] + $stat['esi_employee'] + $stat['pt'] + $stat['lwf_employee']
+                + $adj['advance'] + $adj['deduction'], 2);
+            $net        = round($gross + $adj['arrear'] + $adj['bonus'] - $deductions, 2);
+            $employerCost = round($gross + $stat['pf_employer'] + $stat['pf_admin'] + $stat['pf_edli']
+                + $stat['esi_employer'] + $stat['lwf_employer'], 2);
 
             $rows[] = [
                 'worker_id' => $w->id, 'name' => $w->name, 'emp_code' => $w->emp_code,
@@ -230,6 +396,10 @@ class PayrollService
                 'monthly_rate' => $rate, 'wage_divisor' => $wDiv, 'ot_divisor' => $oDiv,
                 'day_rate' => round($dayRate, 2), 'ot_rate' => round($otRate, 2),
                 'base_amount' => $base, 'ot_amount' => $otAmount,
+                'heads' => $heads, 'gross' => $gross,
+                'statutory' => $stat,
+                'total_deductions' => $deductions,
+                'employer_cost' => $employerCost,
                 'arrear' => $adj['arrear'], 'bonus' => $adj['bonus'],
                 'advance' => $adj['advance'], 'deduction' => $adj['deduction'],
                 'net_payable' => $net,
@@ -254,6 +424,13 @@ class PayrollService
                 'present_days' => $sum('present_days'), 'absent_days' => $sum('absent_days'),
                 'ot_hours' => $sum('ot_hours'),
                 'base_amount' => $sum('base_amount'), 'ot_amount' => $sum('ot_amount'),
+                'gross' => $sum('gross'),
+                'total_deductions' => $sum('total_deductions'),
+                'employer_cost' => $sum('employer_cost'),
+                'pf_employee' => round(array_sum(array_map(fn ($r) => $r['statutory']['pf_employee'], $rows)), 2),
+                'pf_employer' => round(array_sum(array_map(fn ($r) => $r['statutory']['pf_employer'], $rows)), 2),
+                'esi_employee' => round(array_sum(array_map(fn ($r) => $r['statutory']['esi_employee'], $rows)), 2),
+                'esi_employer' => round(array_sum(array_map(fn ($r) => $r['statutory']['esi_employer'], $rows)), 2),
                 'net_payable' => $sum('net_payable'),
                 'flagged' => count(array_filter($rows, fn ($r) => $r['flags'] !== [])),
             ],
@@ -262,6 +439,8 @@ class PayrollService
                 'wage_divisor'   => (int) config('payroll.wage_divisor', 26),
                 'ot_divisor'     => (int) config('payroll.ot_divisor', 8),
                 'weekly_offs'    => $offs,
+                'components'     => self::components(),
+                'statutory'      => config('payroll.statutory'),
             ],
         ];
     }
