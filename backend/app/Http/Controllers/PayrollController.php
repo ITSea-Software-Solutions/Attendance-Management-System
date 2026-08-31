@@ -188,10 +188,14 @@ class PayrollController extends Controller
         $data = $request->validate([
             'rates'                 => 'required|array|min:1',
             'rates.*.worker_id'     => 'required|integer|exists:workers,id',
-            'rates.*.monthly_rate'  => 'required|numeric|min:0|max:9999999',
+            // Daily is the norm for contract labour; monthly is for staff.
+            'rates.*.wage_type'     => 'nullable|in:daily,monthly',
+            'rates.*.daily_rate'    => 'nullable|numeric|min:0|max:99999',
+            'rates.*.monthly_rate'  => 'nullable|numeric|min:0|max:9999999',
             'rates.*.wage_divisor'  => 'nullable|integer|min:1|max:31',
             'rates.*.ot_divisor'    => 'nullable|integer|min:1|max:24',
             'rates.*.ot_multiplier' => 'nullable|numeric|min:0|max:4',
+            'rates.*.wage_components' => 'nullable|array',
         ]);
 
         $updated = 0;
@@ -204,12 +208,21 @@ class PayrollController extends Controller
             if ($user->isVendorUser() && $worker->vendor_id !== $user->vendor_id) {
                 continue;
             }
-            $worker->forceFill([
-                'monthly_rate'  => $r['monthly_rate'],
-                'wage_divisor'  => $r['wage_divisor'] ?? $worker->wage_divisor,
-                'ot_divisor'    => $r['ot_divisor'] ?? $worker->ot_divisor,
-                'ot_multiplier' => $r['ot_multiplier'] ?? $worker->ot_multiplier,
-            ])->save();
+            // Only touch what was actually sent, so editing a day rate never
+            // wipes a structure or an overtime override set elsewhere.
+            $fields = array_filter([
+                'wage_type'       => $r['wage_type'] ?? null,
+                'daily_rate'      => $r['daily_rate'] ?? null,
+                'monthly_rate'    => $r['monthly_rate'] ?? null,
+                'wage_divisor'    => $r['wage_divisor'] ?? null,
+                'ot_divisor'      => $r['ot_divisor'] ?? null,
+                'ot_multiplier'   => $r['ot_multiplier'] ?? null,
+                'wage_components' => $r['wage_components'] ?? null,
+            ], fn ($v) => $v !== null);
+            if ($fields === []) {
+                continue;
+            }
+            $worker->forceFill($fields)->save();
             $updated++;
         }
 

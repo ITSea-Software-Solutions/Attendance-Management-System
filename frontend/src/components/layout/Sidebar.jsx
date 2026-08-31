@@ -42,8 +42,12 @@ const NAV = [
     // Money is a different job from presence — it gets its own heading.
     label: "Payroll",
     items: [
-      { to: "/payroll", icon: IndianRupee, label: "Payroll & Wages",
+      { to: "/payroll", icon: IndianRupee, label: "Wage Register", end: true,
         roles: ["super_admin", "company_admin", "company_hr", "vendor_admin"] },
+      { to: "/payroll/wages", icon: UserCheck, label: "Workers & Wages",
+        roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/payroll/settings", icon: Settings, label: "Payroll Settings",
+        roles: ["super_admin", "company_admin", "company_hr"] },
     ],
   },
   {

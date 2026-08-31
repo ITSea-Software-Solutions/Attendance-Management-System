@@ -351,6 +351,14 @@ class CompanyController extends Controller
         $data = array_filter($request->validate([
             'require_deployment_approval' => 'nullable|boolean',
             'require_visitor_approval'    => 'nullable|boolean',
+            // Overtime multiplier per skill grade; a worker's own value wins.
+            'ot_multipliers'                => 'nullable|array',
+            'ot_multipliers.unskilled'      => 'nullable|numeric|min:0|max:4',
+            'ot_multipliers.semi_skilled'   => 'nullable|numeric|min:0|max:4',
+            'ot_multipliers.skilled'        => 'nullable|numeric|min:0|max:4',
+            'ot_multipliers.highly_skilled' => 'nullable|numeric|min:0|max:4',
+            'weekly_offs'                   => 'nullable|array',
+            'weekly_offs.*'                 => 'integer|min:0|max:6',
         ]), fn ($v) => $v !== null);
         abort_if($data === [], 422, 'No settings supplied.');
 

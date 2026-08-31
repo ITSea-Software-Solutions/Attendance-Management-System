@@ -19,6 +19,8 @@ import Visitors from "@/pages/visitors/Visitors";
 import AttendanceExceptions from "@/pages/attendance/AttendanceExceptions";
 import Reports from "@/pages/Reports";
 import Payroll from "@/pages/Payroll";
+import PayrollWages from "@/pages/PayrollWages";
+import PayrollSettings from "@/pages/PayrollSettings";
 import VisitorApproval from "@/pages/VisitorApproval";
 import UserList from "@/pages/users/UserList";
 import Downloads from "@/pages/Downloads";
@@ -135,6 +137,8 @@ export default function App() {
         <Route path="attendance/exceptions" element={<AttendanceExceptions />} />
         <Route path="reports" element={<Reports />} />
         <Route path="payroll" element={<Payroll />} />
+        <Route path="payroll/wages" element={<PayrollWages />} />
+        <Route path="payroll/settings" element={<PayrollSettings />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" />} />
