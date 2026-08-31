@@ -26,8 +26,12 @@ export default function AadhaarFlow({ onExtracted, onSkip }) {
   const fileRef                 = useRef();
 
   const handleFile = (f) => {
-    if (!f || f.type !== "application/pdf") {
-      setError("Please select a valid PDF file.");
+    // People send whatever they have — the offline PDF from UIDAI, or a
+    // photograph of the card. Both are accepted; the PDF is the better one
+    // because its number is signed text rather than an OCR guess.
+    const ok = f && (f.type === "application/pdf" || f.type.startsWith("image/"));
+    if (!ok) {
+      setError("Select the Aadhaar PDF, or a photo of the card.");
       return;
     }
     setFile(f);
@@ -121,7 +125,9 @@ export default function AadhaarFlow({ onExtracted, onSkip }) {
 
       {/* PDF Upload */}
       <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">Upload Downloaded Aadhaar PDF</p>
+        <p className="text-sm font-medium text-gray-700 mb-2">
+          Upload the Aadhaar — PDF or a photo of the card
+        </p>
         <div
           className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors ${
             dragOver ? "border-brand-400 bg-brand-50" :
@@ -150,14 +156,16 @@ export default function AadhaarFlow({ onExtracted, onSkip }) {
             <div className="space-y-2">
               <Upload className="w-10 h-10 text-gray-300 mx-auto" />
               <p className="text-sm text-gray-500">Drag & drop or click to upload</p>
-              <p className="text-xs text-gray-400">PDF files only • Max 10 MB</p>
+              <p className="text-xs text-gray-400">
+                Aadhaar PDF or a photo of the card • Max 10 MB
+              </p>
             </div>
           )}
         </div>
         <input
           ref={fileRef}
           type="file"
-          accept=".pdf,application/pdf"
+          accept=".pdf,application/pdf,image/*"
           className="hidden"
           onChange={(e) => handleFile(e.target.files[0])}
         />

@@ -22,9 +22,9 @@ import re
 from typing import Any
 
 import fitz  # PyMuPDF
-import numpy as np
-import pytesseract
 from PIL import Image
+
+import card_ocr
 
 logger = logging.getLogger(__name__)
 
@@ -94,16 +94,7 @@ class PanParser:
         return self._ocr(data), self._photo_from_image(data)
 
     def _ocr(self, image_bytes: bytes) -> str:
-        img = Image.open(io.BytesIO(image_bytes)).convert("L")
-        # Cards are small and often photographed at an angle; upscaling and
-        # hard thresholding recovers most of the printed text.
-        if max(img.size) < 1400:
-            scale = 1400 / max(img.size)
-            img = img.resize((int(img.width * scale), int(img.height * scale)), Image.LANCZOS)
-        arr = np.array(img)
-        thresh = arr.mean() * 0.85
-        img = Image.fromarray(((arr > thresh) * 255).astype("uint8"))
-        return pytesseract.image_to_string(img, lang="eng", config="--psm 6")
+        return card_ocr.read_text(image_bytes)
 
     # ── photo ───────────────────────────────────────────────────────────────
     def _photo_from_pdf(self, doc: fitz.Document) -> str | None:
@@ -144,57 +135,29 @@ class PanParser:
             if loose:
                 pan = "".join(loose.groups())
 
-        lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
-        names = self._names(lines)
+        lines = card_ocr.lines_of(text)
 
-        dob = None
-        m = DOB_RE.search(text)
-        if m:
-            d, mth, y = m.groups()
-            dob = f"{y}-{mth}-{d}"
+        # The card labels every field, so read by label rather than position —
+        # that survives the Devanagari half of the label being mangled.
+        name = card_ocr.value_after_label(
+            lines, ("NAME",), validator=card_ocr.looks_like_name)
+        father = card_ocr.value_after_label(
+            lines, ("FATHER",), validator=card_ocr.looks_like_name)
+
+        # "Name" also matches "Father's Name"; if both resolved to the same
+        # line, the first is the holder and the father's is the next match.
+        if name and father and card_ocr.clean_name(name) == card_ocr.clean_name(father):
+            father = None
+
+        dob = card_ocr.find_date(text)
 
         return {
             "pan_number":  pan,
             "holder_type": HOLDER_TYPE.get(pan[3]) if pan else None,
-            "name":        names[0] if names else None,
-            "father_name": names[1] if len(names) > 1 else None,
+            "name":        card_ocr.clean_name(name) if name else None,
+            "father_name": card_ocr.clean_name(father) if father else None,
             "dob":         dob,
         }
-
-    def _names(self, lines: list[str]) -> list[str]:
-        """The card prints the holder's name, then the father's, in caps."""
-        out: list[str] = []
-        for ln in lines:
-            raw = ln.strip()
-            # Test the ORIGINAL line for a PAN first: stripping non-letters
-            # turns "ABCPK1234F" into "ABCPKF", which then reads as a name.
-            if PAN_RE.search(raw.upper().replace(" ", "")):
-                continue
-            if re.search(r"[A-Z]{5}\s*[0-9]{4}\s*[A-Z]", raw.upper()):
-                continue
-            # A line with digits in it is a number, a date or an ID — not a name.
-            if any(ch.isdigit() for ch in raw):
-                continue
-            clean = re.sub(r"[^A-Za-z .]", "", raw).strip()
-            if len(clean) < 4 or len(clean) > 60:
-                continue
-            up = clean.upper()
-            if any(n in up for n in NOISE):
-                continue
-            # Card text is printed in capitals; ignore stray mixed-case OCR.
-            letters = [c for c in clean if c.isalpha()]
-            if letters and sum(c.isupper() for c in letters) / len(letters) < 0.8:
-                continue
-            # Card furniture printed alongside the name ("Signature", "Photo")
-            # gets OCR'd onto the same line — drop those trailing words.
-            words = [w for w in clean.split()
-                     if w.upper() not in {"PHOTO", "SIGNATURE", "SIGN", "CARD", "HOLDER"}]
-            if not words:
-                continue
-            out.append(" ".join(w.capitalize() for w in words))
-            if len(out) == 2:
-                break
-        return out
 
 
 class _Protected(Exception):

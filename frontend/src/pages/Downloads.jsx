@@ -36,7 +36,7 @@ const DOCS = [
   },
   {
     icon: BookOpen,
-    title: "Vendor Guide",
+    title: "Contractor Guide",
     desc: "Register workers, deploy to companies, run everything from the app — offline included.",
     href: "/docs/vendor-guide.html",
   },

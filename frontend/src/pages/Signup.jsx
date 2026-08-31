@@ -93,7 +93,7 @@ export default function Signup() {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { v: "company", icon: Building2, t: "Company", d: "We host workers at our sites and track their attendance" },
-                  { v: "vendor",  icon: HardHat,   t: "Vendor / Contractor", d: "We supply workers and deploy them to companies" },
+                  { v: "vendor",  icon: HardHat,   t: "Contractor", d: "We supply workers and deploy them to companies" },
                 ].map(({ v, icon: Icon, t, d }) => (
                   <button key={v} type="button" onClick={() => setForm((f) => ({ ...f, org_type: v }))}
                     className={`p-4 rounded-lg border text-left transition-colors ${form.org_type === v ? "border-brand-500 bg-brand-50" : "border-gray-200 hover:border-gray-300"}`}>

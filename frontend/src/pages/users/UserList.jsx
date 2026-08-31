@@ -9,8 +9,8 @@ const ALL_ROLES = [
   { value: "super_admin",      label: "Super Admin" },
   { value: "company_admin",    label: "Company Admin" },
   { value: "company_gate",     label: "Company Gate" },
-  { value: "vendor_admin",     label: "Vendor Admin" },
-  { value: "vendor_operator",  label: "Vendor Operator" },
+  { value: "vendor_admin",     label: "Contractor Admin" },
+  { value: "vendor_operator",  label: "Contractor Operator" },
 ];
 
 const ROLE_BADGE = {
@@ -62,7 +62,7 @@ export default function UserList() {
         { value: "company_hr",   label: "Department HR (approves deployments)" },
       ]
     : isVendorAdmin
-    ? [{ value: "vendor_operator", label: "Vendor Operator" }]
+    ? [{ value: "vendor_operator", label: "Contractor Operator" }]
     : ALL_ROLES;
 
   const isGateRole = form.role === "company_gate" || (isCompanyAdmin && form.role !== "company_hr");
@@ -313,7 +313,7 @@ export default function UserList() {
 
               {needsVendor && (
                 <div>
-                  <label className="label">Vendor</label>
+                  <label className="label">Contractor</label>
                   <select className="input" required {...field("vendor_id")}>
                     <option value="">Select vendor…</option>
                     {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}

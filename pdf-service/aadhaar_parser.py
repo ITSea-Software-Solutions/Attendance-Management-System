@@ -14,6 +14,8 @@ import fitz  # PyMuPDF
 import pdfplumber
 from PIL import Image
 
+import card_ocr
+
 logger = logging.getLogger("aadhaar-parser")
 
 
@@ -37,6 +39,73 @@ class AadhaarParser:
         "Telangana", "Tripura", "Uttar Pradesh", "Uttarakhand", "West Bengal",
         "Delhi", "Jammu and Kashmir", "Ladakh", "Puducherry", "Chandigarh",
     ]
+
+    def extract_image(self, image_bytes: bytes) -> dict[str, Any]:
+        """
+        A photograph of the physical Aadhaar card.
+
+        Name, date of birth and gender are read and offered as autofill. The
+        12-digit number is NOT trusted: OCR returned it with one digit wrong
+        in testing, and a silently wrong Aadhaar would corrupt the record and
+        break duplicate detection. It comes back as a suggestion the operator
+        must confirm.
+        """
+        text = card_ocr.read_text(image_bytes)
+        if not text.strip():
+            return {"success": False, "code": "OCR_EMPTY",
+                    "message": "Nothing could be read from that image. Photograph the card "
+                               "straight on in good light, or upload the Aadhaar PDF."}
+
+        lines = card_ocr.lines_of(text)
+        upper = text.upper()
+
+        # The card prints the name twice: Devanagari first, English beneath.
+        # OCR turns the Devanagari into Latin gibberish that still passes a
+        # "looks like a name" test, so take the LAST name-like line before the
+        # date of birth — that is the English one.
+        dob_at = next((i for i, ln in enumerate(lines)
+                       if re.search(r"DOB|D\.O\.B|BIRTH|जन्म", ln, re.I)), len(lines))
+        name = None
+        for ln in lines[:dob_at]:
+            up = ln.upper()
+            if any(w in up for w in ("GOVERNMENT", "INDIA", "AADHAAR", "UNIQUE", "AUTHORITY")):
+                continue
+            if not card_ocr.looks_like_name(ln):
+                continue
+            cleaned = card_ocr.clean_name(ln)
+            if len(cleaned.split()) >= 2:
+                name = cleaned          # keep overwriting: the last one wins
+
+        gender = None
+        if re.search(r"\bFEMALE\b", upper):
+            gender = "F"
+        elif re.search(r"\bMALE\b", upper):
+            gender = "M"
+
+        # The number is printed as three spaced groups. Require real
+        # whitespace so a year from the date of birth cannot be swept into
+        # the match, and skip any candidate containing the birth year.
+        dob_iso = card_ocr.find_date(text)
+        birth_year = dob_iso[:4] if dob_iso else None
+        suggested = None
+        for grp in re.findall(r"(?<!\d)(\d{4})\s+(\d{4})\s+(\d{4})(?!\d)", text):
+            if birth_year and birth_year in grp:
+                continue
+            suggested = "".join(grp)
+            break
+
+        return {"success": True, "data": {
+            "name":   name,
+            "dob":    card_ocr.find_date(text),
+            "gender": gender,
+            "address": None, "city": None, "state": None, "pin": None, "mobile": None,
+            # Deliberately not aadhaar_number: an OCR'd identifier is a guess.
+            "aadhaar_number_suggested": suggested,
+            "aadhaar_number_masked": f"XXXX-XXXX-{suggested[-4:]}" if suggested else None,
+            "photo_base64": None,
+            "source": "image",
+            "needs_number_confirmation": True,
+        }}
 
     def extract(self, pdf_bytes: bytes, password: str | None = None) -> dict[str, Any]:
         """

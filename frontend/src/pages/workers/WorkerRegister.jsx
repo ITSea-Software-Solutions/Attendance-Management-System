@@ -383,6 +383,15 @@ export default function WorkerRegister() {
     }
     setAadhaar(data);
     setAadhaarPdf(file);
+    // A photographed card gives OCR'd digits, and one wrong digit would
+    // corrupt the record and defeat duplicate detection — so the number is
+    // only ever a suggestion the operator confirms.
+    if (data.needs_number_confirmation) {
+      setManualEntry(true);
+      if (data.aadhaar_number_suggested) setManualAadhaar(data.aadhaar_number_suggested);
+      toast("Details filled in from the photo. Please check the 12-digit number against the card.",
+        { icon: "🔍", duration: 7000 });
+    }
     if (data.name)                 setValue("name", data.name);
     if (data.dob)                  setValue("dob", data.dob);
     if (data.gender)               setValue("gender", data.gender);
@@ -830,9 +839,9 @@ export default function WorkerRegister() {
 
             {needsVendor && (
               <div>
-                <label className="label">Vendor *</label>
+                <label className="label">Contractor *</label>
                 <select {...register("vendor_id")} className={`input ${errors.vendor_id ? "input-error" : ""}`}>
-                  <option value="">— Select Vendor —</option>
+                  <option value="">— Select contractor —</option>
                   {(vendors ?? []).map(v => (
                     <option key={v.id} value={v.id}>{v.name}</option>
                   ))}

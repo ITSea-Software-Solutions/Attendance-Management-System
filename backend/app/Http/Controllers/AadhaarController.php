@@ -24,7 +24,7 @@ class AadhaarController extends Controller
     public function extract(Request $request): JsonResponse
     {
         $request->validate([
-            'pdf'      => 'required|file|mimes:pdf|max:10240',
+            'pdf'      => 'required|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             'password' => 'nullable|string|max:60',
         ]);
 
@@ -55,7 +55,7 @@ class AadhaarController extends Controller
         $this->authorizeVendorAccess($request->user(), $worker);
 
         $request->validate([
-            'pdf'                  => 'required|file|mimes:pdf|max:10240',
+            'pdf'                  => 'required|file|mimes:pdf,jpg,jpeg,png,webp|max:10240',
             'aadhaar_number_masked' => 'required|string|max:20',
         ]);
 
@@ -70,7 +70,7 @@ class AadhaarController extends Controller
         $path = Storage::disk('private')->putFileAs(
             'aadhaar',
             $file,
-            'aadhaar_' . $worker->id . '_' . now()->timestamp . '.pdf'
+            'aadhaar_' . $worker->id . '_' . now()->timestamp . '.' . $file->getClientOriginalExtension()
         );
 
         $worker->forceFill([

@@ -219,7 +219,7 @@ export default function WorkerList() {
             onChange={(e) => { setVendorId(e.target.value); setPage(1); }}
             className="input w-auto"
           >
-            <option value="">All Vendors</option>
+            <option value="">All contractors</option>
             {vendorOpts.map((v) => (
               <option key={v.id} value={v.id}>{v.name}</option>
             ))}
@@ -290,7 +290,7 @@ export default function WorkerList() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Worker</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Vendor</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Contractor</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Aadhaar</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-500">FP</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">ID Document</th>

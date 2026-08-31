@@ -47,13 +47,13 @@ const REPORT_DEFS = [
   },
   {
     id: "vendors", icon: Building2, companyOnly: true,
-    label: "Vendors directory",
+    label: "Contractors directory",
     desc: "Your contractors with contact and status details",
   },
 ];
 
 // Columns that get a dropdown filter when present in the report
-const FILTERABLE = ["Vendor", "Company", "Location(s)", "Status", "Gate", "Day type", "Week", "Month"];
+const FILTERABLE = ["Contractor", "Vendor", "Company", "Location(s)", "Status", "Gate", "Day type", "Week", "Month"];
 
 // How the hours report is rolled up
 const HOUR_GROUPS = [
@@ -110,6 +110,15 @@ const hourOf = (v) => {
   return m ? +m[1] : null;
 };
 const hourLabel = (h) => (h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`);
+
+/** Column index by name, tolerating the Vendor→Contractor rename. */
+const colIdx = (headers, ...names) => {
+  for (const n of names) {
+    const i = headers.indexOf(n);
+    if (i >= 0) return i;
+  }
+  return -1;
+};
 
 /** Count rows per value of a column → donut segments (top N + Other). */
 function donutOf(view, idx, { top = 5, map, weight } = {}) {
@@ -352,7 +361,7 @@ export default function Reports() {
           out.push({ kind: "bar", title: "Arrival time (first IN)", color: "#10b981", data: bars });
         }
       }
-      const vd = donutOf(view, idx("Vendor"));
+      const vd = donutOf(view, colIdx(h, "Contractor", "Vendor"));
       if (vd.length > 1) out.push({ kind: "donut", title: "Worker-days by vendor", data: vd, center: "days" });
       if (wi >= 0 && hi >= 0)
         out.push({ kind: "rank", title: "Top workers by hours",
@@ -403,7 +412,7 @@ export default function Reports() {
           ].filter((x) => x.value > 0);
           if (segs.length) out.push({ kind: "donut", title: "Day types worked", data: segs, center: "days" });
         }
-        const vd = donutOf(view, idx("Vendor"), { weight: (r) => (payI >= 0 ? parseFloat(r[payI]) || 0 : 1) });
+        const vd = donutOf(view, colIdx(h, "Contractor", "Vendor"), { weight: (r) => (payI >= 0 ? parseFloat(r[payI]) || 0 : 1) });
         if (vd.length > 1) out.push({ kind: "donut", title: "Payable days by vendor", data: vd, center: "days" });
       }
     }
@@ -416,7 +425,7 @@ export default function Reports() {
       if (wi >= 0 && th >= 0)
         out.push({ kind: "rank", title: "Top workers by hours", color: "#8b5cf6",
           data: rankOf(view, wi, { metric: (r) => hmToMins(r[th]), display: minsToHM }) });
-      const vd = donutOf(view, idx("Vendor"), { weight: (r) => (dp >= 0 ? +r[dp] || 0 : 1) });
+      const vd = donutOf(view, colIdx(h, "Contractor", "Vendor"), { weight: (r) => (dp >= 0 ? +r[dp] || 0 : 1) });
       if (vd.length > 1) out.push({ kind: "donut", title: "Days by vendor", data: vd, center: "days" });
       const cd = donutOf(view, idx("Company"), { weight: (r) => (dp >= 0 ? +r[dp] || 0 : 1) });
       if (cd.length > 1) out.push({ kind: "donut", title: "Days by company", data: cd, center: "days" });
@@ -436,15 +445,15 @@ export default function Reports() {
       if (ad.length) out.push({ kind: "donut", title: "Aadhaar verification", data: ad, center: "workers" });
       const gd = donutOf(view, idx("Gender"), { map: (v) => ({ M: "Male", F: "Female", O: "Other" }[v] || "—") });
       if (gd.length > 1) out.push({ kind: "donut", title: "Gender split", data: gd, center: "workers" });
-      const vr = rankOf(view, idx("Vendor"), { display: (v) => `${v}` });
+      const vr = rankOf(view, colIdx(h, "Contractor", "Vendor"), { display: (v) => `${v}` });
       if (vr.length > 1) out.push({ kind: "rank", title: "Workers per vendor", color: "#f59e0b", data: vr });
     }
 
     if (loaded.id === "vendors") {
       const sd = donutOf(view, idx("Status"), { map: (v) => v.charAt(0).toUpperCase() + v.slice(1) });
-      if (sd.length) out.push({ kind: "donut", title: "Vendors by status", data: sd, center: "vendors" });
+      if (sd.length) out.push({ kind: "donut", title: "Contractors by status", data: sd, center: "contractors" });
       const pd = donutOf(view, idx("Plan"), { map: (v) => v.charAt(0).toUpperCase() + v.slice(1) });
-      if (pd.length) out.push({ kind: "donut", title: "Vendors by plan", data: pd, center: "vendors" });
+      if (pd.length) out.push({ kind: "donut", title: "Contractors by plan", data: pd, center: "contractors" });
     }
 
     return out.filter((c) => c.data?.length);

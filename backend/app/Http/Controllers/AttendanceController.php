@@ -133,7 +133,7 @@ class AttendanceController extends Controller
             fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
             if ($type === 'daily') {
                 \App\Support\Csv::row($out, array_merge(
-                    ['Date', 'Worker', 'Vendor'],
+                    ['Date', 'Worker', 'Contractor'],
                     $withCompany ? ['Company'] : [],
                     ['Location(s)', 'First IN', 'Last OUT', 'Hours', 'Status']));
                 foreach ($rows as $r) {
@@ -146,7 +146,7 @@ class AttendanceController extends Controller
                 }
             } else {
                 \App\Support\Csv::row($out, array_merge(
-                    ['Worker', 'Vendor'],
+                    ['Worker', 'Contractor'],
                     $withCompany ? ['Company'] : [],
                     ['Days Present', 'Total Hours', 'Full days', 'Half days',
                      'Payable days', 'Overtime', 'Days Missing OUT']));
@@ -418,7 +418,7 @@ class AttendanceController extends Controller
 
             if ($group === 'daily') {
                 \App\Support\Csv::row($out, array_merge(
-                    ['Date', 'Worker', 'Emp code', 'Vendor'],
+                    ['Date', 'Worker', 'Emp code', 'Contractor'],
                     $withCompany ? ['Company'] : [],
                     ['Location(s)', 'First IN', 'Last OUT', 'Hours', 'Day value',
                      'Day type', 'Overtime', 'Status']));
@@ -476,7 +476,7 @@ class AttendanceController extends Controller
                 default   => null,
             };
             $head = array_merge(
-                ['Worker', 'Emp code', 'Vendor'],
+                ['Worker', 'Emp code', 'Contractor'],
                 $withCompany ? ['Company'] : [],
                 ['Days present', 'Total hours', 'Full days', 'Half days', 'Short days',
                  'Payable days', 'Overtime', 'Missing OUT']);

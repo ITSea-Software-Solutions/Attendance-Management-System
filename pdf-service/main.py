@@ -39,7 +39,7 @@ def health():
 
 @app.post("/extract")
 async def extract_aadhaar(
-    pdf: UploadFile = File(..., description="Aadhaar PDF file"),
+    pdf: UploadFile = File(..., description="Aadhaar PDF, or a photo of the card"),
     password: str = Form(default="", description="PDF password if protected"),
 ):
     """
@@ -50,16 +50,21 @@ async def extract_aadhaar(
     - aadhaar_number (last 4 only — full number is NOT returned)
     - photo_base64 (PNG encoded as base64)
     """
-    if not pdf.filename.lower().endswith(".pdf"):
-        raise HTTPException(status_code=400, detail="Only PDF files are accepted.")
+    name = (pdf.filename or "").lower()
+    if not name.endswith((".pdf", ".jpg", ".jpeg", ".png", ".webp")):
+        raise HTTPException(status_code=400, detail="Upload the Aadhaar as a PDF or an image.")
 
     content = await pdf.read()
     if len(content) > 10 * 1024 * 1024:  # 10 MB
-        raise HTTPException(status_code=413, detail="PDF size must not exceed 10 MB.")
+        raise HTTPException(status_code=413, detail="File must not exceed 10 MB.")
 
-    logger.info(f"Processing Aadhaar PDF: {pdf.filename}, size={len(content)}")
+    logger.info(f"Processing Aadhaar: {pdf.filename}, size={len(content)}")
 
-    result = parser.extract(pdf_bytes=content, password=password or None)
+    # A photographed card goes through OCR; the offline PDF keeps its
+    # signed-text path, which is the only one that yields a trusted number.
+    is_pdf = name.endswith(".pdf") or content[:5] == b"%PDF-"
+    result = (parser.extract(pdf_bytes=content, password=password or None) if is_pdf
+              else parser.extract_image(content))
 
     if not result["success"]:
         raise HTTPException(

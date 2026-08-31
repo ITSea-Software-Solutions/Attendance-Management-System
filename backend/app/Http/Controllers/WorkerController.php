@@ -376,7 +376,7 @@ class WorkerController extends Controller
         return response()->streamDownload(function () use ($rows) {
             $out = fopen('php://output', 'w');
             fwrite($out, "\xEF\xBB\xBF"); // Excel-friendly BOM
-            \App\Support\Csv::row($out, ['Name', 'Emp code', 'Aadhaar (masked)', 'Aadhaar verified', 'PAN', 'Joining date', 'DOB', 'Gender', 'Phone', 'Email', 'Address', 'Vendor', 'Status', 'Fingerprint', 'Face', 'Email verified', 'Phone verified']);
+            \App\Support\Csv::row($out, ['Name', 'Emp code', 'Aadhaar (masked)', 'Aadhaar verified', 'PAN', 'Joining date', 'DOB', 'Gender', 'Phone', 'Email', 'Address', 'Contractor', 'Status', 'Fingerprint', 'Face', 'Email verified', 'Phone verified']);
             foreach ($rows as $w) {
                 \App\Support\Csv::row($out, [
                     $w->name, $w->emp_code, $w->aadhaar_number_masked,

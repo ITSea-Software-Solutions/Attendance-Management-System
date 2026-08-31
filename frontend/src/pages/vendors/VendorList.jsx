@@ -285,7 +285,7 @@ export default function VendorList() {
 
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <p className="text-sm font-semibold text-gray-700">
-              Vendor Admin Login <span className="text-xs text-gray-400 font-normal">(optional — vendor admin can register workers)</span>
+              Contractor Admin Login <span className="text-xs text-gray-400 font-normal">(optional — they can then register workers)</span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
