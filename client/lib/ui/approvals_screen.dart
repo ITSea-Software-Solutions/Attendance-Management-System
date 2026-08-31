@@ -85,7 +85,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
         content: TextField(
           controller: ctrl,
           decoration: const InputDecoration(
-              labelText: 'Reason (the vendor sees this)'),
+              labelText: 'Reason (the contractor sees this)'),
         ),
         actions: [
           TextButton(
@@ -129,7 +129,7 @@ class _ApprovalsScreenState extends State<ApprovalsScreen> {
                         Padding(
                           padding: EdgeInsets.all(32),
                           child: Text(
-                              'No deployments waiting for approval.\nNew vendor deployments appear here first.',
+                              'No deployments waiting for approval.\nNew contractor deployments appear here first.',
                               textAlign: TextAlign.center),
                         ),
                       ])

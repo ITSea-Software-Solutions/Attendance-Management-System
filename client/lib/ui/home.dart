@@ -197,8 +197,8 @@ class _HomeScreenState extends State<HomeScreen> {
         'company_admin' => 'Company Admin',
         'company_hr' => 'HR',
         'company_gate' => 'Gate',
-        'vendor_admin' => 'Vendor',
-        'vendor_operator' => 'Vendor Operator',
+        'vendor_admin' => 'Contractor',
+        'vendor_operator' => 'Contractor Operator',
         _ => role,
       };
 }
