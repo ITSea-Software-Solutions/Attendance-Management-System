@@ -50,7 +50,7 @@ export default function Payroll() {
   const [[from, to], setRange] = useState(() => cyclePeriod(new Date(), 26));
   const [companyId, setCompanyId] = useState("");
   const [workerIds, setWorkerIds] = useState([]);
-  const [tab, setTab] = useState("register");        // register | contractors
+  const [tab, setTab] = useState("register");        // register | contractors | holidays
   const [rateEdits, setRateEdits] = useState({});     // worker_id -> rate
   const [adjFor, setAdjFor] = useState(null);         // row being adjusted
 
@@ -87,6 +87,32 @@ export default function Payroll() {
     queryKey: ["payroll-contractors", scope],
     queryFn: () => api.get("/payroll/contractor-summary", { params: scope }).then((r) => r.data),
     enabled: ready && tab === "contractors",
+  });
+
+  const { data: holidays } = useQuery({
+    queryKey: ["company-holidays", companyId],
+    queryFn: () => api.get("/payroll/holidays", { params: companyId ? { company_id: companyId } : {} })
+      .then((r) => r.data),
+    enabled: ready,
+  });
+
+  const saveHoliday = useMutation({
+    mutationFn: (body) => api.post("/payroll/holidays", body, { params: companyId ? { company_id: companyId } : {} }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["company-holidays"] });
+      qc.invalidateQueries({ queryKey: ["payroll-register"] });
+      toast.success("Holiday saved — it is paid, and anyone who works it earns overtime.");
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Could not save the holiday."),
+  });
+
+  const removeHoliday = useMutation({
+    mutationFn: (id) => api.delete(`/payroll/holidays/${id}`, { params: companyId ? { company_id: companyId } : {} }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["company-holidays"] });
+      qc.invalidateQueries({ queryKey: ["payroll-register"] });
+      toast.success("Holiday removed.");
+    },
   });
 
   const saveRates = useMutation({
@@ -164,7 +190,8 @@ export default function Payroll() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Payroll &amp; Wage Register</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Attendance converted to payable wages — day rate × present days + overtime
+            Attendance converted to payable wages — day rate × days present, plus overtime
+            and paid holidays
           </p>
         </div>
         <div className="flex gap-2 flex-wrap">
@@ -183,10 +210,11 @@ export default function Payroll() {
       </div>
 
       <PageHint id="payroll">
-        This is your muster and wage sheet, filled in from real gate punches. Set each
-        worker's monthly rate once — the day rate (rate ÷ 26) and overtime rate
-        (day rate ÷ 8) follow automatically. <b>Muster sheet</b> downloads the familiar
-        day-by-day grid with P / A / WO codes and the overtime row beneath.
+        Your muster and wage sheet, filled in from real gate punches. Workers are paid a
+        <b>rate per day</b> for each day present; overtime is the day rate ÷ 8 per hour.
+        Government holidays are paid, and anyone who works one earns overtime for the whole
+        day. <b>Muster sheet</b> downloads the familiar day-by-day grid with P / A / WO / H
+        codes and the overtime row beneath.
       </PageHint>
 
       {/* ── period + scope ── */}
@@ -270,7 +298,7 @@ export default function Payroll() {
           )}
 
           <div className="flex gap-1 border-b border-gray-200">
-            {[["register", "Wage register"], ["contractors", "By contractor"]].map(([k, label]) => (
+            {[["register", "Wage register"], ["contractors", "By contractor"], ["holidays", "Holidays"]].map(([k, label]) => (
               <button key={k} onClick={() => setTab(k)}
                 className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
                   tab === k ? "border-brand-500 text-brand-700" : "border-transparent text-gray-500 hover:text-gray-700"}`}>
@@ -364,6 +392,79 @@ export default function Payroll() {
                   </div>
                 </div>
               )}
+            </div>
+          ) : tab === "holidays" ? (
+            <div className="grid lg:grid-cols-2 gap-4">
+              <div className="card space-y-4">
+                <div>
+                  <h2 className="font-semibold text-gray-900">Government &amp; festival holidays</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Marked automatically on the attendance log and the muster. A holiday is
+                    <b> paid</b> at the day rate, and anyone who works it earns
+                    overtime at {(data?.rules?.holiday_ot_multiplier ?? 2)}× the normal rate.
+                  </p>
+                </div>
+                <form className="flex flex-wrap items-end gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    const f = new FormData(e.currentTarget);
+                    saveHoliday.mutate({
+                      holiday_date: f.get("holiday_date"),
+                      name: f.get("name"),
+                      paid: f.get("paid") === "on",
+                    });
+                    e.currentTarget.reset();
+                  }}>
+                  <div>
+                    <label className="label">Date</label>
+                    <input name="holiday_date" type="date" required className="input w-40 py-1.5 text-sm" />
+                  </div>
+                  <div className="flex-1 min-w-[160px]">
+                    <label className="label">Occasion</label>
+                    <input name="name" required maxLength={120} className="input py-1.5 text-sm"
+                      placeholder="e.g. Independence Day" />
+                  </div>
+                  <label className="flex items-center gap-1.5 text-sm text-gray-700 pb-2">
+                    <input name="paid" type="checkbox" defaultChecked className="w-4 h-4" /> Paid
+                  </label>
+                  <button className="btn-primary text-sm" disabled={saveHoliday.isPending}>
+                    <Plus size={14} /> Add
+                  </button>
+                </form>
+
+                <div className="divide-y divide-gray-50 border-t border-gray-100">
+                  {(holidays ?? []).length === 0 && (
+                    <p className="text-sm text-gray-400 py-6 text-center">
+                      No holidays set yet — add your national and festival holidays for the year.
+                    </p>
+                  )}
+                  {(holidays ?? []).map((h) => (
+                    <div key={h.id} className="flex items-center justify-between py-2">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{h.name}</p>
+                        <p className="text-[11px] text-gray-400">
+                          {h.holiday_date}
+                          {h.paid ? " · paid" : " · unpaid"}
+                        </p>
+                      </div>
+                      <button className="text-xs text-red-600 hover:underline"
+                        onClick={() => removeHoliday.mutate(h.id)}>Remove</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="card">
+                <h2 className="font-semibold text-gray-900 mb-2">How a holiday is paid</h2>
+                <ul className="text-sm text-gray-600 space-y-2 list-disc ml-4">
+                  <li>Everyone deployed that day is <b>paid the full day rate</b>, present or not.</li>
+                  <li>The muster shows <b>H</b> for the day instead of A, so a holiday is never
+                  mistaken for an absence.</li>
+                  <li>A worker who does turn up is paid <b>overtime for the whole day</b> —
+                  every hour counts, at the holiday multiplier.</li>
+                  <li>Untick <b>Paid</b> for a declared holiday your site does not pay.</li>
+                </ul>
+              </div>
             </div>
           ) : (
             <div className="grid lg:grid-cols-2 gap-4">

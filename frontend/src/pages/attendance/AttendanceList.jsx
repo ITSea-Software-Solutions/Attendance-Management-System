@@ -69,6 +69,18 @@ export default function AttendanceList() {
     staleTime: 5 * 60_000,
   });
 
+  // Government holidays for the visible period — shown on the log so a day
+  // with nobody present reads as a holiday, not an empty day.
+  const { data: holidays } = useQuery({
+    queryKey: ["company-holidays", companyId],
+    queryFn: () => api.get("/payroll/holidays", {
+      params: companyId ? { company_id: companyId } : {},
+    }).then((r) => r.data).catch(() => []),
+    enabled: isCompanyUser || !!companyId,
+    staleTime: 10 * 60_000,
+  });
+  const holidayOn = (d) => (holidays ?? []).find((h) => String(h.holiday_date).slice(0, 10) === d);
+
   const { data: workerOptions } = useQuery({
     queryKey: ["worker-options", companyId],
     queryFn:  () => api.get("/workers-options", {
@@ -282,6 +294,19 @@ export default function AttendanceList() {
         </div>
       </div>
 
+      {!rangeMode && holidayOn(date) && (
+        <div className="card !py-3 border-l-4 border-violet-400 flex items-center gap-2 flex-wrap">
+          <CalendarRange size={16} className="text-violet-600" />
+          <span className="text-sm font-semibold text-violet-800">
+            {holidayOn(date).name} — government holiday
+          </span>
+          <span className="text-sm text-gray-600">
+            {holidayOn(date).paid ? "Paid for everyone deployed." : "Declared unpaid."}
+            {" Anyone who worked today is paid overtime for the full day."}
+          </span>
+        </div>
+      )}
+
       <PageHint id="attendance">
         One row = one worker's day, like your attendance register. Click a row to see the
         photos and exact times. Use <b>Export CSV</b> to open any month back in Excel.
@@ -366,7 +391,9 @@ export default function AttendanceList() {
                     <td className="px-4 py-3 text-gray-600 whitespace-nowrap">
                       {format(new Date(`${row.work_date}T00:00:00`), "dd MMM")}
                       <span className="block text-[11px] text-gray-400">
-                        {format(new Date(`${row.work_date}T00:00:00`), "EEE")}
+                        {holidayOn(row.work_date)
+                          ? <span className="text-violet-600 font-medium">Holiday</span>
+                          : format(new Date(`${row.work_date}T00:00:00`), "EEE")}
                       </span>
                     </td>
                   )}

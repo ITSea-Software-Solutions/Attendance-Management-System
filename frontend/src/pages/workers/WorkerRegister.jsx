@@ -209,7 +209,7 @@ export default function WorkerRegister() {
     uan: "", pf_number: "", esic_number: "",
     pf_applicable: true, esi_applicable: true,
     bank_account_number: "", bank_ifsc: "", bank_name: "",
-    monthly_rate: "",
+    wage_type: "daily", daily_rate: "", monthly_rate: "", ot_multiplier: "",
   };
   const [emp, setEmp] = useState(EMP_INIT);
   const [wageHeads, setWageHeads] = useState({});   // { basic: 9000, da: 3600, ... }
@@ -224,11 +224,18 @@ export default function WorkerRegister() {
   // Fill an empty structure from the monthly rate, so the vendor starts from a
   // sensible split instead of a blank grid.
   const suggestHeads = async () => {
-    const rate = Number(emp.monthly_rate) || 0;
-    if (rate <= 0) { toast.error("Enter the monthly rate first."); return; }
+    const daily = emp.wage_type === "daily";
+    const rate = Number(daily ? emp.daily_rate : emp.monthly_rate) || 0;
+    if (rate <= 0) { toast.error(`Enter the ${daily ? "day" : "monthly"} rate first.`); return; }
     try {
-      const r = await api.get("/payroll/components", { params: { monthly_rate: rate } });
-      setWageHeads(r.data?.suggested ?? {});
+      const div = payCatalogue?.defaults?.wage_divisor ?? 26;
+      const r = await api.get("/payroll/components", {
+        params: { monthly_rate: daily ? rate * div : rate },
+      });
+      const sug = r.data?.suggested ?? {};
+      setWageHeads(daily
+        ? Object.fromEntries(Object.entries(sug).map(([k, v]) => [k, Math.round(v / div)]))
+        : sug);
       toast.success("Suggested split filled in — adjust as needed.");
     } catch { toast.error("Could not build a suggestion."); }
   };
@@ -241,7 +248,9 @@ export default function WorkerRegister() {
     try {
       const payload = {
         ...emp,
-        monthly_rate: emp.monthly_rate === "" ? null : Number(emp.monthly_rate),
+        daily_rate:    emp.daily_rate === "" ? null : Number(emp.daily_rate),
+        monthly_rate:  emp.monthly_rate === "" ? null : Number(emp.monthly_rate),
+        ot_multiplier: emp.ot_multiplier === "" ? null : Number(emp.ot_multiplier),
         wage_components: Object.fromEntries(
           Object.entries(wageHeads).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)])),
       };
@@ -895,8 +904,10 @@ export default function WorkerRegister() {
                   <IndianRupee size={16} className="text-brand-600" /> Wage structure
                 </h2>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  Monthly rate is what payroll divides by {payCatalogue?.defaults?.wage_divisor ?? 26} to
-                  get the day rate. Break it into heads so PF, ESI and the wage register are correct.
+                  Break the rate into heads so PF, ESI and the wage register are correct.
+                  {emp.wage_type === "daily"
+                    ? " Amounts are PER DAY and should add up to the day rate."
+                    : " Amounts are per month and should add up to the monthly rate."}
                 </p>
               </div>
               <button type="button" className="btn-secondary text-sm" onClick={suggestHeads}>
@@ -906,9 +917,39 @@ export default function WorkerRegister() {
 
             <div className="grid md:grid-cols-3 gap-3">
               <div>
-                <label className="label">Monthly rate (₹) *</label>
-                <input className="input" type="number" min="0" step="100" value={emp.monthly_rate}
-                  onChange={(e) => setEmp({ ...emp, monthly_rate: e.target.value })} />
+                <label className="label">Paid</label>
+                <select className="input" value={emp.wage_type}
+                  onChange={(e) => setEmp({ ...emp, wage_type: e.target.value })}>
+                  <option value="daily">Per day (daily wage)</option>
+                  <option value="monthly">Per month (salaried)</option>
+                </select>
+              </div>
+              {emp.wage_type === "daily" ? (
+                <div>
+                  <label className="label">Rate per day (₹) *</label>
+                  <input className="input" type="number" min="0" step="10" value={emp.daily_rate}
+                    onChange={(e) => setEmp({ ...emp, daily_rate: e.target.value })} />
+                  <p className="text-[11px] text-gray-400 mt-1">Paid for each day present.</p>
+                </div>
+              ) : (
+                <div>
+                  <label className="label">Monthly rate (₹) *</label>
+                  <input className="input" type="number" min="0" step="100" value={emp.monthly_rate}
+                    onChange={(e) => setEmp({ ...emp, monthly_rate: e.target.value })} />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Day rate = this ÷ {payCatalogue?.defaults?.wage_divisor ?? 26}.
+                  </p>
+                </div>
+              )}
+              <div>
+                <label className="label">Overtime multiplier</label>
+                <input className="input" type="number" min="0" max="4" step="0.25"
+                  placeholder="default" value={emp.ot_multiplier}
+                  onChange={(e) => setEmp({ ...emp, ot_multiplier: e.target.value })} />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Blank = the company's rate for this grade. Holidays pay
+                  {" "}{payCatalogue?.holiday_ot_multiplier ?? 2}× on top.
+                </p>
               </div>
             </div>
 
@@ -929,13 +970,13 @@ export default function WorkerRegister() {
 
             {headsTotal > 0 && (
               <div className={`text-sm rounded-lg px-3 py-2 border ${
-                Math.abs(headsTotal - (Number(emp.monthly_rate) || 0)) < 1
+                Math.abs(headsTotal - (Number(emp.wage_type === "daily" ? emp.daily_rate : emp.monthly_rate) || 0)) < 1
                   ? "bg-emerald-50 border-emerald-200 text-emerald-800"
                   : "bg-amber-50 border-amber-200 text-amber-800"}`}>
                 Heads total <b>₹{headsTotal.toLocaleString("en-IN")}</b>
-                {" vs monthly rate "}
-                <b>₹{(Number(emp.monthly_rate) || 0).toLocaleString("en-IN")}</b>
-                {Math.abs(headsTotal - (Number(emp.monthly_rate) || 0)) < 1
+                {emp.wage_type === "daily" ? " vs day rate " : " vs monthly rate "}
+                <b>₹{(Number(emp.wage_type === "daily" ? emp.daily_rate : emp.monthly_rate) || 0).toLocaleString("en-IN")}</b>
+                {Math.abs(headsTotal - (Number(emp.wage_type === "daily" ? emp.daily_rate : emp.monthly_rate) || 0)) < 1
                   ? " — matches."
                   : " — these should normally match."}
               </div>

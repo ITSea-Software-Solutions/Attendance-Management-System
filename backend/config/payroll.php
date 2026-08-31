@@ -28,6 +28,21 @@ return [
     // next, which is how most contract-labour musters run. 1 = calendar month.
     'cycle_start_day' => (int) env('PAY_CYCLE_START_DAY', 26),
 
+    // Government / festival holidays are PAID at the day rate, and a worker
+    // who turns up on one is paid overtime for the whole day.
+    'paid_holidays'         => (bool) env('PAID_HOLIDAYS', true),
+    'holiday_ot_multiplier' => (float) env('HOLIDAY_OT_MULTIPLIER', 2.0),
+    'weekly_off_ot_multiplier' => (float) env('WEEKLY_OFF_OT_MULTIPLIER', 1.0),
+
+    // Overtime multiplier per skill grade. A company can override these in its
+    // settings (ot_multipliers), and a single worker can override both.
+    'ot_multipliers' => [
+        'unskilled'      => (float) env('OT_MULT_UNSKILLED', 1.0),
+        'semi_skilled'   => (float) env('OT_MULT_SEMI_SKILLED', 1.0),
+        'skilled'        => (float) env('OT_MULT_SKILLED', 1.0),
+        'highly_skilled' => (float) env('OT_MULT_HIGHLY_SKILLED', 1.0),
+    ],
+
     // Weekly off days, 0 = Sunday ... 6 = Saturday.
     'weekly_offs' => array_values(array_filter(array_map(
         'intval', explode(',', env('WEEKLY_OFFS', '0'))

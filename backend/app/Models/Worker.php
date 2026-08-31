@@ -43,7 +43,7 @@ class Worker extends Model
         'designation', 'department', 'skill_category',
         'uan', 'pf_number', 'esic_number', 'pf_applicable', 'esi_applicable',
         'bank_account_number', 'bank_ifsc', 'bank_name',
-        'monthly_rate', 'wage_divisor', 'ot_divisor', 'ot_multiplier', 'wage_components',
+        'wage_type', 'daily_rate', 'monthly_rate', 'wage_divisor', 'ot_divisor', 'ot_multiplier', 'wage_components',
     ];
 
     protected $hidden = [

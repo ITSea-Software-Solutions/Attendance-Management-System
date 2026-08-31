@@ -66,6 +66,53 @@ class PayrollService
         return (array) config('payroll.components', []);
     }
 
+    /**
+     * The day rate a worker is actually paid at.
+     *
+     * Daily-wage labour is hired at a rate per day, so that figure is used as
+     * entered. Monthly staff on the same muster keep the divisor treatment.
+     */
+    public static function dayRateOf(Worker $w): float
+    {
+        if (($w->wage_type ?? 'daily') === 'monthly') {
+            $div = (int) ($w->wage_divisor ?: config('payroll.wage_divisor', 26));
+
+            return $div > 0 ? round(((float) $w->monthly_rate) / $div, 2) : 0.0;
+        }
+
+        // Daily: the rate, or the sum of the per-day heads if one is not set.
+        $rate = (float) ($w->daily_rate ?? 0);
+        if ($rate <= 0) {
+            $rate = array_sum(array_map('floatval', (array) ($w->wage_components ?: [])));
+        }
+
+        return round($rate, 2);
+    }
+
+    /**
+     * Overtime multiplier: the worker's own override wins, then the company's
+     * per-grade setting, then the configured default. Work on a holiday or a
+     * weekly off carries its own multiplier on top.
+     */
+    public static function otMultiplierFor(Worker $w, $company, string $dayStatus = self::STATUS_PRESENT): float
+    {
+        $base = $w->ot_multiplier !== null ? (float) $w->ot_multiplier : null;
+
+        if ($base === null) {
+            $perGrade = (array) data_get($company?->settings, 'ot_multipliers', []);
+            $grade    = $w->skill_category ?: 'unskilled';
+            $base = isset($perGrade[$grade])
+                ? (float) $perGrade[$grade]
+                : (float) (config("payroll.ot_multipliers.{$grade}") ?? 1.0);
+        }
+
+        return match ($dayStatus) {
+            self::STATUS_HOLIDAY => $base * (float) config('payroll.holiday_ot_multiplier', 2.0),
+            self::STATUS_OFF     => $base * (float) config('payroll.weekly_off_ot_multiplier', 1.0),
+            default              => $base,
+        };
+    }
+
     /** Suggest a structure from a monthly rate, for a worker with none saved. */
     public static function suggestStructure(float $monthlyRate): array
     {
@@ -100,11 +147,14 @@ class PayrollService
      */
     private function earningHeads(Worker $w, float $monthlyRate, int $presentDays, int $divisor): array
     {
+        $daily     = ($w->wage_type ?? 'daily') === 'daily';
         $structure = (array) ($w->wage_components ?: []);
-        if ($structure === [] && $monthlyRate > 0) {
+        if ($structure === [] && ! $daily && $monthlyRate > 0) {
             $structure = self::suggestStructure($monthlyRate);
         }
-        $ratio = $divisor > 0 ? $presentDays / $divisor : 0;
+        // Daily heads are per-day amounts paid once per present day; monthly
+        // heads are a month's figure earned in proportion to days worked.
+        $ratio = $daily ? $presentDays : ($divisor > 0 ? $presentDays / $divisor : 0);
 
         $heads = [];
         foreach (self::components() as $c) {
@@ -117,6 +167,7 @@ class PayrollService
             }
             $heads[$c['code']] = [
                 'label'   => $c['label'],
+                'rate'    => round($monthly, 2),          // per day, or per month
                 'monthly' => round($monthly, 2),
                 'earned'  => round($monthly * $ratio, 2),
                 'pf'      => (bool) ($c['pf'] ?? false),
@@ -261,10 +312,13 @@ class PayrollService
             ->groupBy('worker_id', DB::raw('DATE(marked_at)'))
             ->get()->groupBy('worker_id');
 
-        $holidays = DB::table('company_holidays')
+        $holidayRows = DB::table('company_holidays')
             ->where('company_id', $companyId)
             ->whereBetween('holiday_date', [$from->toDateString(), $to->toDateString()])
-            ->pluck('name', 'holiday_date');
+            ->get();
+        $holidays    = $holidayRows->pluck('name', 'holiday_date');
+        // A holiday can be declared unpaid (rare, but the flag exists).
+        $holidayPaid = $holidayRows->mapWithKeys(fn ($h) => [(string) $h->holiday_date => (bool) $h->paid]);
 
         $overrides = DB::table('attendance_overrides')
             ->where('company_id', $companyId)
@@ -284,16 +338,21 @@ class PayrollService
             $byDate  = ($punches[$w->id] ?? collect())->keyBy('d');
             $ovByDay = ($overrides[$w->id] ?? collect())->keyBy(fn ($o) => (string) $o->work_date);
 
-            $rate    = (float) ($w->monthly_rate ?? 0);
+            $isDaily = ($w->wage_type ?? 'daily') === 'daily';
+            $rate    = (float) ($isDaily ? ($w->daily_rate ?? 0) : ($w->monthly_rate ?? 0));
             $wDiv    = (int) ($w->wage_divisor ?: config('payroll.wage_divisor', 26));
             $oDiv    = (int) ($w->ot_divisor ?: config('payroll.ot_divisor', 8));
-            $oMul    = (float) ($w->ot_multiplier ?: config('payroll.ot_multiplier', 1.0));
-            $dayRate = $wDiv > 0 ? $rate / $wDiv : 0.0;
+            $dayRate = self::dayRateOf($w);
+            // Ordinary-day overtime rate; holiday and weekly-off hours are
+            // re-priced with their own multipliers as the days are walked.
+            $oMul    = self::otMultiplierFor($w, $company);
             $otRate  = $oDiv > 0 ? ($dayRate / $oDiv) * $oMul : 0.0;
 
             $cells = [];
             $present = $absent = $woDays = $holiDays = 0;
+            $paidHolidays = 0;
             $minutes = 0; $otHours = 0.0;
+            $otByStatus = [self::STATUS_PRESENT => 0.0, self::STATUS_OFF => 0.0, self::STATUS_HOLIDAY => 0.0];
             $missingOut = 0; $absentWithOt = 0; $offWorked = 0; $unapproved = 0;
 
             foreach ($days as $date) {
@@ -348,6 +407,12 @@ class PayrollService
                     self::STATUS_HOLIDAY => $holiDays++,
                     default              => $absent++,
                 };
+                // A government/festival holiday is paid whether or not the
+                // worker came in — that is what makes it a holiday.
+                if ($status === self::STATUS_HOLIDAY && ($holidayPaid[$date] ?? true)) {
+                    $paidHolidays++;
+                }
+                $otByStatus[$status] = ($otByStatus[$status] ?? 0) + $ot;
                 if ($status === self::STATUS_PRESENT) {
                     $minutes += $mins;
                 }
@@ -368,14 +433,25 @@ class PayrollService
                 $adj[$a->type] = ($adj[$a->type] ?? 0) + (float) $a->amount;
             }
 
-            $base     = round($dayRate * $present, 2);
-            $otAmount = round($otHours * $otRate, 2);
+            $base        = round($dayRate * $present, 2);
+            $holidayPay  = config('payroll.paid_holidays', true)
+                ? round($dayRate * $paidHolidays, 2) : 0.0;
+            // Each bucket of overtime hours is paid at its own multiplier.
+            $otAmount = 0.0;
+            foreach ($otByStatus as $st => $hrs) {
+                if ($hrs <= 0) {
+                    continue;
+                }
+                $mul = self::otMultiplierFor($w, $company, $st);
+                $otAmount += $hrs * ($oDiv > 0 ? ($dayRate / $oDiv) * $mul : 0);
+            }
+            $otAmount = round($otAmount, 2);
 
             // Head-wise earnings, and the statutory that follows from them.
             $heads    = $this->earningHeads($w, $rate, $present, $wDiv);
             $headsSum = round(array_sum(array_column($heads, 'earned')), 2);
             // With no structure saved the single day-rate figure IS the gross.
-            $earnings = $heads === [] ? $base : $headsSum;
+            $earnings = ($heads === [] ? $base : $headsSum) + $holidayPay;
             $stat     = $this->statutory($w, $heads, $otAmount, $to);
 
             $gross      = round($earnings + $otAmount, 2);
@@ -396,6 +472,10 @@ class PayrollService
                 'monthly_rate' => $rate, 'wage_divisor' => $wDiv, 'ot_divisor' => $oDiv,
                 'day_rate' => round($dayRate, 2), 'ot_rate' => round($otRate, 2),
                 'base_amount' => $base, 'ot_amount' => $otAmount,
+                'wage_type' => $w->wage_type ?? 'daily',
+                'daily_rate' => $dayRate,
+                'paid_holidays' => $paidHolidays, 'holiday_pay' => $holidayPay,
+                'ot_multiplier' => $oMul,
                 'heads' => $heads, 'gross' => $gross,
                 'statutory' => $stat,
                 'total_deductions' => $deductions,
@@ -440,6 +520,8 @@ class PayrollService
                 'ot_divisor'     => (int) config('payroll.ot_divisor', 8),
                 'weekly_offs'    => $offs,
                 'components'     => self::components(),
+                'paid_holidays'  => (bool) config('payroll.paid_holidays', true),
+                'holiday_ot_multiplier' => (float) config('payroll.holiday_ot_multiplier', 2.0),
                 'statutory'      => config('payroll.statutory'),
             ],
         ];
