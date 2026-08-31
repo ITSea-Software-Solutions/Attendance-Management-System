@@ -168,7 +168,7 @@ export default function WorkerAssign() {
                 <input type="checkbox"
                        checked={requireApproval ?? true}
                        onChange={(e) => saveApprovalSetting(e.target.checked)} />
-                Require approval for new vendor deployments
+                Require approval for new contractor deployments
               </label>
             )}
           </div>

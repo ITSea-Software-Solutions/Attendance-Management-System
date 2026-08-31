@@ -225,7 +225,7 @@ export default function VendorApproval() {
                   <tr>
                     <td colSpan={5} className="text-center py-12 text-gray-400">
                       <AlertTriangle size={28} className="mx-auto mb-2 text-gray-200" />
-                      No vendors in this category.
+                      No contractors in this category.
                     </td>
                   </tr>
                 )}

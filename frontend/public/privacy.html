@@ -41,11 +41,11 @@
   <div class="tablewrap"><table>
     <tr><th>Data</th><th>Purpose</th><th>Protection</th></tr>
     <tr><td>Organisation &amp; user accounts (name, email, phone, address; GST/PAN if provided)</td><td>Account operation, plan management, invoicing</td><td>Role-scoped access; login rate-limited</td></tr>
-    <tr><td>Worker identity (name, DOB, gender, address, photo)</td><td>Workforce registration and identification</td><td>Tenant-scoped: visible only to the registering vendor and linked companies</td></tr>
+    <tr><td>Worker identity (name, DOB, gender, address, photo)</td><td>Workforce registration and identification</td><td>Tenant-scoped: visible only to the registering contractor and linked companies</td></tr>
     <tr><td><b>Aadhaar</b></td><td>One-identity-one-worker verification and duplicate prevention</td><td><b>The full number is never stored.</b> We keep only the masked value (last 4 digits) and a keyed one-way hash used solely for duplicate blocking. Uploaded e-Aadhaar PDFs are stored on private, non-web-accessible storage and served only through authenticated, role-checked endpoints. Every access is audit-logged.</td></tr>
     <tr><td><b>Fingerprint templates</b></td><td>Attendance identification at gates</td><td>Stored encrypted (AES); never sent to browsers; used only for attendance matching; raw fingerprint images are not retained. Deleted when the worker's enrollment is removed.</td></tr>
     <tr><td>Consent confirmation</td><td>Record that the registering organisation confirmed the worker's informed consent</td><td>Timestamp stored with the worker record</td></tr>
-    <tr><td>Attendance events (IN/OUT, time, gate/department, device id, match score)</td><td>The core service: verified presence records</td><td>Scoped to the company and vendor involved</td></tr>
+    <tr><td>Attendance events (IN/OUT, time, gate/department, device id, match score)</td><td>The core service: verified presence records</td><td>Scoped to the company and contractor involved</td></tr>
     <tr><td>Audit logs (actor, action, IP, timestamp)</td><td>Security, accountability, dispute resolution</td><td>Restricted access</td></tr>
     <tr><td>App/device data (device identifier, sync timestamps, offline queue)</td><td>Offline-first sync; duplicate-safe uploads</td><td>Local store scoped to your organisation; cleared on sign-out</td></tr>
     <tr><td>Login token (browser localStorage / app storage)</td><td>Keeping you signed in (7-day expiry)</td><td>No third-party tracking; no advertising cookies</td></tr>

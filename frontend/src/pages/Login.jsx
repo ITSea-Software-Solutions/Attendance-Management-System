@@ -97,7 +97,7 @@ export default function Login() {
           <p className="text-sm text-gray-500 text-center mt-1">
             New here?{" "}
             <a href="/signup" className="text-brand-600 font-semibold">
-              Create your company or vendor account
+              Create your company or contractor account
             </a>{" "}
             — free trial, no card needed.
           </p>

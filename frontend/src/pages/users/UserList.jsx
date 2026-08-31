@@ -373,7 +373,7 @@ export default function UserList() {
                     {(deptOptions ?? []).map((d) => <option key={d} value={d} />)}
                   </datalist>
                   <p className="text-xs text-gray-400 mt-1">
-                    HR users review vendor deployments: approve/reject and choose which gates/departments each worker may enter.
+                    HR users review contractor deployments: approve/reject and choose which gates/departments each worker may enter.
                   </p>
                 </div>
               )}
