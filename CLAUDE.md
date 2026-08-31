@@ -98,6 +98,10 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `worker_id_documents` | Additional ID documents (Aadhaar, PAN, etc.) — `document_path` on private disk |
 | `worker_assignments` | Worker↔company deployments — `start_date`, `end_date`, `status`, `is_locked` |
 | `attendance_logs` | Each IN/OUT event — `type` (IN/OUT), `worker_id`, `company_id`, `marked_at`, `gate`, `fingerprint_score` |
+| `company_holidays` | Government/festival holidays per company; `paid` flag per holiday |
+| `payroll_adjustments` | Arrears / advances / deductions / bonus for one worker for one pay period |
+| `attendance_overrides` | Manual OT hours or day status, with `approved_by` + `approved_at` |
+| `gate_passes` | Visitor passes — guest + vehicle + 2 photos, `approval_token` for the host link |
 | `audit_logs` | Every sensitive action with user, action string, model, IP |
 
 **Key design decisions:**
@@ -133,7 +137,9 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `ForgotPassword` | `/forgot-password` | PUBLIC | Self-service reset step 1; shows dev link when mailer=log AND debug |
 | `ResetPassword` | `/reset-password` | PUBLIC | Step 2 (from emailed link); revokes all tokens on success |
 | `LiveBoard` | `/live` | all | Real-time who-is-where: occupancy, gate cards w/ photos, hourly flow, ticker (10s refresh) |
-| `Visitors` | `/visitors` | super_admin, company_admin, company_hr, company_gate | Gate passes (photos, WhatsApp/manual decisions, entry/exit) + Hosts tab (HR CRUD) |
+| `Visitors` | `/visitors` | super_admin, company_admin, company_hr, company_gate | Create gate passes (live photo + vehicle no. + vehicle photo, ≥1 photo required), decide (admin/HR ONLY — gate cannot), entry/exit, host-approval toggle + Hosts tab (HR CRUD) |
+| `VisitorApproval` | `/visitor-approval/:token` | **PUBLIC** | One-tap host approval — no login; token in the URL is the credential |
+| `Payroll` | `/payroll` | super_admin, company_admin, company_hr, vendor_admin | Wage register (cycle stepper, inline rate edit, exception strip), By-contractor split, Holidays tab; Excel/CSV/muster downloads |
 | `Downloads` | `/downloads` | all | Apps + docs; public twin at /download.html (static) |
 | `PlanBilling` | `/billing` | company_admin, vendor_admin | Current plan, usage meters, upgrade request |
 | `Subscriptions` | `/subscriptions` | super_admin | All orgs' plans/usage; approve/reject requests; set plan |
@@ -156,6 +162,8 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `SignupController` | `store` | PUBLIC; creates org + admin user on Trial; vendor contact_email pre-check |
 | `PlanController` | `show`, `requestUpgrade`, `index`, `setPlan`, `decide` | Org billing + super admin subscriptions |
 | `SyncController` | `pull`, `push` | Client-app offline sync; idempotent by client_uuid; plan limits on push |
+| `PayrollController` | `componentsCatalogue`, `register`, `registerExport`, `muster`, `contractorSummary`, `saveRates`, `storeAdjustment`, `storeOverride`, `holidays` | Gate users blocked; vendors see only their own workers' lines |
+| `VisitorController` | hosts CRUD, `storePass`, `decidePass`, `movePass`, `passPhoto`, **public** `publicPass`/`publicDecide`/`publicPassPhoto`, WhatsApp webhook | `decidePass` excludes `company_gate` by design |
 | `DashboardController` | `stats`, `today`, `activity`, `overview` | `overview` = one role-scoped payload for the v1.16 dashboard |
 
 ---
@@ -225,6 +233,22 @@ POST /api/sync/push                                ← client app: idempotent ba
 GET  /api/users
 POST /api/users
 PUT  /api/users/{id}
+
+GET  /api/payroll/components            ← wage-head catalogue + statutory rates (?monthly_rate= → suggested split)
+GET  /api/payroll/register              ← ?from&to (or ?month) &company_id &worker_ids &with_days
+GET  /api/payroll/register-export       ← wage register CSV (head-wise + statutory)
+GET  /api/payroll/muster                ← the paper muster grid: P/A/WO/H + daily OT row beneath
+GET  /api/payroll/contractor-summary    ← what each contractor should bill
+POST /api/payroll/rates                 ← bulk wage rates
+POST /api/payroll/adjustments           ← arrear|advance|deduction|bonus for the period
+POST /api/payroll/overrides             ← manual OT / day status, records the approver
+GET/POST/DELETE /api/payroll/holidays   ← company holiday calendar (paid flag per holiday)
+
+POST /api/gate-passes                   ← vehicle_number + photo + vehicle_photo (≥1 photo required)
+GET  /api/gate-passes/{id}/photo        ← ?type=vehicle for the vehicle shot
+GET  /api/visitor-pass/{token}          ← PUBLIC, throttled — host approval link
+POST /api/visitor-pass/{token}/decide   ← PUBLIC — approve/deny, one use, same-day only
+GET  /api/visitor-pass/{token}/photo    ← PUBLIC — ?type=vehicle
 ```
 
 ---
@@ -308,6 +332,9 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 | PDF rejected on ID doc upload | Old validation used `image` rule | Validation: `'max:10240\|mimes:jpeg,png,jpg,pdf'` |
 | Static route shadowed by dynamic | `/workers/register` vs `/workers/:id` | In App.jsx: put static routes before `/:id` |
 | Cancel blocked on locked assignment | Old code blocked all cancels when `is_locked=true` | Now checks latest log — cancel allowed if type is OUT |
+| A new column silently ignored on create | Not in `$fillable` — mass assignment drops it without error (bit us on `gate_passes.approval_token`) | Add to `$fillable`, or `forceFill()` it after create (correct for credentials/system fields) |
+| Wages look wrong for a worker | They may be `wage_type=monthly` while the site pays daily | Daily is the DEFAULT; `daily_rate` is used as entered, monthly divides by `wage_divisor` |
+| PT/LWF amounts wrong for a client | Both are STATE-specific and change | `config/payroll.php` → `statutory.pt.slabs` / `statutory.lwf`; confirm per state before go-live |
 
 ---
 
@@ -326,7 +353,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 
 ---
 
-## Feature Status (as of 2026-08-30 — web v1.17.0, apps v0.9.35)
+## Feature Status (as of 2026-08-31 — web v1.18.0, apps v0.9.37)
 
 ### Implemented & Working
 - [x] Multi-company, multi-vendor architecture with pivot approval flow
@@ -390,6 +417,19 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] **v1.13.0: onboarding-grade bulk import** — workers gain emp_code (unique per vendor, searchable, shown #CODE), pan_number (regex-validated), joining_date, aadhaar_verified_at (migration 034, backfilled from aadhaar_hash); import: Aadhaar OPTIONAL (rows land unverified; flag set when number added later via update()), flexible header aliases (Adhar No/Date of Joining/Mobile No/Emp Code...), dd/mm/yyyy dates, per-row errors, without_aadhaar count; /workers?aadhaar=verified|unverified filter + WorkerList dropdown + pending badges (list + detail); export gains Emp code/Aadhaar verified/PAN/Joining date/Address; store()/update() accept new fields; NOTE date casts serialize UTC — UI formats correct local date
 - [x] **v1.12.0: plug-and-play launch layer** — Razorpay DORMANT integration (dependency-free REST: POST /plan/requests/{id}/razorpay-order (server-priced from plans.prices_inr × months) + /razorpay-verify (HMAC sig check → auto-activates licence, SA notified); button on PlanBilling only when RAZORPAY_KEY_ID/SECRET set, checkout.js loaded on demand); prices env-driven (PRICE_PROFESSIONAL_INR/PRICE_ENTERPRISE_INR); `truecrew:test-comms` artisan verifier (email/SMS/WhatsApp(Meta ping)/Razorpay(test order)/payment details/prices/biometric+debug posture; --to/--email live sends); NotifyService WhatsApp logs would-be messages in debug; deploy/production/ pack (setup.sh, nginx-production.conf static+TLS, .env.production.example fully annotated)
 - [x] **v1.17.0: hours/wage-day reports + attendance filters** — config/payroll.php (FULL_DAY_HOURS=8, HALF_DAY_HOURS=4, PAYROLL_OVERTIME) grades each worker-day: >=8h full (1.0), >=4h half (0.5), else short (0), OT = beyond full; GET /attendance/hours-report ?from&to (or ?month) &group=daily|weekly|monthly|summary &company_id &worker_ids → CSV w/ wage-rule preamble line (Reports parser auto-detects the real header row + shows the note); export/printable/monthRows now accept from/to (month still works) + company_id + worker_ids; monthly CSV + printable gained Full/Half/Payable/OT columns; dailySummary accepts company_id (vendor/super only — company users stay pinned), worker_ids, from/to; GET /workers-options (compact picker list, role-scoped: vendor=own, company=deployed-there OR seen-there, ?company_id= same OR-logic, cap 2000); AttendanceList: Company column hidden for company users AND when a company is picked, company dropdown for vendor/super, MultiSelect.jsx worker picker (one/many/all), single-day↔date-range toggle w/ per-row Date column, all exports follow on-screen filters + 4 hours-report buttons; Reports page: date-range presets (This/Last month, This/Last week, Last 30d, custom) replacing month picker, "Hours & wage days" tile w/ roll-up chips + its own charts (payable-days area/bar, day-type donut, top workers by days/hours, payable-days by vendor) + payable-days/overtime summary chips. **CSV injection fix**: App\Support\Csv::row() guards cells starting with = + - @ (e.g. "+919876…") with a leading apostrophe across ALL exports; Csv::unguard() in the importer + the frontend xlsx/report parsers strip it, so round-trips are unchanged. Fixed CompanyController@index for vendor users (invalid wherePivot inside whereHas + null company_id filter → 500)
+- [x] **v1.18.0 + app v0.9.37: payroll, holidays, visitors & nav rebuild**
+  - **Third finger** — `workers.fingerprint_template_3` (migration 036); `Worker::enrolledTemplates()` is now the SINGLE list every matcher reads (server identify/mark + all 3 app drivers), so a new slot can't be half-supported. Sync pull/push carry slot 3 (app DB v8). Enroll `slot:1|2|3`; `DELETE ?slot=` removes one.
+  - **Payroll module** (migrations 037/039/040) — `PayrollService` + `PayrollController`. **DAILY WAGE IS THE DEFAULT MODEL** (`workers.wage_type` daily|monthly, `daily_rate`): this product is for daily/contract labour, NOT salaried staff. Day rate is entered directly; monthly kept for staff (rate ÷ divisor). Wage heads are PER DAY for daily workers.
+  - **Wage heads** (config/payroll.php `components`): Basic, DA/VDA, HRA, conveyance, washing, medical, night shift, incentive, special + deduction heads. Each head flags `pf`/`esi` so the statutory base is right.
+  - **Statutory** (config `statutory`, all env-overridable): PF 12%/12% w/ EPS 8.33%, admin 0.5%, EDLI 0.5%, ₹15,000 ceiling; ESI 0.75%/3.25% under ₹21,000 gross; PT slabs (MH default) + Feb extra; LWF in configured months; bonus 8.33% + gratuity 4.81% provisions for contractor billing. **PT and LWF are state-specific — confirm before each new client.**
+  - **Pay cycles** 26→25 (default), 21→20, 16→15, calendar. `PayrollService::period()`.
+  - **Government holidays** — `company_holidays` + Payroll ▸ Holidays tab. Holiday is PAID at day rate to everyone deployed (per-holiday `paid` flag); working it = OT for the WHOLE day at `holiday_ot_multiplier` (2×). Attendance log shows a banner (single day) / "Holiday" label (range).
+  - **OT multiplier precedence**: worker.ot_multiplier → company.settings.ot_multipliers[skill_grade] → config default; holiday/weekly-off multipliers apply on top, each OT bucket priced separately.
+  - **Employment tab** in WorkerRegister (step 2 of 6) — designation, department, skill grade, UAN, PF/ESIC, PF/ESI applicable, bank a/c+IFSC+name, wage type, rate, per-head split w/ "Suggest split". Saves via PUT /workers/{id}. **Vendors own this** (company users get 403 on worker writes).
+  - **Endpoints**: `/payroll/{components,register,register-export,muster,contractor-summary,rates,adjustments,overrides,holidays}`. Muster CSV = their paper grid (P/A/WO/H + OT row beneath).
+  - **Visitors** (migrations 038/041) — portal can now CREATE gate passes (it previously only listed them); vehicle number (normalised upper/no-space) + vehicle photo; **at least one photo required** (server 422 + disabled button); `require_visitor_approval` per-company setting (default on) — off = auto-approved, WhatsApp ask skipped; **gate users can NO LONGER approve/reject** (403) — they raise, admin/HR decide; **one-tap host approval link** — `gate_passes.approval_token` (48 chars, set via forceFill NOT mass-assignment, hidden from payloads, cleared on decision, same-day only), public throttled routes `/visitor-pass/{token}{,/photo,/decide}`, public page `/visitor-approval/:token`. Works over SMS before WhatsApp Business is approved.
+  - **Nav rebuild** — `Mark Attendance` had NO menu entry at all (gate's primary job!); now 2nd under Dashboard. Vendors+Vendor Approvals merged to one **Contractors** entry (approval queue surfaced as an "N awaiting approval" button). Payroll got its own group. Groups: Daily / People / Attendance / Payroll / Organisation / Account & Help. Dashboard quick actions now checked against App.jsx route guards (gate was offered "Approvals", vendor_operator "Deploy Workers" — both bounced).
+  - **`frontend/src/components/LiveCapture.jsx`** — shared camera capture, `facingMode` prop (rear camera for vehicle shots), upload only as fallback.
 - [x] **v1.17.0 (round 2): own-company redundancy removed EVERYWHERE** — single source of truth `frontend/src/lib/scope.js` `useOrgScope()` → `showCompany(pickedCompanyId)` = `!isCompanyUser && !pickedCompanyId`; mirrored server-side by `AttendanceController::showsCompany(Request)`. Applied to: attendance export daily+monthly CSV, hours-report daily+grouped CSV, printable totals table (all via array_merge so columns stay aligned), Reports preview/filters/downloads, Still-Inside report headers, AttendanceList table + day-detail modal, AttendanceExceptions rows, WorkerAssign deployments table, WorkerDetail per-log company fallback. Reports page also gained the company dropdown + worker MultiSelect (sends company_id/worker_ids, so the server scopes rows AND drops the column). Role-drift fixes found in the same sweep: WorkerDetail/VendorList `isCompanyUser` were missing `company_hr` (HR got the vendor-style company picker / broken vendor tabs); Sidebar hid "Still Inside" from company_hr, company_gate and vendor_operator though the route+API serve every role. **Rule for future work: any page that can print a company name must call `useOrgScope().showCompany()` instead of re-deriving roles.**
 - [x] **v1.16.0: Reports page** — Reports.jsx at /reports (nav: all roles): report tiles (daily register/monthly totals/still-inside/workers dir/vendors dir [company+super only]) → loads server export (CSV parsed client-side via SheetJS; still-inside from /attendance/exceptions JSON) → CLIENT-side filters (dropdowns auto-built from Vendor/Company/Location(s)/Status columns + free search) + live summary chips (rows/workers/total hours/missing OUTs) + preview table (first 100) → Excel/.xlsx + CSV downloads contain EXACTLY the filtered view (client-generated); printable = server month report; dashboard reports strip links here; insights band (charts.jsx + HBarList) per report recomputed from the FILTERED view: daily=present-per-day area + arrival-hour histogram + vendor donut + top-hours ranks; monthly=days/hours ranks + vendor/company day-donuts; inside=gate/company donuts; workers=status/Aadhaar/gender donuts + per-vendor ranks; vendors=status/plan donuts; 'Charts on/off' toggle
 - [x] **v1.16.0: role-aware dashboard rebuild** — GET /dashboard/overview (one payload: role KPIs, 30d trend incl. present/marks per day, week/month worker-day compares, hourly IN flow, presence breakdown per vendor/company, donut (company: turnout; vendor: deployed/bench/pending; super: orgs by plan), attention chips w/ deep links, recent 8 marks); Dashboard.jsx rebuilt (hero + quick actions, KPI deltas vs yesterday, 7d/30d toggle, SVG charts in components/charts.jsx: AreaChart/BarChart/Donut/HourlyFlow/PresenceBars — dependency-free, title-tag tooltips), Reports strip reuses /attendance/export + /printable; company_hr now included (was blank before); old /dashboard/stats endpoints kept for the app
