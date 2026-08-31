@@ -8,6 +8,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:uuid/uuid.dart';
 
 import '../core/scope.dart';
+import 'gate_result.dart';
 
 /// Face attendance INSIDE the app — on-device precision, hardware-free:
 ///  1. Live camera preview (back camera by default — point at the worker).
@@ -92,33 +93,36 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
       await Directory(p.dirname(path)).create(recursive: true);
       await File(shot.path).copy(path);
 
-      // ── On-device gate: real face, big enough, eyes open ──
-      setState(() => _status = 'Checking face quality on-device…');
-      final detector = FaceDetector(
-          options: FaceDetectorOptions(
-              performanceMode: FaceDetectorMode.accurate,
-              enableClassification: true));
-      final faces =
-          await detector.processImage(InputImage.fromFilePath(path));
-      await detector.close();
-      if (faces.isEmpty) {
-        setState(() { _busy = false; _status = 'No face in frame — align the worker\'s face and try again.'; });
-        return;
-      }
-      final f = faces.reduce((a, b) =>
-          a.boundingBox.width * a.boundingBox.height >
-                  b.boundingBox.width * b.boundingBox.height
-              ? a
-              : b);
-      if (f.boundingBox.width < 120) {
-        setState(() { _busy = false; _status = 'Face too small/far — move closer and retry.'; });
-        return;
-      }
-      final eyes = ((f.leftEyeOpenProbability ?? 1) +
-              (f.rightEyeOpenProbability ?? 1)) / 2;
-      if (eyes < 0.3) {
-        setState(() { _busy = false; _status = 'Eyes appear closed — ask the worker to look at the camera.'; });
-        return;
+      // ── On-device gate (Android only — ML Kit is mobile-only; on Windows
+      // the server's ArcFace identify+re-verify is the sole gate) ──
+      if (Platform.isAndroid) {
+        setState(() => _status = 'Checking face quality on-device…');
+        final detector = FaceDetector(
+            options: FaceDetectorOptions(
+                performanceMode: FaceDetectorMode.accurate,
+                enableClassification: true));
+        final faces =
+            await detector.processImage(InputImage.fromFilePath(path));
+        await detector.close();
+        if (faces.isEmpty) {
+          setState(() { _busy = false; _status = 'No face in frame — align the worker\'s face and try again.'; });
+          return;
+        }
+        final f = faces.reduce((a, b) =>
+            a.boundingBox.width * a.boundingBox.height >
+                    b.boundingBox.width * b.boundingBox.height
+                ? a
+                : b);
+        if (f.boundingBox.width < 120) {
+          setState(() { _busy = false; _status = 'Face too small/far — move closer and retry.'; });
+          return;
+        }
+        final eyes = ((f.leftEyeOpenProbability ?? 1) +
+                (f.rightEyeOpenProbability ?? 1)) / 2;
+        if (eyes < 0.3) {
+          setState(() { _busy = false; _status = 'Eyes appear closed — ask the worker to look at the camera.'; });
+          return;
+        }
       }
 
       // ── Server 1:N identify ──
@@ -165,8 +169,17 @@ class _FaceAttendanceScreenState extends State<FaceAttendanceScreen> {
     if (type == null) return;
     setState(() { _busy = true; _status = 'Marking $type…'; });
     try {
-      final msg = await app.markFace(w, type, photoPath);
-      setState(() { _busy = false; _status = '✅ $msg'; });
+      await app.markFace(w, type, photoPath);
+      if (!mounted) return;
+      setState(() { _busy = false; _status = null; });
+      await showGateResult(
+        context,
+        name: '${w['name']}',
+        type: type,
+        workerServerId: (w['worker_id'] as num?)?.toInt(),
+        method: 'face',
+        proofPath: photoPath,
+      );
     } catch (e) {
       setState(() { _busy = false; _status = 'Mark failed — ${e.toString().contains("422") ? "face did not re-verify / sequence invalid" : "connection issue"}. Try again.'; });
     }

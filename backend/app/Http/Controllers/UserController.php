@@ -16,11 +16,11 @@ class UserController extends Controller
     {
         $auth = $request->user();
 
-        $users = User::select(['id','name','email','role','company_id','vendor_id','phone','is_active','location_type','location_name'])
+        $users = User::select(['id','name','email','role','company_id','vendor_id','phone','is_active','location_type','location_name','created_at'])
             ->with(['company:id,name', 'vendor:id,name'])
             // company_admin sees only their own gate users
             ->when($auth->role === 'company_admin', fn($q) =>
-                $q->where('company_id', $auth->company_id)->where('role', 'company_gate')
+                $q->where('company_id', $auth->company_id)->whereIn('role', ['company_gate', 'company_hr'])
             )
             // vendor_admin sees only their own operators
             ->when($auth->role === 'vendor_admin', fn($q) =>
@@ -67,6 +67,7 @@ class UserController extends Controller
                 $data['is_active'] = true;
                 $user = User::create($data);
                 $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+            $this->sendWelcome($user);
                 return response()->json($user, 201);
             }
 
@@ -75,17 +76,21 @@ class UserController extends Controller
                 'email'         => 'required|email|unique:users',
                 'password'      => ['required', Password::min(8)->letters()->numbers()],
                 'phone'         => 'nullable|string|max:15',
+                'role'          => 'nullable|in:company_gate,company_hr',
                 'location_type' => 'nullable|in:main_gate,department,checkpoint',
                 'location_name' => 'nullable|string|max:100',
             ]);
             if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('company', $auth->company_id), 'users')) {
                 return response()->json($deny, 403);
             }
-            $data['role']       = 'company_gate';
+            // Gate users mark attendance at their location; HR users review
+            // vendor deployments (approve/reject + department permissions).
+            $data['role']       = $request->input('role', 'company_gate');
             $data['company_id'] = $auth->company_id;
             $data['is_active']  = true;
             $user = User::create($data);
             $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+            $this->sendWelcome($user);
             return response()->json($user, 201);
         }
 
@@ -104,6 +109,7 @@ class UserController extends Controller
             $data['is_active'] = true;
             $user = User::create($data);
             $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+            $this->sendWelcome($user);
             return response()->json($user, 201);
         }
 
@@ -135,6 +141,7 @@ class UserController extends Controller
         $user = User::create($data);
 
         $this->audit->log($auth->id, 'user_created', User::class, $user->id);
+            $this->sendWelcome($user);
 
         return response()->json($user, 201);
     }
@@ -159,7 +166,7 @@ class UserController extends Controller
         $auth = $request->user();
 
         if ($auth->role === 'company_admin') {
-            if ($user->company_id !== $auth->company_id || $user->role !== 'company_gate') {
+            if ($user->company_id !== $auth->company_id || ! in_array($user->role, ['company_gate', 'company_hr'], true)) {
                 abort(403, 'You can only edit gate users for your own company.');
             }
 
@@ -218,7 +225,7 @@ class UserController extends Controller
             return response()->json(['message' => 'Cannot delete your own account.'], 422);
         }
 
-        if ($auth->role === 'company_admin' && ($user->company_id !== $auth->company_id || $user->role !== 'company_gate')) {
+        if ($auth->role === 'company_admin' && ($user->company_id !== $auth->company_id || ! in_array($user->role, ['company_gate', 'company_hr'], true))) {
             abort(403, 'You can only delete gate users for your own company.');
         }
 
@@ -230,5 +237,21 @@ class UserController extends Controller
         $this->audit->log($auth->id, 'user_deleted', User::class, $user->id);
 
         return response()->json(['message' => 'User deleted.']);
+    }
+
+    /** Templated welcome mail + in-app hello for a freshly created login. */
+    private function sendWelcome(User $user): void
+    {
+        $notify = app(\App\Services\NotifyService::class);
+        $notify->inApp([$user], 'welcome', 'Welcome to TrueCrew!',
+            'Your login is ready — explore your dashboard to get started.');
+        $ctx = \App\Services\PlanService::orgFor($user);
+        $notify->email($user->email, 'welcome_user', [
+            'name'      => $user->name,
+            'email'     => $user->email,
+            'role'      => $user->role,
+            'login_url' => rtrim(config('app.url'), '/'),
+            'org_name'  => $ctx ? $ctx['org']->name : 'TrueCrew',
+        ], $ctx['type'] ?? null, $ctx ? $ctx['org']->id : null, $ctx ? ($ctx['org']->plan ?? 'trial') : null);
     }
 }

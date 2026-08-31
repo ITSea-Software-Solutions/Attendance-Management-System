@@ -9,6 +9,9 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - laravel_public:/var/www/html/public:ro
+      # App binaries served straight off disk — a missing file must 404 rather
+      # than fall through to the SPA and save as a corrupt download.
+      - ./frontend/public:/var/www/frontend/public:ro
       - ./nginx/logs:/var/log/nginx
     depends_on:
       - backend
@@ -69,13 +72,15 @@ services:
       target: ${FRONTEND_TARGET:-dev}
     container_name: ams_frontend
     ports:
-      - "5173:5173"
+      # Loopback-only: Vite must never be internet-reachable (bots probe
+      # /.env, /.npmrc and trigger HMR error overlays for real users) —
+      # nginx reaches it via the docker network; local dev via localhost.
+      - "127.0.0.1:5173:5173"
     volumes:
       - ./frontend:/app
       - /app/node_modules
     environment:
       - VITE_API_URL=${VITE_API_URL:-http://localhost/api}
-      - VITE_BIOMETRIC_WS=ws://localhost:12345
     networks:
       - ams_network
     restart: unless-stopped
@@ -107,8 +112,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: ams_redis
-    ports:
-      - "6379:6379"
+    # No host port: only the compose network needs Redis (host 6379 clashes
+    # with other local projects). Use `docker exec ams_redis redis-cli` to poke it.
     volumes:
       - redis_data:/data
     command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD:-redis_secret}

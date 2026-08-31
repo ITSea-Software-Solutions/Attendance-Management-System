@@ -38,12 +38,13 @@ class SyncController extends Controller
             $assignments = WorkerAssignment::with('company:id,name')
                 ->whereIn('worker_id', $workers->pluck('id'))
                 ->where('status', 'active')
-                ->get();
+                ->get(); // vendors see ALL their deployments incl. pending (status shown in-app)
             $attendance = collect();
         } else {
             // company_admin / company_gate / super_admin
             $assignQ = WorkerAssignment::with('company:id,name')
                 ->where('status', 'active')
+                ->where('approval_status', 'approved')
                 ->whereDate('end_date', '>=', today()->subDays(7));
             if (! $user->isSuperAdmin()) {
                 $assignQ->where('company_id', $user->company_id);
@@ -59,6 +60,12 @@ class SyncController extends Controller
             $attendance = $attQ->orderByDesc('marked_at')->limit(500)->get();
         }
 
+        // Marking-capable devices (gate/company/super) need the enrolled
+        // templates locally for OFFLINE 1:N matching at the gate — the exact
+        // mirror of the web gate's /attendance/worker-templates. Decrypted
+        // here just like there; vendors don't mark, so they don't get them.
+        $withTemplates = ! $user->isVendorUser();
+
         return response()->json([
             'server_time' => now()->toIso8601String(),
             'workers'     => $workers->map(fn ($w) => [
@@ -72,6 +79,22 @@ class SyncController extends Controller
                 'status'                => $w->status,
                 'vendor_id'             => $w->vendor_id,
                 'updated_at'            => $w->updated_at?->toIso8601String(),
+                'fingerprint_template'  => $withTemplates && $w->fingerprint_template
+                    ? (function () use ($w) {
+                        try { return decrypt($w->fingerprint_template); } catch (\Throwable) { return null; }
+                    })()
+                    : null,
+                // Backup fingers — the gate matches against ANY enrolled finger.
+                'fingerprint_template_2' => $withTemplates && $w->fingerprint_template_2
+                    ? (function () use ($w) {
+                        try { return decrypt($w->fingerprint_template_2); } catch (\Throwable) { return null; }
+                    })()
+                    : null,
+                'fingerprint_template_3' => $withTemplates && $w->fingerprint_template_3
+                    ? (function () use ($w) {
+                        try { return decrypt($w->fingerprint_template_3); } catch (\Throwable) { return null; }
+                    })()
+                    : null,
             ]),
             'assignments' => $assignments->map(fn ($a) => [
                 'id'           => $a->id,
@@ -81,6 +104,10 @@ class SyncController extends Controller
                 'start_date'   => $a->start_date?->toDateString(),
                 'end_date'     => $a->end_date?->toDateString(),
                 'status'       => $a->status,
+                'approval_status'   => $a->approval_status ?? 'approved',
+                'allowed_locations' => $a->allowed_locations,
+                'created_at'        => $a->created_at?->toIso8601String(),
+                'approved_at'       => $a->approved_at?->toIso8601String(),
             ]),
             'attendance'  => $attendance->map(fn ($m) => [
                 'id'                => $m->id,
@@ -114,6 +141,10 @@ class SyncController extends Controller
             'registrations.*.consent'        => 'nullable|boolean',
             'registrations.*.fingerprint_template' => 'nullable|string',
             'registrations.*.fingerprint_quality'  => 'nullable|integer|min:0|max:100',
+            'registrations.*.fingerprint_template_2' => 'nullable|string',
+            'registrations.*.fingerprint_quality_2'  => 'nullable|integer|min:0|max:100',
+            'registrations.*.fingerprint_template_3' => 'nullable|string',
+            'registrations.*.fingerprint_quality_3'  => 'nullable|integer|min:0|max:100',
             'marks'                          => 'array',
             'marks.*.uuid'                   => 'required|uuid',
             'marks.*.worker_id'              => 'nullable|integer',
@@ -182,7 +213,8 @@ class SyncController extends Controller
         $hash   = AadhaarService::hashNumber($num);
         $masked = 'XXXX-XXXX-' . substr($num, -4);
 
-        if (Worker::withTrashed()->where('aadhaar_hash', $hash)->exists()) {
+        if (config('biometric.aadhaar_dedup', true)
+            && Worker::withTrashed()->where('aadhaar_hash', $hash)->exists()) {
             return ['uuid' => $uuid, 'status' => 'error', 'message' => 'A worker with this Aadhaar number is already registered.'];
         }
 
@@ -203,6 +235,14 @@ class SyncController extends Controller
             // SIM elsewhere) — encrypted at rest exactly like web enrollment.
             'fingerprint_template'    => $hasFp ? encrypt($reg['fingerprint_template']) : null,
             'fingerprint_quality'     => $hasFp ? ($reg['fingerprint_quality'] ?? null) : null,
+            'fingerprint_template_2'  => $hasFp && ! empty($reg['fingerprint_template_2'])
+                ? encrypt($reg['fingerprint_template_2']) : null,
+            'fingerprint_quality_2'   => $hasFp && ! empty($reg['fingerprint_template_2'])
+                ? ($reg['fingerprint_quality_2'] ?? null) : null,
+            'fingerprint_template_3'  => $hasFp && ! empty($reg['fingerprint_template_3'])
+                ? encrypt($reg['fingerprint_template_3']) : null,
+            'fingerprint_quality_3'   => $hasFp && ! empty($reg['fingerprint_template_3'])
+                ? ($reg['fingerprint_quality_3'] ?? null) : null,
             'fingerprint_enrolled_at' => $hasFp ? now() : null,
             'status'                => $hasFp ? Worker::STATUS_ACTIVE : Worker::STATUS_PENDING,
             'registered_by'         => $user->id,
@@ -258,6 +298,18 @@ class SyncController extends Controller
         $companyId = $assignment?->company_id ?? $user->company_id;
         if (! $companyId) {
             return ['uuid' => $uuid, 'status' => 'error', 'message' => 'No company context for this mark.'];
+        }
+
+        // Deployment approval + gate permission (same rules as direct marks).
+        if ($assignment && ($assignment->approval_status ?? 'approved') !== 'approved') {
+            return ['uuid' => $uuid, 'status' => 'error',
+                'message' => 'Deployment not approved by the company ('.$assignment->approval_status.').'];
+        }
+        $allowedLocs = $assignment?->allowed_locations;
+        $markLoc = $user->location_name ?? 'Main Gate';
+        if (is_array($allowedLocs) && $allowedLocs !== [] && ! in_array($markLoc, $allowedLocs, true)) {
+            return ['uuid' => $uuid, 'status' => 'error',
+                'message' => "Worker not permitted at '{$markLoc}'. Allowed: ".implode(', ', $allowedLocs).'.'];
         }
 
         $log = new AttendanceLog([

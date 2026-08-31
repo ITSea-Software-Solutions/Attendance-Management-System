@@ -52,12 +52,30 @@ export default function Subscriptions() {
                 <div className="text-sm">
                   <span className="font-semibold capitalize">{r.org_type}</span> #{r.org_id} ·{" "}
                   <span className="font-medium">{plans[r.current_plan]?.label}</span> → <span className="font-bold text-brand-700">{plans[r.requested_plan]?.label}</span>
+                  <span className="text-gray-500"> · {r.months ?? 1} mo</span>
                   <span className="text-gray-400"> · by {r.requester?.name} ({r.requester?.email})</span>
                   {r.note && <span className="text-gray-400"> · “{r.note}”</span>}
+                  {r.paid_at ? (
+                    <div className="mt-1 text-xs text-emerald-700 font-medium">
+                      💰 {String(r.payment_method).replace("_", " ").toUpperCase()} · ₹{r.amount} · ref {r.payment_reference}
+                      {r.has_payment_proof && (
+                        <button
+                          className="ml-2 underline text-brand-700"
+                          onClick={async () => {
+                            const resp = await api.get(`/plan/requests/${r.id}/proof`, { responseType: "blob" });
+                            window.open(URL.createObjectURL(resp.data), "_blank");
+                          }}>
+                          view proof
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="mt-1 text-xs text-amber-700">No payment recorded yet</div>
+                  )}
                 </div>
                 <div className="flex gap-2">
                   <button className="btn-primary" onClick={() => decide.mutate({ id: r.id, action: "approve" })}>
-                    <BadgeCheck size={14} /> Approve
+                    <BadgeCheck size={14} /> {r.paid_at ? "Verify payment & activate" : "Approve"}
                   </button>
                   <button className="btn-danger" onClick={() => decide.mutate({ id: r.id, action: "reject" })}>
                     <XIcon size={14} /> Reject
@@ -106,8 +124,22 @@ export default function Subscriptions() {
                 <td className="px-4 py-2.5 tabular-nums">{o.usage.links} / {fmt(o.limits.links)}</td>
                 <td className="px-4 py-2.5 text-gray-500">{o.plan_started_at ?? "—"}</td>
                 <td className="px-4 py-2.5">
+                  {o.plan !== "trial" && (
+                    <div className={`text-[11px] mb-1 font-medium ${o.licence_lapsed ? "text-red-600" : (o.days_left != null && o.days_left <= 7) ? "text-amber-600" : "text-gray-400"}`}>
+                      {o.licence_lapsed ? `EXPIRED ${o.plan_expires_at}` : o.plan_expires_at ? `till ${o.plan_expires_at} (${o.days_left}d)` : "no expiry"}
+                    </div>
+                  )}
                   <select className="input py-1.5 text-sm w-36" value={o.plan}
-                          onChange={(e) => setPlan.mutate({ org_type: o.org_type, org_id: o.id, plan: e.target.value })}>
+                          onChange={(e) => {
+                            const plan = e.target.value;
+                            let months = null;
+                            if (plan !== "trial") {
+                              const v = window.prompt("Licence period in months (leave empty for NO expiry — e.g. partner/grandfathered):", "12");
+                              if (v === null) return;
+                              months = v.trim() === "" ? null : parseInt(v, 10) || 12;
+                            }
+                            setPlan.mutate({ org_type: o.org_type, org_id: o.id, plan, months });
+                          }}>
                     <option value="trial">Trial</option>
                     <option value="professional">Professional</option>
                     <option value="enterprise">Enterprise</option>

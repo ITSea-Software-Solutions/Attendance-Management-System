@@ -23,6 +23,17 @@ jobs:
         with: { channel: stable, cache: true }
       - run: flutter pub get
       - run: flutter build windows --release
+      # Zero-setup scanners: any vendor runtime DLLs committed under
+      # client/windows/sgfp/ ride beside truecrew.exe — the app checks the
+      # exe folder FIRST when discovering sgfplib.dll, so gate machines need
+      # no SecuGen software installed.
+      - name: Bundle scanner DLLs (when present)
+        shell: pwsh
+        run: |
+          if (Test-Path windows/sgfp) {
+            Get-ChildItem windows/sgfp -Filter *.dll | Copy-Item -Destination build/windows/x64/runner/Release/ -Force
+            Get-ChildItem build/windows/x64/runner/Release/*.dll | Select-Object Name
+          } else { Write-Host "no bundled scanner DLLs" }
       - name: Zip bundle
         shell: pwsh
         run: Compress-Archive -Path build/windows/x64/runner/Release/* -DestinationPath "$env:GITHUB_WORKSPACE/truecrew-windows-x64.zip"

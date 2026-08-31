@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
+use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Worker;
 use App\Models\WorkerAssignment;
@@ -32,7 +33,14 @@ class AttendanceController extends Controller
     public function dailySummary(Request $request): JsonResponse
     {
         $user      = $request->user();
-        $companyId = $user->isCompanyUser() ? $user->company_id : null;
+        // Company users are pinned to their own company (no picker needed);
+        // vendor/super users may narrow to one of theirs.
+        $companyId = $user->isCompanyUser()
+            ? $user->company_id
+            : ($request->company_id ? (int) $request->company_id : null);
+        // Gate/department logins are scoped to THEIR location only.
+        $gateLoc   = ($user->isGateUser() && $user->location_name) ? $user->location_name : null;
+        $workerIds = $this->requestedWorkerIds($request);
 
         $rows = \DB::table('attendance_logs as al')
             ->join('workers as w',      'w.id',  '=', 'al.worker_id')
@@ -50,11 +58,26 @@ class AttendanceController extends Controller
                 COUNT(*)                                                        as total_events,
                 SUM(CASE WHEN al.type='IN'  THEN 1 ELSE 0 END)                 as in_count,
                 SUM(CASE WHEN al.type='OUT' THEN 1 ELSE 0 END)                 as out_count,
-                GROUP_CONCAT(DISTINCT al.location_name SEPARATOR ', ')          as locations
+                GROUP_CONCAT(DISTINCT al.location_name SEPARATOR ', ')          as locations,
+                (w.photo_path IS NOT NULL)                                      as has_photo,
+                (w.aadhaar_photo_path IS NOT NULL)                              as has_aadhaar_photo,
+                SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN al.type='IN'  AND al.auth_proof_path IS NOT NULL THEN al.id END ORDER BY al.marked_at ASC), ',', 1)  as in_proof_id,
+                SUBSTRING_INDEX(GROUP_CONCAT(CASE WHEN al.type='OUT' AND al.auth_proof_path IS NOT NULL THEN al.id END ORDER BY al.marked_at DESC), ',', 1) as out_proof_id,
+                GROUP_CONCAT(DISTINCT al.method SEPARATOR ', ')                 as methods,
+                MAX(al.fingerprint_score)                                       as best_fp_score,
+                MAX(al.face_score)                                              as best_face_score,
+                MIN(al.proof_face_match)                                        as proof_face_min,
+                MAX(al.proof_face_match)                                        as proof_face_max,
+                MAX(al.proof_face_score)                                        as best_proof_face_score
             ")
             ->when($companyId,               fn($q) => $q->where('al.company_id', $companyId))
+            ->when($gateLoc,                 fn($q, $l) => $q->where('al.location_name', $l))
             ->when($user->isVendorUser(),    fn($q) => $q->where('w.vendor_id', $user->vendor_id))
             ->when($request->date,           fn($q, $d) => $q->whereDate('al.marked_at', $d))
+            // Optional date RANGE (used by the log's range filter); ?date wins when both are sent.
+            ->when(! $request->date && $request->from && $request->to, fn($q) =>
+                $q->whereBetween(\DB::raw('DATE(al.marked_at)'), [$request->from, $request->to]))
+            ->when($workerIds,               fn($q, $ids) => $q->whereIn('al.worker_id', $ids))
             ->when($request->search,         fn($q, $s) => $q->where('w.name', 'like', "%{$s}%"))
             ->when($request->deployment === 'current', fn($q) =>
                 $q->whereExists(function ($sub) use ($companyId) {
@@ -86,6 +109,392 @@ class AttendanceController extends Controller
         return response()->json($rows->paginate(30));
     }
 
+    /**
+     * Month export as CSV (Excel-ready). ?month=YYYY-MM&type=daily|monthly
+     * Role-scoped exactly like the on-screen lists (company / vendor / gate).
+     */
+    public function export(Request $request)
+    {
+        $request->validate([
+            'month' => 'nullable|date_format:Y-m',
+            'from'  => 'nullable|date',
+            'to'    => 'nullable|date',
+            'type'  => 'nullable|in:daily,monthly',
+        ]);
+        $type = $request->input('type', 'daily');
+        $rows = $this->monthRows($request);
+        $withCompany = $this->showsCompany($request);
+
+        [$from, $to] = $this->reportRange($request);
+        $stamp    = $request->month ?: "{$from}_to_{$to}";
+        $filename = "truecrew-attendance-{$stamp}-{$type}.csv";
+        return response()->streamDownload(function () use ($rows, $type, $withCompany) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+            if ($type === 'daily') {
+                \App\Support\Csv::row($out, array_merge(
+                    ['Date', 'Worker', 'Contractor'],
+                    $withCompany ? ['Company'] : [],
+                    ['Location(s)', 'First IN', 'Last OUT', 'Hours', 'Status']));
+                foreach ($rows as $r) {
+                    \App\Support\Csv::row($out, array_merge(
+                        [$r->work_date, $r->worker_name, $r->vendor_name],
+                        $withCompany ? [$r->company_name] : [],
+                        [$r->locations, $r->first_in, $r->last_out,
+                         $this->hoursBetween($r->first_in, $r->last_out),
+                         $r->last_out ? 'Done' : 'Missing OUT']));
+                }
+            } else {
+                \App\Support\Csv::row($out, array_merge(
+                    ['Worker', 'Contractor'],
+                    $withCompany ? ['Company'] : [],
+                    ['Days Present', 'Total Hours', 'Full days', 'Half days',
+                     'Payable days', 'Overtime', 'Days Missing OUT']));
+                foreach ($this->monthlyTotals($rows) as $t) {
+                    \App\Support\Csv::row($out, array_merge(
+                        [$t['worker'], $t['vendor']],
+                        $withCompany ? [$t['company']] : [],
+                        [$t['days'], $t['hours'], $t['full'], $t['half'],
+                         $t['payable'], $t['ot'], $t['missing']]));
+                }
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
+    /** Print-friendly monthly report (open in a tab → browser "Save as PDF"). */
+    public function printable(Request $request)
+    {
+        $request->validate([
+            'month' => 'nullable|date_format:Y-m',
+            'from'  => 'nullable|date',
+            'to'    => 'nullable|date',
+        ]);
+        $rows   = $this->monthRows($request);
+        $totals = $this->monthlyTotals($rows);
+        [$rf, $rt] = $this->reportRange($request);
+        $month  = $request->month ?: "{$rf} to {$rt}";
+        $org    = $request->user()->isVendorUser()
+            ? optional(\App\Models\Vendor::find($request->user()->vendor_id))->name
+            : optional(\App\Models\Company::find($request->user()->company_id))->name;
+
+        $withCompany = $this->showsCompany($request);
+        $body = '';
+        foreach ($totals as $t) {
+            $body .= '<tr><td>'.e($t['worker']).'</td><td>'.e($t['vendor']).'</td>'
+                   .($withCompany ? '<td>'.e($t['company']).'</td>' : '')
+                   .'<td class="n">'.$t['days'].'</td><td class="n">'.$t['hours']
+                   .'</td><td class="n">'.$t['full'].'</td><td class="n">'.$t['half']
+                   .'</td><td class="n"><b>'.$t['payable'].'</b></td><td class="n">'.$t['ot']
+                   .'</td><td class="n">'.$t['missing'].'</td></tr>';
+        }
+        $daily = '';
+        foreach ($rows as $r) {
+            $mins = $this->minutesBetween($r->first_in, $r->last_out);
+            $dv   = ($r->first_in && $r->last_out) ? $this->dayValue($mins) : null;
+            $daily .= '<tr><td>'.e($r->work_date).'</td><td>'.e($r->worker_name).'</td><td>'.e($r->locations)
+                    .'</td><td>'.e($r->first_in ? substr($r->first_in, 11, 5) : '—').'</td><td>'.e($r->last_out ? substr($r->last_out, 11, 5) : '—')
+                    .'</td><td class="n">'.$this->hoursBetween($r->first_in, $r->last_out).'</td>'
+                    .'<td class="n">'.($dv ? $dv['value'] : '—').'</td></tr>';
+        }
+        $fullH = config('payroll.full_day_hours', 8);
+        $halfH = config('payroll.half_day_hours', 4);
+        $html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>TrueCrew — Attendance '.$month.'</title>'
+              .'<style>body{font:13px/1.5 system-ui;margin:24px;color:#1D2833}h1{font-size:19px;margin:0}h2{font-size:14px;margin:24px 0 6px}'
+              .'table{border-collapse:collapse;width:100%;font-size:12px}th,td{border:1px solid #cbd5d1;padding:4px 7px;text-align:left}'
+              .'th{background:#e3efec}.n{text-align:right}.muted{color:#5A6470;font-size:12px}@media print{button{display:none}}</style></head><body>'
+              .'<button onclick="window.print()" style="float:right;padding:6px 14px">Print / Save as PDF</button>'
+              .'<h1>TrueCrew — Attendance Report</h1>'
+              .'<p class="muted">'.e($org ?? 'All organisations').' · Period: '.$month.' · Generated: '.now()->format('d M Y H:i').'</p>'
+              .'<p class="muted">Wage rule: '.$fullH.'h or more = 1 full day · '.$halfH.'h or more = half day (0.5) · less = short day (0).</p>'
+              .'<h2>Totals (muster)</h2><table><tr><th>Worker</th><th>Vendor</th>'
+              .($withCompany ? '<th>Company</th>' : '')
+              .'<th>Days</th><th>Hours</th>'
+              .'<th>Full</th><th>Half</th><th>Payable days</th><th>OT</th><th>Missing OUT</th></tr>'.$body.'</table>'
+              .'<h2>Daily detail</h2><table><tr><th>Date</th><th>Worker</th><th>Location</th><th>IN</th><th>OUT</th><th>Hours</th><th>Day</th></tr>'.$daily.'</table>'
+              .'</body></html>';
+        return response($html)->header('Content-Type', 'text/html; charset=UTF-8');
+    }
+
+    /**
+     * Shared range query — dailySummary's scoping without pagination.
+     * Accepts either ?month=YYYY-MM or a ?from=&to= date range, plus the
+     * optional company / worker narrowing used by the Reports page.
+     */
+    private function monthRows(Request $request)
+    {
+        $user      = $request->user();
+        // Company users are pinned to their own company; vendor/super may pick one.
+        $companyId = $user->isCompanyUser()
+            ? $user->company_id
+            : ($request->company_id ? (int) $request->company_id : null);
+        $gateLoc   = ($user->isGateUser() && $user->location_name) ? $user->location_name : null;
+        [$from, $to] = $this->reportRange($request);
+        $workerIds = $this->requestedWorkerIds($request);
+
+        return \DB::table('attendance_logs as al')
+            ->join('workers as w', 'w.id', '=', 'al.worker_id')
+            ->leftJoin('vendors as v', 'v.id', '=', 'w.vendor_id')
+            ->leftJoin('companies as c', 'c.id', '=', 'al.company_id')
+            ->selectRaw("
+                al.worker_id, w.emp_code as emp_code,
+                w.name as worker_name, v.name as vendor_name, c.name as company_name,
+                DATE(al.marked_at) as work_date,
+                MIN(CASE WHEN al.type='IN'  THEN al.marked_at END) as first_in,
+                MAX(CASE WHEN al.type='OUT' THEN al.marked_at END) as last_out,
+                GROUP_CONCAT(DISTINCT al.location_name SEPARATOR ', ') as locations")
+            ->whereBetween(\DB::raw('DATE(al.marked_at)'), [$from, $to])
+            ->where('al.is_valid', true)
+            ->when($companyId, fn($q) => $q->where('al.company_id', $companyId))
+            ->when($gateLoc, fn($q, $l) => $q->where('al.location_name', $l))
+            ->when($user->isVendorUser(), fn($q) => $q->where('w.vendor_id', $user->vendor_id))
+            ->when($workerIds, fn($q, $ids) => $q->whereIn('al.worker_id', $ids))
+            ->groupBy('al.worker_id', 'al.company_id', \DB::raw('DATE(al.marked_at)'),
+                      'w.name', 'w.emp_code', 'v.name', 'c.name')
+            ->orderBy('w.name')->orderBy('work_date')
+            ->get();
+    }
+
+    /** Resolve ?from/?to (or ?month, or the current month) to [from, to]. */
+    private function reportRange(Request $request): array
+    {
+        if ($request->filled('from') && $request->filled('to')) {
+            $from = Carbon::parse($request->input('from'))->toDateString();
+            $to   = Carbon::parse($request->input('to'))->toDateString();
+            return $from <= $to ? [$from, $to] : [$to, $from];
+        }
+        $month = $request->input('month', now()->format('Y-m'));
+        $start = Carbon::createFromFormat('Y-m-d', $month.'-01');
+
+        return [$start->toDateString(), $start->copy()->endOfMonth()->toDateString()];
+    }
+
+    /**
+     * Should exports carry a Company column?
+     *
+     * No when every row would repeat the same company: a company user always
+     * looks at their own, and a vendor/super who narrowed to one company has
+     * already said which. Mirrors the on-screen rule in the attendance log.
+     */
+    private function showsCompany(Request $request): bool
+    {
+        return ! $request->user()->isCompanyUser() && ! $request->company_id;
+    }
+
+    /** ?worker_ids=1,2,3 (or array) → int list; empty = all workers in scope. */
+    private function requestedWorkerIds(Request $request): array
+    {
+        $raw = $request->input('worker_ids');
+        if (is_string($raw)) {
+            $raw = array_filter(explode(',', $raw), fn ($v) => $v !== '');
+        }
+
+        return is_array($raw) ? array_values(array_filter(array_map('intval', $raw))) : [];
+    }
+
+    private function hoursBetween(?string $in, ?string $out): string
+    {
+        if (! $in || ! $out) return '';
+        $mins = Carbon::parse($out)->diffInMinutes(Carbon::parse($in), true);
+        return sprintf('%d:%02d', intdiv((int) $mins, 60), ((int) $mins) % 60);
+    }
+
+    private function monthlyTotals($rows): array
+    {
+        $agg = [];
+        foreach ($rows as $r) {
+            $k = $r->worker_name.'|'.$r->company_name;
+            $agg[$k] ??= ['worker' => $r->worker_name, 'vendor' => $r->vendor_name, 'company' => $r->company_name,
+                          'days' => 0, 'mins' => 0, 'missing' => 0,
+                          'full' => 0, 'half' => 0, 'short' => 0, 'ot_mins' => 0];
+            $agg[$k]['days']++;
+            if ($r->first_in && $r->last_out) {
+                $mins = $this->minutesBetween($r->first_in, $r->last_out);
+                $agg[$k]['mins'] += $mins;
+                $d = $this->dayValue($mins);
+                $agg[$k][$d['bucket']]++;
+                $agg[$k]['ot_mins'] += $d['ot_mins'];
+            } else {
+                $agg[$k]['missing']++;
+            }
+        }
+
+        return array_map(fn ($t) => [
+            'worker' => $t['worker'], 'vendor' => $t['vendor'], 'company' => $t['company'],
+            'days' => $t['days'],
+            'hours' => $this->hm($t['mins']),
+            'missing' => $t['missing'],
+            'full' => $t['full'], 'half' => $t['half'], 'short' => $t['short'],
+            'payable' => $this->payable($t['full'], $t['half']),
+            'ot' => $this->hm($t['ot_mins']),
+        ], array_values($agg));
+    }
+
+    // ─── Hours & wage-day reporting ──────────────────────────────────────────
+    // Workers are paid by HOURS but the muster is read in DAYS, so every
+    // worker-day is graded against config/payroll.php:
+    //   >= full_day_hours → 1.0 day · >= half_day_hours → 0.5 day · else 0.
+
+    private function minutesBetween(?string $in, ?string $out): int
+    {
+        if (! $in || ! $out) {
+            return 0;
+        }
+
+        return (int) Carbon::parse($out)->diffInMinutes(Carbon::parse($in), true);
+    }
+
+    private function hm(int $mins): string
+    {
+        return sprintf('%d:%02d', intdiv($mins, 60), $mins % 60);
+    }
+
+    /** Grade one worker-day into a wage bucket + overtime. */
+    private function dayValue(int $mins): array
+    {
+        $full = (int) round(config('payroll.full_day_hours', 8) * 60);
+        $half = (int) round(config('payroll.half_day_hours', 4) * 60);
+
+        if ($mins >= $full) {
+            return ['bucket' => 'full', 'value' => 1.0, 'label' => 'Full day',
+                    'ot_mins' => config('payroll.overtime', true) ? $mins - $full : 0];
+        }
+        if ($mins >= $half) {
+            return ['bucket' => 'half', 'value' => 0.5, 'label' => 'Half day', 'ot_mins' => 0];
+        }
+
+        return ['bucket' => 'short', 'value' => 0.0, 'label' => 'Short', 'ot_mins' => 0];
+    }
+
+    private function payable(int $full, int $half): string
+    {
+        return rtrim(rtrim(number_format($full + $half * 0.5, 1, '.', ''), '0'), '.') ?: '0';
+    }
+
+    /**
+     * Hours / wage-day report as CSV over any date range.
+     * ?from=&to= (or ?month=) &group=daily|weekly|monthly|summary
+     * &company_id= &worker_ids=1,2,3
+     */
+    public function hoursReport(Request $request)
+    {
+        $request->validate([
+            'month' => 'nullable|date_format:Y-m',
+            'from'  => 'nullable|date',
+            'to'    => 'nullable|date',
+            'group' => 'nullable|in:daily,weekly,monthly,summary',
+        ]);
+
+        $group       = $request->input('group', 'summary');
+        $rows        = $this->monthRows($request);
+        [$from, $to] = $this->reportRange($request);
+        $fullHours   = config('payroll.full_day_hours', 8);
+        $halfHours   = config('payroll.half_day_hours', 4);
+        $withCompany = $this->showsCompany($request);
+
+        // Period key + human label per grouping mode.
+        $periodOf = function (string $date) use ($group) {
+            $d = Carbon::parse($date);
+            return match ($group) {
+                'weekly'  => [$d->copy()->startOfWeek()->toDateString(),
+                              $d->copy()->startOfWeek()->format('d M').' – '.$d->copy()->endOfWeek()->format('d M Y')],
+                'monthly' => [$d->format('Y-m'), $d->format('F Y')],
+                default   => [$date, $date],
+            };
+        };
+
+        $filename = 'truecrew-hours-'.$group.'-'.($request->month ?: "{$from}_to_{$to}").'.csv';
+
+        return response()->streamDownload(function () use ($rows, $group, $periodOf, $fullHours, $halfHours, $withCompany) {
+            $out = fopen('php://output', 'w');
+            fprintf($out, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM for Excel
+
+            // A wage rule note travels WITH the file so the payroll clerk
+            // reading it in Excel knows how days were counted.
+            \App\Support\Csv::row($out, ["Wage rule: {$fullHours}h or more = 1 full day, "
+                ."{$halfHours}h or more = half day (0.5), less = short day (0). "
+                .'Overtime = hours beyond a full day.']);
+            \App\Support\Csv::row($out, []);
+
+            if ($group === 'daily') {
+                \App\Support\Csv::row($out, array_merge(
+                    ['Date', 'Worker', 'Emp code', 'Contractor'],
+                    $withCompany ? ['Company'] : [],
+                    ['Location(s)', 'First IN', 'Last OUT', 'Hours', 'Day value',
+                     'Day type', 'Overtime', 'Status']));
+                foreach ($rows as $r) {
+                    $mins = $this->minutesBetween($r->first_in, $r->last_out);
+                    $d    = $this->dayValue($mins);
+                    $done = $r->first_in && $r->last_out;
+                    \App\Support\Csv::row($out, array_merge(
+                        [$r->work_date, $r->worker_name, $r->emp_code, $r->vendor_name],
+                        $withCompany ? [$r->company_name] : [],
+                        [$r->locations,
+                         $r->first_in ? substr($r->first_in, 11, 5) : '',
+                         $r->last_out ? substr($r->last_out, 11, 5) : '',
+                         $done ? $this->hm($mins) : '',
+                         $done ? $d['value'] : 0,
+                         $done ? $d['label'] : 'No OUT',
+                         $done ? $this->hm($d['ot_mins']) : '',
+                         $done ? 'Done' : 'Missing OUT']));
+                }
+                fclose($out);
+
+                return;
+            }
+
+            // Grouped totals: per worker per period (summary = whole range).
+            $agg = [];
+            foreach ($rows as $r) {
+                [$pk, $plabel] = $group === 'summary'
+                    ? ['all', 'Whole period']
+                    : $periodOf($r->work_date);
+                $key = $pk.'|'.$r->worker_id.'|'.$r->company_name;
+                $agg[$key] ??= [
+                    'period' => $plabel, 'sort' => $pk,
+                    'worker' => $r->worker_name, 'emp_code' => $r->emp_code,
+                    'vendor' => $r->vendor_name, 'company' => $r->company_name,
+                    'days' => 0, 'mins' => 0, 'full' => 0, 'half' => 0, 'short' => 0,
+                    'ot_mins' => 0, 'missing' => 0,
+                ];
+                $agg[$key]['days']++;
+                if ($r->first_in && $r->last_out) {
+                    $mins = $this->minutesBetween($r->first_in, $r->last_out);
+                    $d    = $this->dayValue($mins);
+                    $agg[$key]['mins'] += $mins;
+                    $agg[$key][$d['bucket']]++;
+                    $agg[$key]['ot_mins'] += $d['ot_mins'];
+                } else {
+                    $agg[$key]['missing']++;
+                }
+            }
+            uasort($agg, fn ($a, $b) => [$a['sort'], $a['worker']] <=> [$b['sort'], $b['worker']]);
+
+            $periodHeader = match ($group) {
+                'weekly'  => 'Week',
+                'monthly' => 'Month',
+                default   => null,
+            };
+            $head = array_merge(
+                ['Worker', 'Emp code', 'Contractor'],
+                $withCompany ? ['Company'] : [],
+                ['Days present', 'Total hours', 'Full days', 'Half days', 'Short days',
+                 'Payable days', 'Overtime', 'Missing OUT']);
+            \App\Support\Csv::row($out, $periodHeader ? array_merge([$periodHeader], $head) : $head);
+
+            foreach ($agg as $t) {
+                $row = array_merge(
+                    [$t['worker'], $t['emp_code'], $t['vendor']],
+                    $withCompany ? [$t['company']] : [],
+                    [$t['days'], $this->hm($t['mins']), $t['full'], $t['half'], $t['short'],
+                     $this->payable($t['full'], $t['half']),
+                     $this->hm($t['ot_mins']), $t['missing']]);
+                \App\Support\Csv::row($out, $periodHeader ? array_merge([$t['period']], $row) : $row);
+            }
+            fclose($out);
+        }, $filename, ['Content-Type' => 'text/csv; charset=UTF-8']);
+    }
+
     // ─── List attendance ──────────────────────────────────────────────────────
 
     public function index(Request $request): JsonResponse
@@ -98,6 +507,8 @@ class AttendanceController extends Controller
                 'markedBy:id,name',
             ])
             ->when($user->isCompanyUser(), fn($q) => $q->where('company_id', $user->company_id))
+            ->when($user->isGateUser() && $user->location_name,
+                fn($q) => $q->where('location_name', $user->location_name))
             ->when($user->isVendorUser(), fn($q) =>
                 $q->whereHas('worker', fn($wq) => $wq->where('vendor_id', $user->vendor_id))
             )
@@ -146,6 +557,7 @@ class AttendanceController extends Controller
         // Only workers with an active deployment covering today
         $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->pluck('worker_id');
@@ -206,6 +618,7 @@ class AttendanceController extends Controller
 
         $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->pluck('worker_id');
@@ -268,6 +681,7 @@ class AttendanceController extends Controller
 
         $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->pluck('worker_id');
@@ -286,17 +700,29 @@ class AttendanceController extends Controller
         if (! $probe) {
             return response()->json(['message' => 'No face detected in the photo — try again with the worker facing the camera.'], 422);
         }
+        if ($this->face->spoofSuspected()) {
+            return response()->json(['message' => 'Liveness check failed — present the actual person to the camera, not a photo or screen.'], 422);
+        }
 
-        $best = ['worker' => null, 'score' => 0.0];
+        $best   = ['worker' => null, 'score' => 0.0];
+        $second = 0.0;
         foreach ($workers as $worker) {
             $score = \App\Services\FaceService::cosine($probe, $worker->face_descriptor);
             if ($score > $best['score']) {
-                $best = ['worker' => $worker, 'score' => $score];
+                $second = $best['score'];
+                $best   = ['worker' => $worker, 'score' => $score];
+            } elseif ($score > $second) {
+                $second = $score;
             }
         }
 
         if (! $best['worker'] || $best['score'] < $this->face->threshold()) {
             return response()->json(['message' => 'No face match found among deployed workers.'], 404);
+        }
+        // 1:N ambiguity margin (siblings / similar faces): when the runner-up
+        // is nearly as close as the winner, don't guess — use fingerprint.
+        if ($second > 0 && ($best['score'] - $second) < (float) config('biometric.face_margin', 0.08)) {
+            return response()->json(['message' => 'Two workers look too similar for a reliable face match — use fingerprint for this worker.'], 409);
         }
 
         $worker       = $best['worker'];
@@ -314,6 +740,7 @@ class AttendanceController extends Controller
         $assignment = WorkerAssignment::where('worker_id', $worker->id)
             ->where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->first();
@@ -346,6 +773,7 @@ class AttendanceController extends Controller
 
         $activeWorkerIds = WorkerAssignment::where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->pluck('worker_id');
@@ -360,24 +788,54 @@ class AttendanceController extends Controller
             return response()->json(['message' => 'No enrolled workers deployed today.'], 404);
         }
 
-        $best = ['worker' => null, 'score' => 0];
+        $best   = ['worker' => null, 'score' => 0];
+        $second = 0;
 
         if ($this->simulationEnabled()) {
             // Demo only: no real finger, so synthesise an identification.
             $worker = $workers->random();
             $best = ['worker' => $worker, 'score' => 150 + random_int(0, 49)];
         } else {
+            // No fake fallback: refuse when no real matcher binary is
+            // configured — the gate APPS match on-device (SGFPM) instead.
+            if (! $this->biometric->matcherAvailable()) {
+                return response()->json([
+                    'message' => 'Server-side fingerprint matching is not configured on this server. '
+                        .'Use the TrueCrew gate app (matches on the scanner device, works offline), '
+                        .'or install the SecuGen matcher binary for the web gate.',
+                ], 501);
+            }
             $probe = $request->input('probe_template');
             foreach ($workers as $worker) {
-                $result = $this->biometric->matchTemplates($probe, decrypt($worker->fingerprint_template));
-                if (($result['score'] ?? 0) > $best['score']) {
-                    $best = ['worker' => $worker, 'score' => $result['score']];
+                // Any enrolled finger identifies the worker: score the probe
+                // against both templates, keep the worker's best. One score
+                // per WORKER, so a worker's own two fingers never trip the
+                // cross-worker ambiguity margin below.
+                $score = 0;
+                foreach ($worker->enrolledTemplates() as $enc) {
+                    try {
+                        $result = $this->biometric->matchTemplates($probe, decrypt($enc));
+                        $score  = max($score, (int) ($result['score'] ?? 0));
+                    } catch (\Throwable) {
+                        // undecryptable template — skip this finger
+                    }
+                }
+                if ($score > $best['score']) {
+                    $second = $best['score'];
+                    $best   = ['worker' => $worker, 'score' => $score];
+                } elseif ($score > $second) {
+                    $second = $score;
                 }
             }
         }
 
         if (! $best['worker'] || $best['score'] < $this->biometric->threshold()) {
             return response()->json(['message' => 'No fingerprint match found.'], 404);
+        }
+        // 1:N ambiguity margin — two different workers scoring close together
+        // means the identification can't be trusted; rescan instead.
+        if ($second > 0 && ($best['score'] - $second) < (int) config('biometric.margin', 10)) {
+            return response()->json(['message' => 'Match ambiguous between two workers — place the finger again.'], 404);
         }
 
         $worker       = $best['worker'];
@@ -436,6 +894,7 @@ class AttendanceController extends Controller
         $deployed = WorkerAssignment::where('worker_id', $data['worker_id'])
             ->where('company_id', $data['company_id'])
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->exists();
@@ -451,14 +910,29 @@ class AttendanceController extends Controller
             if ($this->simulationEnabled()) {
                 $serverScore = 150 + random_int(0, 49);
             } else {
+                // Web-gate path only. The apps match ON-DEVICE with the real
+                // SGFPM matcher and sync their score; this branch re-verifies
+                // browser-submitted probes and never fakes a comparison.
+                if (! $this->biometric->matcherAvailable()) {
+                    return response()->json([
+                        'message' => 'Server-side fingerprint verification is not configured — use the TrueCrew gate app for fingerprint attendance.',
+                    ], 501);
+                }
                 $worker = Worker::findOrFail($data['worker_id']);
                 abort_unless($worker->fingerprint_template, 422, 'Worker has no enrolled fingerprint.');
                 abort_unless(! empty($data['probe_template']), 422, 'Fingerprint probe required.');
-                $result = $this->biometric->matchTemplates($data['probe_template'], decrypt($worker->fingerprint_template));
-                if (! ($result['matched'] ?? false)) {
+                // Verify against ANY enrolled finger (primary or backup).
+                $matched = false;
+                foreach ($worker->enrolledTemplates() as $enc) {
+                    $result = $this->biometric->matchTemplates($data['probe_template'], decrypt($enc));
+                    if ($result['matched'] ?? false) {
+                        $matched     = true;
+                        $serverScore = max((int) ($serverScore ?? 0), (int) $result['score']);
+                    }
+                }
+                if (! $matched) {
                     return response()->json(['message' => 'Fingerprint did not match this worker.'], 422);
                 }
-                $serverScore = $result['score'];
             }
         }
 
@@ -472,6 +946,9 @@ class AttendanceController extends Controller
             $probe = $this->face->embed(file_get_contents($request->file('photo')->getRealPath()));
             if (! $probe) {
                 return response()->json(['message' => 'No face detected in the photo — retake and try again.'], 422);
+            }
+            if ($this->face->spoofSuspected()) {
+                return response()->json(['message' => 'Liveness check failed — present the actual person to the camera, not a photo or screen.'], 422);
             }
             $faceScore = \App\Services\FaceService::cosine($probe, $worker->face_descriptor);
             if ($faceScore < $this->face->threshold()) {
@@ -524,12 +1001,51 @@ class AttendanceController extends Controller
 
         $this->lockActiveDeployment($data['worker_id'], $data['company_id']);
 
+        // Cross-check the capture against the enrolled face (advisory).
+        // Face marks were ALREADY verified from this exact photo — record
+        // that verdict directly; other methods get the async job.
+        if ($authProofPath) {
+            if ($data['method'] === 'face' && $faceScore !== null) {
+                $log->forceFill([
+                    'proof_face_score' => $faceScore,
+                    'proof_face_match' => true,
+                ])->save();
+            } else {
+                \App\Jobs\VerifyProofPhoto::dispatch($log->id);
+            }
+        }
+
         $this->audit->log($user->id, 'attendance_marked', AttendanceLog::class, $log->id, [
             'worker_id'     => $data['worker_id'],
             'type'          => $data['type'],
             'method'        => $data['method'],
             'location_name' => $locationName,
         ]);
+
+        // WhatsApp IN/OUT ping to the vendor contact + the worker's own number.
+        // Triple-gated inside NotifyService: provider creds set + Enterprise
+        // plan + the vendor toggled it on. Best-effort, never blocks the mark.
+        try {
+            $worker = \App\Models\Worker::with('vendor')->find($data['worker_id']);
+            $company = \App\Models\Company::find($data['company_id']);
+            if ($worker && $worker->vendor) {
+                $vars = [
+                    'worker_name'  => $worker->name,
+                    'type'         => $data['type'],
+                    'time'         => now()->format('d M H:i'),
+                    'company_name' => $company?->name ?? '',
+                    'gate'         => $locationName,
+                ];
+                $notify   = app(\App\Services\NotifyService::class);
+                $vSettings = (array) ($worker->vendor->settings ?? []);
+                $notify->whatsapp($worker->vendor->contact_phone, 'attendance_inout', $vars,
+                    'vendor', $worker->vendor->id, $worker->vendor->plan ?? 'trial', $vSettings);
+                $notify->whatsapp($worker->mobile ?: $worker->phone, 'attendance_inout', $vars,
+                    'vendor', $worker->vendor->id, $worker->vendor->plan ?? 'trial', $vSettings);
+            }
+        } catch (\Throwable $e) {
+            report($e);
+        }
 
         return response()->json([
             'message' => "Attendance {$data['type']} marked at {$locationName}.",
@@ -586,6 +1102,126 @@ class AttendanceController extends Controller
 
     // ─── Exceptions ───────────────────────────────────────────────────────────
 
+    /**
+     * Live Board — one glanceable payload: who is inside right now, per
+     * gate/department, today's flow, and the latest events. Role-scoped:
+     * company users see their company (gate users only their gate), vendors
+     * see their own workers, super admin sees everything (?company_id= to
+     * focus). "Inside" = the worker's LATEST valid log is IN (date-agnostic,
+     * so night shifts past midnight stay visible).
+     */
+    public function liveBoard(Request $request): JsonResponse
+    {
+        $user      = $request->user();
+        $companyId = $user->isCompanyUser() ? $user->company_id : $request->integer('company_id');
+        $gateLoc   = ($user->isGateUser() && $user->location_name) ? $user->location_name : null;
+
+        $scope = fn ($q) => $q
+            ->when($companyId, fn ($qq) => $qq->where('al.company_id', $companyId))
+            ->when($gateLoc, fn ($qq) => $qq->where('al.location_name', $gateLoc))
+            ->when($user->isVendorUser(), fn ($qq) => $qq->whereIn('al.worker_id',
+                fn ($s) => $s->select('id')->from('workers')->where('vendor_id', $user->vendor_id)));
+
+        // Latest valid log per worker(+company) → inside when it's an IN
+        $latestIds = \DB::table('attendance_logs as al')
+            ->selectRaw('MAX(al.id) as id')
+            ->where('al.is_valid', true)
+            ->tap($scope)
+            ->groupBy('al.worker_id', 'al.company_id')
+            ->pluck('id');
+
+        $inside = AttendanceLog::with(['worker:id,name,vendor_id,photo_path', 'worker.vendor:id,name', 'company:id,name'])
+            ->whereIn('id', $latestIds)
+            ->where('type', AttendanceLog::TYPE_IN)
+            ->orderByDesc('marked_at')
+            ->get()
+            ->map(fn ($l) => [
+                'worker_id' => $l->worker_id,
+                'name'      => optional($l->worker)->name,
+                'vendor'    => optional(optional($l->worker)->vendor)->name,
+                'company'   => optional($l->company)->name,
+                'gate'      => $l->location_name ?: 'Main Gate',
+                'in_at'     => $l->marked_at?->toIso8601String(),
+                'has_photo' => ! empty(optional($l->worker)->photo_path),
+                'method'    => $l->method,
+            ]);
+
+        // Gates: known locations (company presets + settings) + any gate seen
+        $gateNames = collect();
+        if ($companyId && ($company = \App\Models\Company::find($companyId))) {
+            $gateNames = collect(config('departments.presets', []))
+                ->merge((array) (((array) ($company->settings ?? []))['locations'] ?? []))
+                ->unique()->values();
+        }
+        $gates = $inside->groupBy('gate')->map(fn ($rows, $gate) => [
+            'name'    => $gate,
+            'count'   => $rows->count(),
+            'last_at' => $rows->max('in_at'),
+            'workers' => $rows->take(14)->values(),
+        ])->values();
+        foreach ($gateNames as $g) {
+            if ($gateLoc && $g !== $gateLoc) {
+                continue;
+            }
+            if (! $gates->contains(fn ($x) => $x['name'] === $g)) {
+                $gates->push(['name' => $g, 'count' => 0, 'last_at' => null, 'workers' => []]);
+            }
+        }
+        $gates = $gates->sortByDesc('count')->values();
+
+        // Today's flow + recent events
+        $todayBase = \DB::table('attendance_logs as al')
+            ->where('al.is_valid', true)
+            ->whereDate('al.marked_at', today())
+            ->tap($scope);
+        $inToday  = (clone $todayBase)->where('al.type', 'IN')->count();
+        $outToday = (clone $todayBase)->where('al.type', 'OUT')->count();
+        $hourly   = (clone $todayBase)
+            ->selectRaw("HOUR(al.marked_at) as h,
+                SUM(CASE WHEN al.type='IN' THEN 1 ELSE 0 END) as ins,
+                SUM(CASE WHEN al.type='OUT' THEN 1 ELSE 0 END) as outs")
+            ->groupBy('h')->orderBy('h')->get();
+
+        $recent = AttendanceLog::with(['worker:id,name,photo_path'])
+            ->where('is_valid', true)
+            ->whereDate('marked_at', today())
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->when($gateLoc, fn ($q) => $q->where('location_name', $gateLoc))
+            ->when($user->isVendorUser(), fn ($q) => $q->whereIn('worker_id',
+                fn ($s) => $s->select('id')->from('workers')->where('vendor_id', $user->vendor_id)))
+            ->orderByDesc('marked_at')->limit(20)->get()
+            ->map(fn ($l) => [
+                'id'        => $l->id,
+                'worker_id' => $l->worker_id,
+                'name'      => optional($l->worker)->name,
+                'type'      => $l->type,
+                'gate'      => $l->location_name ?: 'Main Gate',
+                'at'        => $l->marked_at?->toIso8601String(),
+                'method'    => $l->method,
+                'has_photo' => ! empty(optional($l->worker)->photo_path),
+            ]);
+
+        // Expected today: approved active deployments covering today (scoped)
+        $expected = WorkerAssignment::where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
+            ->where('start_date', '<=', today())->where('end_date', '>=', today())
+            ->when($companyId, fn ($q) => $q->where('company_id', $companyId))
+            ->when($user->isVendorUser(), fn ($q) => $q->where('vendor_id', $user->vendor_id))
+            ->distinct('worker_id')->count('worker_id');
+
+        return response()->json([
+            'inside_total' => $inside->count(),
+            'expected'     => $expected,
+            'in_today'     => $inToday,
+            'out_today'    => $outToday,
+            'gates'        => $gates,
+            'recent'       => $recent,
+            'hourly'       => $hourly,
+            'gate_scope'   => $gateLoc,
+            'generated_at' => now()->toIso8601String(),
+        ]);
+    }
+
     public function exceptions(Request $request): JsonResponse
     {
         $user = $request->user();
@@ -596,6 +1232,8 @@ class AttendanceController extends Controller
             ->where('is_valid', true)
             ->whereDate('marked_at', $date)
             ->when($user->isCompanyUser(), fn($q) => $q->where('company_id', $user->company_id))
+            ->when($user->isGateUser() && $user->location_name,
+                fn($q) => $q->where('location_name', $user->location_name))
             ->whereNotExists(function ($query) use ($date) {
                 $query->from('attendance_logs as out_log')
                     ->whereColumn('out_log.worker_id', 'attendance_logs.worker_id')
@@ -646,6 +1284,30 @@ class AttendanceController extends Controller
 
     private function validateAttendanceMark(int $workerId, int $companyId, string $type, string $locationName): ?string
     {
+        // Deployment must be APPROVED, and when the company restricted it to
+        // specific gates/departments, this gate must be one of them.
+        // (Deliberately NOT filtered by approval here — a pending/rejected
+        // deployment must be FOUND so the operator gets the precise reason.)
+        $assignment = WorkerAssignment::where('worker_id', $workerId)
+            ->where('company_id', $companyId)
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('start_date', '<=', today())
+            ->where('end_date', '>=', today())
+            ->orderByDesc('id')
+            ->first();
+        if ($assignment) {
+            if ($assignment->approval_status === 'pending') {
+                return 'This deployment is awaiting the company\'s approval.';
+            }
+            if ($assignment->approval_status === 'rejected') {
+                return 'This deployment was rejected by the company.';
+            }
+            $allowed = $assignment->allowed_locations;
+            if (is_array($allowed) && $allowed !== [] && ! in_array($locationName, $allowed, true)) {
+                return "Worker is not permitted at '{$locationName}'. Allowed: ".implode(', ', $allowed).'.';
+            }
+        }
+
         $lastLog = AttendanceLog::where('worker_id', $workerId)
             ->where('company_id', $companyId)
             ->where('location_name', $locationName)
@@ -689,9 +1351,88 @@ class AttendanceController extends Controller
         WorkerAssignment::where('worker_id', $workerId)
             ->where('company_id', $companyId)
             ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
             ->where('start_date', '<=', today())
             ->where('end_date', '>=', today())
             ->where('is_locked', false)
             ->update(['is_locked' => true]);
+    }
+
+    /**
+     * Attach the gate-capture proof photo to an already-synced mark (the
+     * offline apps push marks as JSON, then upload the photo separately).
+     * Only the org that recorded the mark (or super admin) may attach.
+     */
+    public function uploadProof(Request $request, AttendanceLog $log): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless(
+            $user->isSuperAdmin()
+            || ($user->isCompanyUser() && $user->company_id === $log->company_id)
+            || ($user->isVendorUser() && $log->worker && $log->worker->vendor_id === $user->vendor_id),
+            403
+        );
+        $request->validate(['photo' => 'required|image|max:5120|mimes:jpeg,png,jpg']);
+        if ($log->auth_proof_path) {
+            \Illuminate\Support\Facades\Storage::disk('private')->delete($log->auth_proof_path);
+        }
+        $path = $request->file('photo')->store('attendance/proofs', 'private');
+        $log->forceFill(['auth_proof_path' => $path])->save();
+
+        // Advisory cross-check: does the gate capture match the ENROLLED face?
+        \App\Jobs\VerifyProofPhoto::dispatch($log->id);
+
+        return response()->json(['message' => 'Proof photo attached.']);
+    }
+
+    /**
+     * Manual OUT — an administrative correction by the COMPANY side
+     * (admin/HR), e.g. to close a forgotten OUT before cancelling a
+     * deployment. Vendors deliberately cannot do this: attendance truth
+     * belongs to the company whose gate it is.
+     */
+    public function manualOut(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_unless($user->isSuperAdmin()
+            || in_array($user->role, ['company_admin', 'company_hr'], true), 403,
+            'Only the company (admin/HR) may mark a manual OUT.');
+        $data = $request->validate([
+            'worker_id'  => 'required|integer|exists:workers,id',
+            'company_id' => 'nullable|integer|exists:companies,id',
+            'note'       => 'nullable|string|max:200',
+        ]);
+        $companyId = $user->isSuperAdmin()
+            ? ($data['company_id'] ?? null)
+            : $user->company_id;
+        abort_unless($companyId, 422, 'company_id required.');
+
+        $lastIn = AttendanceLog::where('worker_id', $data['worker_id'])
+            ->where('company_id', $companyId)
+            ->latest('marked_at')
+            ->first();
+        if (! $lastIn || $lastIn->type !== AttendanceLog::TYPE_IN) {
+            return response()->json(['message' => 'Worker is not currently checked IN at your company.'], 422);
+        }
+
+        $log = AttendanceLog::create([
+            'worker_id'       => $data['worker_id'],
+            'company_id'      => $companyId,
+            'assignment_id'   => $lastIn->assignment_id,
+            'type'            => AttendanceLog::TYPE_OUT,
+            'marked_at'       => now(),
+            'marked_by'       => $user->id,
+            'method'          => 'manual',
+            'override_reason' => 'Manual OUT by '.$user->role.($data['note'] ?? null ? ': '.$data['note'] : ''),
+            'location_type'   => $lastIn->location_type ?? AttendanceLog::LOCATION_MAIN_GATE,
+            'location_name'   => $lastIn->location_name ?? AttendanceLog::DEFAULT_LOCATION_NAME,
+            'ip_address'      => $request->ip(),
+            'is_valid'        => true,
+        ]);
+        $this->audit->log($user->id, 'manual_out', AttendanceLog::class, $log->id, [
+            'worker_id' => $data['worker_id'],
+        ]);
+
+        return response()->json(['message' => 'Manual OUT recorded.', 'log' => $log]);
     }
 }

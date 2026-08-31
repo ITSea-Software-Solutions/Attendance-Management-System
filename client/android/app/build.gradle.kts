@@ -30,6 +30,15 @@ android {
             // TODO: Add your own signing config for the release build.
             // Signing with the debug keys for now, so `flutter run --release` works.
             signingConfig = signingConfigs.getByName("debug")
+            // Keep reflection-only SecuGen SDK classes out of R8's shrinker.
+            proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
+        }
+    }
+
+    // SecuGen SDK loads its device libs from extracted files (per their sample).
+    packaging {
+        jniLibs {
+            useLegacyPackaging = true
         }
     }
 }

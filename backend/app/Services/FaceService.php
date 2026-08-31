@@ -37,8 +37,25 @@ class FaceService
 
         $data = json_decode((string) $response->getBody(), true);
         $embedding = $data['embedding'] ?? null;
+        $this->lastLiveness = isset($data['liveness']) ? (float) $data['liveness'] : null;
 
         return is_array($embedding) ? $embedding : null;
+    }
+
+    /** Liveness of the LAST embed (0..1), null when no PAD model is active. */
+    public ?float $lastLiveness = null;
+
+    /**
+     * Anti-spoofing gate: true = REJECT (looks like a photo/screen replay).
+     * Only bites when BOTH a PAD model is installed (pdf-service) and
+     * FACE_PAD_THRESHOLD is set — staffed gates can run without it.
+     */
+    public function spoofSuspected(): bool
+    {
+        $threshold = config('biometric.face_pad_threshold');
+
+        return $threshold !== null && $this->lastLiveness !== null
+            && $this->lastLiveness < (float) $threshold;
     }
 
     /** Cosine similarity between two embeddings (−1..1; same person ≳ threshold). */

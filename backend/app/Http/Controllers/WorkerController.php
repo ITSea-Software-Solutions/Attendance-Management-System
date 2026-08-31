@@ -62,7 +62,44 @@ class WorkerController extends Controller
                 }
             })
             ->when($request->status, fn($q, $s) => $q->where('status', $s))
-            ->when($request->search, fn($q, $s) => $q->where('name', 'like', "%{$s}%"))
+            ->when($request->search, fn($q, $s) => $q->where(fn($w) => $w
+                ->where('name', 'like', "%{$s}%")
+                ->orWhere('emp_code', 'like', "%{$s}%")
+                ->orWhere('phone', 'like', "%{$s}%")))
+            // Vendor filter (company/super users narrowing a mixed list)
+            ->when($request->vendor_id, fn($q, $v) => $q->where('vendor_id', $v))
+            // "Inside now": the worker's LATEST event is an IN with no OUT yet
+            // (date-agnostic so night shifts crossing midnight stay visible —
+            // same semantics as the Exceptions page).
+            ->when($request->boolean('inside'), function ($q) use ($user) {
+                $q->whereRaw("(
+                    SELECT al.type FROM attendance_logs al
+                    WHERE al.worker_id = workers.id"
+                    .($user->isCompanyUser() ? ' AND al.company_id = '.((int) $user->company_id) : '')."
+                    ORDER BY al.marked_at DESC LIMIT 1
+                ) = 'IN'");
+            })
+            // Deployment-state filter: undeployed | expiring (≤3 days) | deployed
+            ->when($request->aadhaar === 'unverified', fn($q) => $q->whereNull('aadhaar_verified_at'))
+            ->when($request->aadhaar === 'verified',   fn($q) => $q->whereNotNull('aadhaar_verified_at'))
+            ->when($request->deploy_state === 'undeployed', fn($q) =>
+                $q->whereDoesntHave('assignments', fn($a) => $a
+                    ->where('status', 'active')->where('approval_status', 'approved')
+                    ->where('end_date', '>=', today())))
+            ->when($request->deploy_state === 'deployed', fn($q) =>
+                $q->whereHas('assignments', fn($a) => $a
+                    ->where('status', 'active')->where('approval_status', 'approved')
+                    ->where('start_date', '<=', today())->where('end_date', '>=', today())))
+            ->when($request->deploy_state === 'expiring', fn($q) =>
+                $q->whereHas('assignments', fn($a) => $a
+                    ->where('status', 'active')->where('approval_status', 'approved')
+                    ->whereBetween('end_date', [today(), today()->addDays(3)])))
+            // "Present today": any attendance event today
+            ->when($request->boolean('present_today'), function ($q) use ($user) {
+                $q->whereHas('attendanceLogs', fn($lq) => $lq
+                    ->whereDate('marked_at', today())
+                    ->when($user->isCompanyUser(), fn($c) => $c->where('company_id', $user->company_id)));
+            })
             ->orderByDesc('created_at');
 
         return response()->json($query->paginate(20));
@@ -163,6 +200,30 @@ class WorkerController extends Controller
             'pin'                    => 'nullable|string|size:6',
             'phone'                  => 'nullable|string|max:15',
             'mobile'                 => 'nullable|string|max:15',
+            'emp_code'               => 'nullable|string|max:30',
+            'pan_number'             => ['nullable', 'string', 'regex:/^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/'],
+            'joining_date'           => 'nullable|date',
+            // Employment & statutory (the vendor fills these on the Employment tab)
+            'designation'            => 'nullable|string|max:80',
+            'department'             => 'nullable|string|max:80',
+            'skill_category'         => 'nullable|in:unskilled,semi_skilled,skilled,highly_skilled',
+            'uan'                    => ['nullable', 'string', 'regex:/^\d{12}$/'],
+            'pf_number'              => 'nullable|string|max:30',
+            'esic_number'            => 'nullable|string|max:20',
+            'pf_applicable'          => 'nullable|boolean',
+            'esi_applicable'         => 'nullable|boolean',
+            'bank_account_number'    => 'nullable|string|max:24',
+            'bank_ifsc'              => ['nullable', 'string', 'regex:/^[A-Z]{4}0[A-Z0-9]{6}$/'],
+            'bank_name'              => 'nullable|string|max:80',
+            'wage_type'              => 'nullable|in:daily,monthly',
+            'daily_rate'             => 'nullable|numeric|min:0|max:99999',
+            'monthly_rate'           => 'nullable|numeric|min:0|max:9999999',
+            'ot_multiplier'          => 'nullable|numeric|min:0|max:4',
+            'wage_divisor'           => 'nullable|integer|min:1|max:31',
+            'ot_divisor'             => 'nullable|integer|min:1|max:24',
+            'wage_components'        => 'nullable|array',
+            'wage_components.*'      => 'nullable|numeric|min:0|max:9999999',
+
             // Aadhaar is MANDATORY — via one of two paths:
             //   extract path: masked + hash returned by /aadhaar/extract
             //   manual path : full 12-digit number (hashed & masked here, then discarded)
@@ -193,33 +254,429 @@ class WorkerController extends Controller
             return response()->json(['message' => 'vendor_id is required.'], 422);
         }
 
-        // ── SaaS plan limit: workers per vendor org ───────────────────────────
-        if ($deny = \App\Services\PlanService::deny(\App\Services\PlanService::ctx('vendor', $data['vendor_id']), 'workers')) {
-            return response()->json($deny, 403);
+        // ── Identity: Aadhaar OR PAN, at least one, each deduped ─────────────
+        // A worker who arrives without an Aadhaar can still be registered on a
+        // PAN and start earning; the Aadhaar follows and is flagged unverified
+        // until it does.
+        $hasAadhaar = ! empty($data['aadhaar_number'])
+            || (! empty($data['aadhaar_number_masked']) && ! empty($data['aadhaar_hash']));
+        $hasPan = ! empty($data['pan_number']);
+
+        if (! $hasAadhaar && ! $hasPan) {
+            return response()->json([
+                'message' => 'An identity document is required.',
+                'errors'  => ['aadhaar_number' => [
+                    'Provide an Aadhaar (PDF or 12-digit number) or a PAN card.',
+                ]],
+            ], 422);
         }
 
-        // ── Aadhaar mandatory + dedup ─────────────────────────────────────────
-        $resolved = $this->resolveAadhaar($data);
-        if ($resolved instanceof JsonResponse) {
-            return $resolved; // validation / duplicate error
+        $aadhaarMasked = $aadhaarHash = null;
+        if ($hasAadhaar) {
+            $resolved = $this->resolveAadhaar($data);
+            if ($resolved instanceof JsonResponse) {
+                return $resolved; // validation / duplicate error
+            }
+            [$aadhaarMasked, $aadhaarHash] = $resolved;
         }
-        [$aadhaarMasked, $aadhaarHash] = $resolved;
+
+        $panHash = null;
+        if ($hasPan) {
+            $resolvedPan = $this->resolvePan($data['pan_number']);
+            if ($resolvedPan instanceof JsonResponse) {
+                return $resolvedPan;
+            }
+            [$data['pan_number'], $panHash] = $resolvedPan;
+        }
+
         unset($data['aadhaar_number'], $data['aadhaar_hash']); // never persist the raw number; hash set via forceFill
         $data['aadhaar_number_masked'] = $aadhaarMasked;
 
         $worker = new Worker($data);
-        $worker->forceFill([
+        $worker->forceFill(array_filter([
             'aadhaar_hash'         => $aadhaarHash,
+            'pan_hash'             => $panHash,
             'consent_confirmed_at' => now(),
             'status'               => Worker::STATUS_PENDING,
             'registered_by'        => $user->id,
-        ])->save();
+        ], fn ($v) => $v !== null))->save();
 
         $this->audit->log($user->id, 'worker_created', Worker::class, $worker->id, [
             'worker_name' => $worker->name,
         ]);
 
+        // Notification center: tell the vendor org's admins (except the actor).
+        $admins = User::where('vendor_id', $worker->vendor_id)
+            ->where('role', 'vendor_admin')->where('id', '!=', $user->id)->get();
+        app(\App\Services\NotifyService::class)->inApp($admins, 'worker_registered',
+            "Worker registered: {$worker->name}",
+            "{$worker->aadhaar_number_masked} · status {$worker->status}",
+            ['worker_id' => $worker->id]);
+
         return response()->json($worker->load('vendor'), 201);
+    }
+
+    /**
+     * CSV export of the caller-visible workers (bulk_import_export feature).
+     */
+    /**
+     * Compact id+name list for pickers (attendance filters, report scoping).
+     * Role-scoped like every other worker query; ?company_id= narrows to
+     * workers ever deployed to that company. No pagination — capped at 2000.
+     */
+    public function options(Request $request): JsonResponse
+    {
+        $user = $request->user();
+
+        $q = Worker::query()->select('id', 'name', 'emp_code', 'vendor_id')->with('vendor:id,name');
+        if ($user->isVendorUser()) {
+            $q->where('vendor_id', $user->vendor_id);
+        } elseif ($user->isCompanyUser()) {
+            // Deployed to them now OR seen at their gates before — the picker
+            // must cover everyone the attendance log can show.
+            $cid = $user->company_id;
+            $q->where(fn ($x) => $x
+                ->whereHas('assignments', fn ($a) => $a->where('company_id', $cid))
+                ->orWhereHas('attendanceLogs', fn ($l) => $l->where('company_id', $cid)));
+        }
+        if ($cid = $request->company_id) {
+            // Company users cannot look outside their own company.
+            abort_if($user->isCompanyUser() && (int) $cid !== $user->company_id, 403, 'Unauthorized company.');
+            $cid = (int) $cid;
+            // Deployed there, or seen there before — matching what the
+            // attendance log for that company can actually show.
+            $q->where(fn ($x) => $x
+                ->whereHas('assignments', fn ($a) => $a->where('company_id', $cid))
+                ->orWhereHas('attendanceLogs', fn ($l) => $l->where('company_id', $cid)));
+        }
+
+        return response()->json(
+            $q->when($request->search, fn ($x, $s) => $x->where('name', 'like', "%{$s}%"))
+              ->orderBy('name')->limit(2000)->get()
+              ->map(fn ($w) => [
+                  'id' => $w->id, 'name' => $w->name,
+                  'emp_code' => $w->emp_code, 'vendor' => $w->vendor?->name,
+              ])
+        );
+    }
+
+    public function export(Request $request)
+    {
+        $user = $request->user();
+        abort_unless(\App\Services\PlanService::userHasFeature($user, 'bulk_import_export'), 403,
+            'Bulk export is a Professional/Enterprise feature.');
+        $q = Worker::with('vendor');
+        if ($user->isVendorUser()) {
+            $q->where('vendor_id', $user->vendor_id);
+        } elseif ($user->isCompanyUser()) {
+            $q->whereHas('assignments', fn ($a) => $a->where('company_id', $user->company_id));
+        }
+        $rows = $q->orderBy('name')->get();
+
+        return response()->streamDownload(function () use ($rows) {
+            $out = fopen('php://output', 'w');
+            fwrite($out, "\xEF\xBB\xBF"); // Excel-friendly BOM
+            \App\Support\Csv::row($out, ['Name', 'Emp code', 'Aadhaar (masked)', 'Aadhaar verified', 'PAN', 'Joining date', 'DOB', 'Gender', 'Phone', 'Email', 'Address', 'Contractor', 'Status', 'Fingerprint', 'Face', 'Email verified', 'Phone verified']);
+            foreach ($rows as $w) {
+                \App\Support\Csv::row($out, [
+                    $w->name, $w->emp_code, $w->aadhaar_number_masked,
+                    $w->aadhaar_verified_at ? 'yes' : 'NO — pending',
+                    $w->pan_number,
+                    optional($w->joining_date)->format('Y-m-d'),
+                    optional($w->dob)->format('Y-m-d'), $w->gender, $w->phone, $w->email,
+                    $w->address,
+                    $w->vendor?->name, $w->status,
+                    $w->fingerprint_enrolled_at ? 'yes' : 'no',
+                    $w->face_enrolled_at ? 'yes' : 'no',
+                    $w->email_verified_at ? 'yes' : 'no',
+                    $w->phone_verified_at ? 'yes' : 'no',
+                ]);
+            }
+            fclose($out);
+        }, 'truecrew-workers-'.now()->format('Y-m-d').'.csv', ['Content-Type' => 'text/csv']);
+    }
+
+    /**
+     * CSV bulk import (vendor users). Columns: name, aadhaar_number(12),
+     * dob(YYYY-MM-DD), gender(M/F/O), phone, email — header row required.
+     * Workers land as PENDING (biometrics still happen in person); every row
+     * is validated and reported individually — one bad row never kills the file.
+     */
+    public function import(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        // Workers BELONG to vendors — vendors import their own; super admin
+        // may import on a vendor's behalf. Companies never own workers
+        // (they only receive deployments), so no company role imports.
+        abort_unless($user->isVendorUser() || $user->isSuperAdmin(), 403);
+        abort_unless(\App\Services\PlanService::userHasFeature($user, 'bulk_import_export'), 403,
+            'Bulk import is a Professional/Enterprise feature.');
+        $request->validate([
+            'file'      => 'required|file|mimes:csv,txt|max:2048',
+            'vendor_id' => $user->isVendorUser() ? 'nullable' : 'required|integer|exists:vendors,id',
+        ]);
+        $vendorId = $user->isVendorUser() ? $user->vendor_id : (int) $request->input('vendor_id');
+
+        $fh = fopen($request->file('file')->getRealPath(), 'r');
+        $rawHeader = fgetcsv($fh) ?: [];
+        // Flexible headers: trim, lowercase, strip spaces/underscores, and
+        // accept the aliases people actually type in Excel.
+        $norm = fn ($h) => preg_replace('/[^a-z0-9]/', '', strtolower(trim((string) $h)));
+        $aliases = [
+            'name'          => ['name', 'workername', 'fullname'],
+            'emp_code'      => ['empcode', 'employeecode', 'empno', 'employeeno', 'empid', 'staffcode', 'code'],
+            'phone'         => ['phone', 'mobile', 'phoneno', 'mobileno', 'contact'],
+            'joining_date'  => ['joiningdate', 'doj', 'dateofjoining', 'joindate'],
+            'aadhaar'       => ['aadhaarnumber', 'aadhaarno', 'aadhaar', 'adharno', 'adhar', 'adhaar', 'aadharnumber', 'aadharno', 'aadhar', 'uid'],
+            'pan'           => ['pannumber', 'panno', 'pan', 'pancard'],
+            'address'       => ['address', 'addr', 'fulladdress'],
+            'dob'           => ['dob', 'dateofbirth', 'birthdate'],
+            'gender'        => ['gender', 'sex'],
+            'email'         => ['email', 'emailid', 'mail'],
+        ];
+        $cols = [];
+        foreach ($rawHeader as $i => $h) {
+            $n = $norm($h);
+            foreach ($aliases as $field => $alts) {
+                if (in_array($n, $alts, true)) {
+                    $cols[$field] = $i;
+                }
+            }
+        }
+        if (! isset($cols['name'])) {
+            return response()->json(['message' => 'CSV needs at least a "name" column. Recognised columns: name, phone, joining_date, aadhaar_number (OPTIONAL — verify later), pan_number, address, dob, gender, email.'], 422);
+        }
+        $cell = function (array $row, string $field) use ($cols): string {
+            if (! isset($cols[$field])) {
+                return '';
+            }
+            // Strip the anti-formula guard our own exports add, so an exported
+            // file round-trips ("'+919876543210" → "+919876543210").
+            return trim(\App\Support\Csv::unguard($row[$cols[$field]] ?? ''));
+        };
+        // dd/mm/yyyy · dd-mm-yyyy · yyyy-mm-dd → Y-m-d (null when unparseable)
+        $parseDate = function (string $v): ?string {
+            if ($v === '') {
+                return null;
+            }
+            if (preg_match('~^(\d{1,2})[/-](\d{1,2})[/-](\d{4})$~', $v, $m)) {
+                return sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]);
+            }
+            if (preg_match('~^(\d{4})-(\d{1,2})-(\d{1,2})$~', $v, $m)) {
+                return sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]);
+            }
+            return null;
+        };
+
+        $created = 0;
+        $imported_unverified = 0;
+        $errors = [];
+        $line = 1;
+        while (($row = fgetcsv($fh)) !== false) {
+            $line++;
+            $name    = $cell($row, 'name');
+            $aadhaar = preg_replace('/\D+/', '', $cell($row, 'aadhaar'));
+            if ($name === '' && $aadhaar === '' && $cell($row, 'phone') === '') {
+                continue; // blank line
+            }
+            if ($name === '') {
+                $errors[] = "line {$line}: name is required";
+                continue;
+            }
+
+            // Aadhaar is OPTIONAL on import — when present it must be valid
+            // and unique; when absent the worker imports UNVERIFIED and the
+            // number is added later (edit / app), which sets the flag.
+            $masked = null;
+            $hash = null;
+            if ($aadhaar !== '') {
+                if (strlen($aadhaar) !== 12) {
+                    $errors[] = "line {$line}: aadhaar_number must be 12 digits (or leave it empty to verify later)";
+                    continue;
+                }
+                $resolved = $this->resolveAadhaar(['aadhaar_number' => $aadhaar]);
+                if ($resolved instanceof JsonResponse) {
+                    $errors[] = "line {$line}: duplicate or invalid Aadhaar";
+                    continue;
+                }
+                [$masked, $hash] = $resolved;
+            }
+
+            $empCode = strtoupper($cell($row, 'emp_code'));
+            if ($empCode !== '' && Worker::withTrashed()->where('vendor_id', $vendorId)->where('emp_code', $empCode)->exists()) {
+                $errors[] = "line {$line}: emp_code '{$empCode}' already exists for this vendor";
+                continue;
+            }
+
+            $pan = strtoupper($cell($row, 'pan'));
+            if ($pan !== '' && ! preg_match('/^[A-Z]{5}[0-9]{4}[A-Z]$/', $pan)) {
+                $errors[] = "line {$line}: PAN '{$pan}' is not a valid format (AAAAA9999A) — row skipped";
+                continue;
+            }
+
+            $g = strtoupper(substr($cell($row, 'gender'), 0, 1));
+            $worker = new Worker([
+                'vendor_id'    => $vendorId,
+                'name'         => $name,
+                'emp_code'     => $empCode ?: null,
+                'dob'          => $parseDate($cell($row, 'dob')),
+                'joining_date' => $parseDate($cell($row, 'joining_date')),
+                'gender'       => in_array($g, ['M', 'F', 'O'], true) ? $g : null,
+                'phone'        => $cell($row, 'phone') ?: null,
+                'email'        => $cell($row, 'email') ?: null,
+                'address'      => $cell($row, 'address') ?: null,
+                'pan_number'   => $pan ?: null,
+                'aadhaar_number_masked' => $masked,
+            ]);
+            $worker->forceFill([
+                'aadhaar_hash'         => $hash,
+                'aadhaar_verified_at'  => $hash ? now() : null,
+                'consent_confirmed_at' => now(), // importer attests consent for the batch
+                'status'               => Worker::STATUS_PENDING,
+                'registered_by'        => $user->id,
+            ])->save();
+            $created++;
+            if (! $hash) {
+                $imported_unverified++;
+            }
+        }
+        fclose($fh);
+        $this->audit->log($user->id, 'workers_imported', Worker::class, null, [
+            'created' => $created, 'errors' => count($errors),
+        ]);
+
+        return response()->json([
+            'message' => "{$created} worker(s) imported"
+                .($imported_unverified ? " ({$imported_unverified} without Aadhaar — verify later)" : '')
+                .(count($errors) ? ', '.count($errors).' row(s) skipped' : '.'),
+            'created'             => $created,
+            'without_aadhaar'     => $imported_unverified,
+            'errors'              => array_slice($errors, 0, 50),
+        ]);
+    }
+
+    /**
+     * Store the photo EXTRACTED from the Aadhaar PDF (uploaded by the app
+     * after sync). Kept separately from the live registration photo so gate
+     * screens can show document-vs-live side by side.
+     */
+    public function uploadAadhaarPhoto(Request $request, Worker $worker): JsonResponse
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        $request->validate(['photo' => 'required|image|max:2048|mimes:jpeg,png,jpg']);
+        if ($worker->aadhaar_photo_path) {
+            Storage::disk('private')->delete($worker->aadhaar_photo_path);
+        }
+        $path = $request->file('photo')->store('workers/aadhaar_photos', 'private');
+        $worker->forceFill(['aadhaar_photo_path' => $path])->save();
+
+        return response()->json(['message' => 'Aadhaar photo stored.']);
+    }
+
+    /** Serve the Aadhaar-document photo (authenticated, role-scoped). */
+    public function serveAadhaarPhoto(Request $request, Worker $worker)
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        abort_unless($worker->aadhaar_photo_path
+            && Storage::disk('private')->exists($worker->aadhaar_photo_path), 404);
+
+        return Storage::disk('private')->response($worker->aadhaar_photo_path);
+    }
+
+    /**
+     * Manual verification steps (until OTP providers are wired): mark the
+     * worker's email/phone as verified by the vendor. Aadhaar/fingerprint/
+     * face steps are set by their own flows.
+     */
+    public function verifyStep(Request $request, Worker $worker): JsonResponse
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        $data = $request->validate(['step' => 'required|in:email,phone']);
+        abort_if($data['step'] === 'email' && ! $worker->email, 422, 'Worker has no email on record.');
+        abort_if($data['step'] === 'phone' && ! ($worker->phone || $worker->mobile), 422, 'Worker has no phone on record.');
+
+        $worker->forceFill([$data['step'].'_verified_at' => now()])->save();
+        $this->audit->log($request->user()->id, "worker_{$data['step']}_verified", Worker::class, $worker->id);
+
+        return response()->json(['message' => ucfirst($data['step']).' marked verified.', 'worker' => $worker->fresh()]);
+    }
+
+    /**
+     * OTP phone verification — the real (non-attest) path. Sends a 6-digit
+     * code to the worker's phone via the configured SMS provider; without
+     * provider credentials the code is returned in the response ONLY in
+     * debug mode (same pattern as the dev password-reset link).
+     */
+    public function sendPhoneOtp(Request $request, Worker $worker): JsonResponse
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        $phone = $worker->mobile ?: $worker->phone;
+        abort_unless($phone, 422, 'Worker has no phone on record.');
+
+        $key = "wotp-send:{$worker->id}";
+        abort_if(cache()->get($key, 0) >= 3, 429, 'Too many OTPs sent — try again in 10 minutes.');
+        cache()->put($key, cache()->get($key, 0) + 1, now()->addMinutes(10));
+
+        $otp = (string) random_int(100000, 999999);
+        cache()->put("wotp:{$worker->id}", hash('sha256', $otp), now()->addMinutes(10));
+
+        $sent = $this->sendSms($phone, "TrueCrew verification code: {$otp}. Valid 10 minutes.");
+        $this->audit->log($request->user()->id, 'worker_phone_otp_sent', Worker::class, $worker->id);
+
+        $payload = ['message' => $sent
+            ? "OTP sent to {$phone}."
+            : 'SMS provider not configured — ask your administrator (or use manual attest).'];
+        if (! $sent && config('app.debug')) {
+            $payload['dev_otp'] = $otp; // demo mode only — never in production
+            $payload['message'] = 'SMS provider not configured — demo OTP included (debug mode).';
+        }
+
+        return response()->json($payload, $sent || config('app.debug') ? 200 : 503);
+    }
+
+    public function verifyPhoneOtp(Request $request, Worker $worker): JsonResponse
+    {
+        $this->authorizeWorkerAccess($request->user(), $worker);
+        $data = $request->validate(['otp' => 'required|digits:6']);
+
+        $stored = cache()->get("wotp:{$worker->id}");
+        abort_unless($stored, 422, 'No OTP pending — send one first (codes expire in 10 minutes).');
+        if (! hash_equals($stored, hash('sha256', $data['otp']))) {
+            return response()->json(['message' => 'Wrong code — check and try again.'], 422);
+        }
+
+        cache()->forget("wotp:{$worker->id}");
+        $worker->forceFill(['phone_verified_at' => now()])->save();
+        $this->audit->log($request->user()->id, 'worker_phone_otp_verified', Worker::class, $worker->id);
+
+        return response()->json(['message' => 'Phone verified by OTP.', 'worker' => $worker->fresh()]);
+    }
+
+    /** Pluggable SMS send (MSG91 flow API); returns false when unconfigured. */
+    private function sendSms(string $phone, string $text): bool
+    {
+        $key = config('services.sms.msg91_key', env('MSG91_AUTHKEY'));
+        if (! $key) {
+            return false;
+        }
+        try {
+            $msisdn = preg_replace('/\D/', '', $phone);
+            if (strlen($msisdn) === 10) {
+                $msisdn = '91'.$msisdn;
+            }
+            \Illuminate\Support\Facades\Http::withHeaders(['authkey' => $key])
+                ->timeout(8)
+                ->post('https://control.msg91.com/api/v5/flow/', [
+                    'template_id' => config('services.sms.msg91_template', env('MSG91_TEMPLATE_ID')),
+                    'recipients'  => [['mobiles' => $msisdn, 'otp' => preg_replace('/\D/', '', $text)]],
+                ]);
+
+            return true;
+        } catch (\Throwable $e) {
+            report($e);
+
+            return false;
+        }
     }
 
     /**
@@ -228,6 +685,37 @@ class WorkerController extends Controller
      * 12-digit number (hashed + masked here; the raw number is discarded).
      * Returns a 422 JsonResponse when missing or already registered.
      */
+    /** Normalise + dedup a PAN. Returns [pan, hash] or a 422 response. */
+    private function resolvePan(string $pan, ?int $ignoreWorkerId = null): array|JsonResponse
+    {
+        $pan = strtoupper(preg_replace('/\s+/', '', $pan));
+
+        if (! preg_match(\App\Http\Controllers\PanController::PAN_REGEX, $pan)) {
+            return response()->json([
+                'message' => 'Invalid PAN.',
+                'errors'  => ['pan_number' => ['PAN must look like ABCDE1234F — five letters, four digits, one letter.']],
+            ], 422);
+        }
+
+        $hash = \App\Http\Controllers\PanController::hashNumber($pan);
+
+        // Same switch as Aadhaar: demo environments may allow duplicates.
+        $dupe = config('biometric.aadhaar_dedup', true)
+            ? Worker::withTrashed()->where('pan_hash', $hash)
+                ->when($ignoreWorkerId, fn ($q) => $q->where('id', '!=', $ignoreWorkerId))
+                ->exists()
+            : false;
+
+        if ($dupe) {
+            return response()->json([
+                'message' => 'Duplicate PAN.',
+                'errors'  => ['pan_number' => ['A worker with this PAN is already registered.']],
+            ], 422);
+        }
+
+        return [$pan, $hash];
+    }
+
     private function resolveAadhaar(array $data, ?int $ignoreWorkerId = null): array|JsonResponse
     {
         if (! empty($data['aadhaar_number'])) {
@@ -244,10 +732,14 @@ class WorkerController extends Controller
             ], 422);
         }
 
-        $dupe = Worker::withTrashed()
-            ->where('aadhaar_hash', $hash)
-            ->when($ignoreWorkerId, fn ($q) => $q->where('id', '!=', $ignoreWorkerId))
-            ->first();
+        // Test environments may disable dedup (AADHAAR_DEDUP=false) to allow
+        // the same Aadhaar on multiple demo workers. ALWAYS on in production.
+        $dupe = config('biometric.aadhaar_dedup', true)
+            ? Worker::withTrashed()
+                ->where('aadhaar_hash', $hash)
+                ->when($ignoreWorkerId, fn ($q) => $q->where('id', '!=', $ignoreWorkerId))
+                ->first()
+            : null;
 
         if ($dupe) {
             return response()->json([
@@ -280,6 +772,30 @@ class WorkerController extends Controller
             'pin'     => 'nullable|string|size:6',
             'phone'   => 'nullable|string|max:15',
             'notes'   => 'nullable|string',
+            'emp_code'     => 'nullable|string|max:30',
+            'pan_number'   => ['nullable', 'string', 'regex:/^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/'],
+            // Employment & statutory (the vendor fills these on the Employment tab)
+            'designation'            => 'nullable|string|max:80',
+            'department'             => 'nullable|string|max:80',
+            'skill_category'         => 'nullable|in:unskilled,semi_skilled,skilled,highly_skilled',
+            'uan'                    => ['nullable', 'string', 'regex:/^\d{12}$/'],
+            'pf_number'              => 'nullable|string|max:30',
+            'esic_number'            => 'nullable|string|max:20',
+            'pf_applicable'          => 'nullable|boolean',
+            'esi_applicable'         => 'nullable|boolean',
+            'bank_account_number'    => 'nullable|string|max:24',
+            'bank_ifsc'              => ['nullable', 'string', 'regex:/^[A-Z]{4}0[A-Z0-9]{6}$/'],
+            'bank_name'              => 'nullable|string|max:80',
+            'wage_type'              => 'nullable|in:daily,monthly',
+            'daily_rate'             => 'nullable|numeric|min:0|max:99999',
+            'monthly_rate'           => 'nullable|numeric|min:0|max:9999999',
+            'ot_multiplier'          => 'nullable|numeric|min:0|max:4',
+            'wage_divisor'           => 'nullable|integer|min:1|max:31',
+            'ot_divisor'             => 'nullable|integer|min:1|max:24',
+            'wage_components'        => 'nullable|array',
+            'wage_components.*'      => 'nullable|numeric|min:0|max:9999999',
+
+            'joining_date' => 'nullable|date',
             // Optional on edit: add/replace Aadhaar (legacy workers may lack it)
             'aadhaar_number'        => 'nullable|string|regex:/^\d{12}$/',
             'aadhaar_number_masked' => 'nullable|string|max:20',
@@ -295,10 +811,32 @@ class WorkerController extends Controller
                 return $resolved;
             }
             [$masked, $hash] = $resolved;
-            $worker->forceFill(['aadhaar_hash' => $hash]);
+            // Adding/confirming the Aadhaar IS the verification moment for
+            // workers imported without one.
+            $worker->forceFill(['aadhaar_hash' => $hash, 'aadhaar_verified_at' => $worker->aadhaar_verified_at ?? now()]);
             $data['aadhaar_number_masked'] = $masked;
         }
         unset($data['aadhaar_number'], $data['aadhaar_hash']);
+
+        if (! empty($data['emp_code'])) {
+            $data['emp_code'] = strtoupper($data['emp_code']);
+            $clash = Worker::withTrashed()->where('vendor_id', $worker->vendor_id)
+                ->where('emp_code', $data['emp_code'])->where('id', '!=', $worker->id)->exists();
+            abort_if($clash, 422, "Employee code {$data['emp_code']} is already used by another worker of this vendor.");
+        }
+
+        // Keep the PAN dedup hash in step whenever a PAN is added or changed.
+        if (! empty($data['pan_number'])) {
+            $resolvedPan = $this->resolvePan($data['pan_number'], $worker->id);
+            if ($resolvedPan instanceof JsonResponse) {
+                return $resolvedPan;
+            }
+            [$data['pan_number'], $panHash] = $resolvedPan;
+            $worker->forceFill([
+                'pan_hash'        => $panHash,
+                'pan_verified_at' => $worker->pan_verified_at ?? now(),
+            ]);
+        }
 
         $worker->fill($data)->save();
         $this->audit->log($request->user()->id, 'worker_updated', Worker::class, $worker->id);
@@ -308,12 +846,36 @@ class WorkerController extends Controller
 
     public function destroy(Request $request, Worker $worker): JsonResponse
     {
-        $this->authorizeWorkerAccess($request->user(), $worker);
+        $user = $request->user();
+        // Deleting a worker is the OWNING VENDOR's call (or super admin) —
+        // companies interact through deployments, not the worker record.
+        abort_unless($user->isSuperAdmin()
+            || ($user->isVendorUser() && $worker->vendor_id === $user->vendor_id), 403);
 
-        $worker->delete();
-        $this->audit->log($request->user()->id, 'worker_deleted', Worker::class, $worker->id);
+        $lastLog = AttendanceLog::where('worker_id', $worker->id)
+            ->latest('marked_at')->first();
+        if ($lastLog && $lastLog->type === AttendanceLog::TYPE_IN) {
+            return response()->json([
+                'message' => 'Worker is currently checked IN — the company must mark them OUT before deletion.',
+            ], 422);
+        }
 
-        return response()->json(['message' => 'Worker deleted.']);
+        // Once a worker is engaged with a company, the vendor can't pull them
+        // out unilaterally — cancel the deployment first. Super admin bypasses.
+        if ($blocked = $this->vendorEngagementBlock($user, $worker, 'delete them')) {
+            return $blocked;
+        }
+
+        WorkerAssignment::where('worker_id', $worker->id)
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->update(['status' => WorkerAssignment::STATUS_CANCELLED]);
+
+        $worker->delete(); // soft delete — attendance history is preserved
+        $this->audit->log($user->id, 'worker_deleted', Worker::class, $worker->id, [
+            'worker_name' => $worker->name,
+        ]);
+
+        return response()->json(['message' => 'Worker deleted. Attendance history is preserved; plan usage counts only workers who actually worked.']);
     }
 
     // ─── Fingerprint Enrollment ───────────────────────────────────────────────
@@ -325,17 +887,41 @@ class WorkerController extends Controller
         $data = $request->validate([
             'template' => 'required|string',
             'quality'  => 'required|integer|min:0|max:100',
+            'slot'     => 'nullable|integer|in:1,2,3', // 2 & 3 = backup fingers (ANY enrolled finger verifies at the gate)
         ]);
+        $slot = (int) ($data['slot'] ?? 1);
 
-        $worker->forceFill([
-            'fingerprint_template'    => encrypt($data['template']),
-            'fingerprint_quality'     => $data['quality'],
-            'fingerprint_enrolled_at' => now(),
-            'status'                  => Worker::STATUS_ACTIVE, // active once fingerprint is enrolled
-        ])->save();
+        // Enrollment quality floor: a poor enrollment haunts every future
+        // match. SecuGen quality < 30 means smudged/partial — rescan now.
+        if ($data['quality'] < 30 && ! config('biometric.simulation')) {
+            return response()->json([
+                'message' => "Fingerprint image quality too low ({$data['quality']}/100) — clean the sensor and finger, then scan again.",
+            ], 422);
+        }
+
+        if ($slot > 1) {
+            if (empty($worker->fingerprint_template)) {
+                return response()->json(['message' => 'Enroll the primary finger first.'], 422);
+            }
+            if ($slot === 3 && empty($worker->fingerprint_template_2)) {
+                return response()->json(['message' => 'Enroll the second finger before the third.'], 422);
+            }
+            $worker->forceFill([
+                "fingerprint_template_{$slot}" => encrypt($data['template']),
+                "fingerprint_quality_{$slot}"  => $data['quality'],
+            ])->save();
+        } else {
+            $worker->forceFill([
+                'fingerprint_template'    => encrypt($data['template']),
+                'fingerprint_quality'     => $data['quality'],
+                'fingerprint_enrolled_at' => now(),
+                'status'                  => Worker::STATUS_ACTIVE, // active once fingerprint is enrolled
+            ])->save();
+        }
 
         $this->audit->log($request->user()->id, 'fingerprint_enrolled', Worker::class, $worker->id, [
             'quality' => $data['quality'],
+            'slot'    => $slot,
         ]);
 
         return response()->json([
@@ -348,11 +934,35 @@ class WorkerController extends Controller
 
     public function deleteFingerprint(Request $request, Worker $worker): JsonResponse
     {
-        $this->authorizeWorkerAccess($request->user(), $worker);
+        $user = $request->user();
+        $this->authorizeWorkerAccess($user, $worker);
+        // The fingerprint belongs to the vendor's registration — companies
+        // interact through deployments, never the biometric record.
+        abort_if($user->isCompanyUser(), 403, 'Only the owning vendor can remove a fingerprint.');
+
+        if ($blocked = $this->vendorEngagementBlock($user, $worker, 'remove the fingerprint')) {
+            return $blocked;
+        }
+
+        // slot=2|3 removes just that backup finger; default deregisters fully.
+        $slot = (int) $request->input('slot');
+        if (in_array($slot, [2, 3], true)) {
+            $worker->forceFill([
+                "fingerprint_template_{$slot}" => null,
+                "fingerprint_quality_{$slot}"  => null,
+            ])->save();
+            $this->audit->log($request->user()->id, 'fingerprint_deleted', Worker::class, $worker->id, ['slot' => $slot]);
+
+            return response()->json(['message' => 'Backup fingerprint removed.']);
+        }
 
         $worker->forceFill([
             'fingerprint_template'    => null,
             'fingerprint_quality'     => null,
+            'fingerprint_template_2'  => null,
+            'fingerprint_quality_2'   => null,
+            'fingerprint_template_3'  => null,
+            'fingerprint_quality_3'   => null,
             'fingerprint_enrolled_at' => null,
             'status'                  => Worker::STATUS_PENDING,
         ])->save();
@@ -421,21 +1031,72 @@ class WorkerController extends Controller
 
     public function activate(Request $request, Worker $worker): JsonResponse
     {
+        $user = $request->user();
+        abort_unless(in_array($user->role, ['super_admin', 'company_admin', 'vendor_admin']), 403);
+        $this->authorizeWorkerAccess($user, $worker);
+
         $worker->forceFill(['status' => Worker::STATUS_ACTIVE])->save();
-        $this->audit->log($request->user()->id, 'worker_activated', Worker::class, $worker->id);
+        $this->audit->log($user->id, 'worker_activated', Worker::class, $worker->id);
 
         return response()->json(['message' => 'Worker activated.']);
     }
 
     public function deactivate(Request $request, Worker $worker): JsonResponse
     {
+        $user = $request->user();
+        abort_unless(in_array($user->role, ['super_admin', 'company_admin', 'vendor_admin']), 403);
+        $this->authorizeWorkerAccess($user, $worker);
+
+        if ($blocked = $this->vendorEngagementBlock($user, $worker, 'deactivate them')) {
+            return $blocked;
+        }
+
         $worker->forceFill(['status' => Worker::STATUS_INACTIVE])->save();
-        $this->audit->log($request->user()->id, 'worker_deactivated', Worker::class, $worker->id);
+        $this->audit->log($user->id, 'worker_deactivated', Worker::class, $worker->id);
 
         return response()->json(['message' => 'Worker deactivated.']);
     }
 
     // ─── Private ──────────────────────────────────────────────────────────────
+
+    /**
+     * Business rule: once a worker is engaged with a company — an active,
+     * approved deployment that hasn't ended, or currently checked IN — the
+     * VENDOR cannot delete, deactivate, or deregister them. The company relies
+     * on that worker for attendance; the vendor must cancel the deployment
+     * (and the company mark them OUT) first. Returns a 422 response to send,
+     * or null when the action may proceed.
+     */
+    private function vendorEngagementBlock(User $user, Worker $worker, string $action): ?JsonResponse
+    {
+        if (! $user->isVendorUser()) {
+            return null;
+        }
+
+        $dep = $worker->assignments()
+            ->with('company:id,name')
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
+            ->where('end_date', '>=', today())
+            ->orderByDesc('end_date')
+            ->first();
+        if ($dep) {
+            return response()->json([
+                'message' => "{$worker->name} is deployed to ".(optional($dep->company)->name ?? 'a company')
+                    .' till '.$dep->end_date?->format('d M Y')
+                    ." — cancel the deployment first, then {$action}.",
+            ], 422);
+        }
+
+        $lastLog = AttendanceLog::where('worker_id', $worker->id)->latest('marked_at')->first();
+        if ($lastLog && $lastLog->type === AttendanceLog::TYPE_IN) {
+            return response()->json([
+                'message' => "{$worker->name} is currently checked IN — the company must mark them OUT before you {$action}.",
+            ], 422);
+        }
+
+        return null;
+    }
 
     private function authorizeWorkerAccess(User $user, Worker $worker): void
     {

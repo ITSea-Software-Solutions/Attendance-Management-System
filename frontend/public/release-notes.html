@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TrueCrew Release Notes</title>
+<style>
+  :root{
+    --paper:#FAF9F6; --ink:#1D2833; --muted:#5A6470; --line:#DAD6CC;
+    --teal:#10685A; --teal-soft:#E3EFEC; --amber:#B07310; --amber-soft:#F7EEDD;
+    --card:#FFFFFF;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{
+      --paper:#171D24; --ink:#E8E6E1; --muted:#9AA3AD; --line:#333B45;
+      --teal:#4FB3A1; --teal-soft:#1D3330; --amber:#D9A04C; --amber-soft:#332A1B;
+      --card:#1F2731;
+    }
+  }
+  *{box-sizing:border-box}
+  body{background:var(--paper); color:var(--ink); font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; margin:0}
+  .wrap{max-width:44rem; margin:0 auto; padding:2.5rem 1.25rem 4rem}
+  .eyebrow{font-size:.72rem; letter-spacing:.14em; text-transform:uppercase; color:var(--teal); font-weight:700; margin:0 0 .5rem}
+  h1{font-size:1.9rem; margin:0 0 .4rem; letter-spacing:-.015em}
+  .sub{color:var(--muted); margin:0 0 1.6rem; max-width:36rem}
+  h2{font-size:.78rem; letter-spacing:.12em; text-transform:uppercase; color:var(--muted); margin:2.4rem 0 .8rem}
+  .rel{background:var(--card); border:1px solid var(--line); border-radius:12px; padding:1.1rem 1.35rem; margin:.8rem 0}
+  .rel h3{margin:0; font-size:1.02rem; display:flex; flex-wrap:wrap; align-items:baseline; gap:.6em}
+  .date{font-size:.78rem; color:var(--muted); font-weight:400}
+  .tag{font-size:.72rem; font-weight:700; padding:.15em .65em; border-radius:999px; background:var(--teal-soft); color:var(--teal); border:1px solid var(--teal)}
+  .tag.amber{background:var(--amber-soft); color:var(--amber); border-color:var(--amber)}
+  .rel ul{margin:.6rem 0 0; padding-left:1.2rem; color:var(--muted); font-size:.92rem}
+  .rel li{margin:.25rem 0}
+  .rel li b{color:var(--ink)}
+  a{color:var(--teal)}
+  .back{font-size:.9rem}
+  footer{margin-top:3rem; padding-top:1rem; border-top:1px solid var(--line); color:var(--muted); font-size:.83rem}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <p class="eyebrow">TrueCrew — Verified Workforce Attendance</p>
+  <h1>Release Notes</h1>
+  <p class="sub">What changed in every version. <span class="back"><a href="/download.html">← Back to downloads</a></span></p>
+  <p class="sub"><b>Version naming:</b> <span class="tag">Apps vX.Y.Z</span> = the Android APK and Windows app (always released together) · <span class="tag amber">Platform vX.Y.Z</span> = the web portal &amp; server. Preview builds are pre-1.0 and may change quickly.</p>
+
+  <h2>Apps (Android + Windows)</h2>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.37</span> Third finger &amp; visitor vehicles <span class="date">31 Aug 2026</span></h3>
+    <ul>
+      <li><b>A third finger per worker</b> — heavy manual work wears prints down, so a third finger can be enrolled during registration or added later from the worker sheet. Any of the three opens the gate.</li>
+      <li><b>Vehicle on gate passes</b> — the number plate and a second photo of the vehicle. At least one photo is required, the visitor or the vehicle, so a pass can never be raised with no visual record.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.35</span> Backup finger <span class="date">27 Aug 2026</span></h3>
+    <ul>
+      <li><b>Enroll TWO fingers per worker</b> — registration now offers a backup finger (e.g. the other thumb) right after the first scan, and existing workers get an "Add backup finger" action in the worker sheet. If a finger is cut, bandaged or worn, the other still marks attendance.</li>
+      <li><b>Any enrolled finger verifies at the gate</b> — every scanner driver (SecuGen Windows, SecuGen Android, Mantra) matches the live scan against both enrolled fingers and takes the worker's best score. Thresholds and the two-worker ambiguity guard are unchanged — a worker's own two fingers can never look like two different people.</li>
+      <li>Backup fingers ride the normal offline sync — captured offline at registration, pushed with the worker, and delivered to every gate device.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.34</span> Visitor gate passes <span class="date">22 Aug 2026</span></h3>
+    <ul>
+      <li><b>Visitors tab for gate users</b> — create a gate pass in seconds: guest name, phone, live photo, and whom they came to meet (from the HR-maintained host list). The host is asked on WhatsApp (reply YES/NO) where configured; a phone answer is recorded as a manual decision with a mandatory note.</li>
+      <li><b>Entry only after approval</b> — the pass tracks waiting → approved/denied → inside → left, with entry/exit times and the guest photo on the portal's new Visitors page.</li>
+      <li><b>Gate proof camera now works on Windows too</b> — IN/OUT marks photograph the person at the gate on laptops and desktops (internal or USB webcam), not just Android.</li>
+      <li>Includes v0.9.33: hands-free auto scan, phone autofill from Aadhaar, background captures on Windows.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.33</span> Hands-free gate + phone autofill <span class="date">19 Aug 2026</span></h3>
+    <ul>
+      <li><b>Hands-free auto scan</b> — flip the switch on the gate screen and the scanner stays armed: a worker just places a finger, the mark happens automatically (IN/OUT by last state), the verified card shows and dismisses itself. 90-second per-worker cooldown prevents double-marks; needs a real scanner (disabled in simulation).</li>
+      <li>Windows: fingerprint captures no longer freeze the screen — they run in the background (manual and hands-free).</li>
+      <li><b>Phone number now autofills from the Aadhaar PDF</b> in the app, like the portal (e-Aadhaar carries the registered mobile). A manually-typed number is never overwritten.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.32</span> UIDAI link in registration <span class="date">18 Aug 2026</span></h3>
+    <ul>
+      <li><b>"Get PDF from UIDAI" button</b> on the Aadhaar import step — opens the official myAadhaar download page in the browser (same link as the web wizard), so the worker's e-Aadhaar can be fetched and imported without leaving the flow.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.31</span> Windows: true plug-and-play <span class="date">18 Aug 2026</span></h3>
+    <ul>
+      <li><b>SecuGen runtime bundled in the Windows zip</b> — sgfplib.dll and all companion libraries now ship beside truecrew.exe. Unzip, plug the scanner in, scan — no SecuGen software installation on gate machines. (The USB driver itself auto-installs from Windows Update on first plug.)</li>
+      <li>Android has been plug-and-play since v0.9.13 (SDK inside the APK, USB auto-grant) — both platforms are now zero-setup.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.30</span> Mantra support + scanner intelligence <span class="date">18 Aug 2026</span></h3>
+    <ul>
+      <li><b>Mantra MFS100/MFS500 driver built-in</b> (Android) — capture and on-device matching through Mantra's own SDK, same ISO templates as SecuGen, so workers enrolled on either brand match at either gate. Activates in the official APK once the Mantra SDK is bundled.</li>
+      <li><b>Every scanner explained</b> — Diagnostics now lists all attached USB devices and tells you exactly where you stand per brand: SecuGen ready, Mantra ready-to-activate, and Aadhaar L1 devices (e.g. <b>MFS110</b>) clearly marked as unusable for attendance — they encrypt fingerprints inside the sensor by UIDAI design; no app can read them.</li>
+      <li>Morpho/IDEMIA, Startek, Tatvik, Precision and other Indian brands are detected and named with next steps.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.29</span> Smarter fingerprint identification <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>1:N ambiguity guard</b> — when two different workers score within 10 points of each other, the scan is rejected and the guard rescans instead of guessing. Protects against look-alike prints as the worker pool grows.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.28</span> Company tools in the app <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Approvals tab for HR and company admins</b> — pending contractor deployments with requested dates; select many, pick allowed gates/departments (Main Gate preselected, "All gates" chip), approve in bulk or reject with a reason. Same powers as the portal.</li>
+      <li><b>Manual OUT from the Inside tab</b> — HR/admin can mark a worker OUT who left without scanning (contractors never see this).</li>
+      <li><b>Attendance detail sheet</b> — tap any Activity row: all three photos (Aadhaar · registration · that mark's gate capture) plus time, gate, method, score and sync state. Camera icon marks rows that carry a gate photo.</li>
+      <li>Worker list rows now show the worker's photo.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.27</span> Worker actions from the app <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Edit / Activate / Deactivate / Delete on the worker sheet</b> — contractors manage workers without the portal. Edit covers name, phone, DOB, gender.</li>
+      <li><b>Engagement lock</b> — while a worker is deployed to a company (or still checked IN) delete, deactivate and fingerprint removal are refused with a clear reason; cancel the deployment first. Editing stays allowed.</li>
+      <li>Registrations that never synced can be removed from the device safely.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.26</span> Contractor app-first <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Deployment info on every worker row</b> — where they're deployed and until when, color-coded: teal (deployed), amber (ends ≤3 days / awaiting approval), grey (not deployed). Works offline.</li>
+      <li><b>Filter chips</b> — All / Deployed / Not deployed / Expiring ≤3d, computed on-device.</li>
+      <li><b>Notifications in the app</b> — a bell with unread badge opens the same feed as the portal: approvals, rejections, benched-worker and expiring-deployment digests. Contractors no longer need the website for day-to-day work.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.25</span> Scanner session hardening <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Fixed: "Capture failed (SDK code 2)" after gate matching.</b> Old demo workers carry simulated fingerprints; feeding those into the real matcher could sour the scanner session. Simulated/invalid templates are now filtered out before matching, and the scanner session auto-recovers (re-initialises and retries once) if it ever degrades.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.24</span> Always fresh <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Automatic background sync every ~90 seconds</b> while online — newly approved deployments, fingerprints and photos reach every gate device without anyone tapping the sync chip.</li>
+      <li>Supports the new HR role (HR signs into the portal to approve; devices pick the results up automatically).</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.23</span> Stability + contractor fixes <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Fixed: crash after taking a registration photo on Windows.</b> The camera now settles, saves, and closes in a safe order before leaving the capture screen.</li>
+      <li><b>Fixed: "no company found" when deploying from the app</b> — the approved-companies list read the wrong field; it now matches the web portal.</li>
+      <li><b>Worker detail shows deployments</b> — company, dates and approval status (approved / awaiting approval / rejected), offline too.</li>
+      <li>Aadhaar duplicate-check now follows the server's setting — test servers can allow the same Aadhaar on multiple demo workers (production keeps it enforced).</li>
+      <li>Automatic gate proof photos stay on Android; Windows keeps proof photos via the Face flow (desktop camera stability).</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.21</span> Gate permissions <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li>Gate devices honour the company's deployment approvals: pending/rejected workers never appear for matching, and gate-restricted workers only match at their allowed gates/departments.</li>
+      <li>Contractors see the approval status of each deployment; the deploy confirmation says when a deployment is waiting for company approval.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.20</span> True offline fingerprint matching <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>The thumb now matches automatically at the gate.</b> Deployed workers' enrolled fingerprints sync to gate devices (marking roles only), and every scan runs a real 1:N match on the device — Windows via the SecuGen SDK, Android via USB-OTG — fully offline, same threshold as the web gate.</li>
+      <li>The "select worker" screen is now a clearly-labelled MANUAL OVERRIDE, used only when no match clears the threshold — recorded with score 0 and the gate photo, so overrides are auditable.</li>
+      <li>Clear status when templates haven't synced to the device yet ("Sync first, then rescan").</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.19</span> Desktop-friendly layout <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Responsive on Windows</b> — wide windows get a proper side navigation rail (labels expand on large screens) instead of the phone-style bottom tabs, forms widen to use the space, and lists center at a readable width. Phones keep the familiar layout.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.18</span> Gate proof photos <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Automatic gate photo on fingerprint verification</b> — the moment a worker's thumb verifies, the device camera quietly photographs them; the photo saves with that IN/OUT record and uploads on sync as tamper-evident proof. Best-effort: no camera, no problem — the mark never blocks.</li>
+      <li><b>Three-photo verified screen</b> — every IN/OUT now shows the Aadhaar document photo, the registration photo, and the just-taken gate photo side by side, with a directional IN/OUT animation (green arrow in, amber arrow out).</li>
+      <li>The Aadhaar photo extracted at registration now syncs to the server, so every gate device can display it.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.17</span> Windows camera capture <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Fixed: "Camera unavailable (cameraDelegate)" on Windows registration.</b> Desktop platforms have no built-in camera dialog — the app now opens its own capture screen (live preview, capture button, camera switch) using the same camera engine as the Face tab.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.16</span> Camera photo reliability <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Fixed: photo taken but never appearing.</b> Android may close the app while the camera is open; the photo is now recovered automatically when the app returns. This also fixes photos not reaching the server (nothing was saved locally to upload).</li>
+      <li><b>Visible photo feedback</b> — a spinner in the Live photo slot while the photo processes, and any rejection ("no face detected") now shows in red right inside the Photos card.</li>
+      <li>If the on-device face check is unavailable on a phone, the photo is accepted and the server validates it on sync instead of failing silently.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.15</span> Identity match at enrollment <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Aadhaar photo extracted automatically</b> — importing the PDF now also pulls the worker's Aadhaar photo into the form.</li>
+      <li><b>Two-photo identity check</b> — the Aadhaar photo and the live camera photo are compared by the face engine the moment both exist, with an animated match indicator (e.g. "match 87%"). Low scores warn the operator; old Aadhaar photos never block registration.</li>
+      <li><b>Registration checklist</b> — a live "Ready to save?" panel ticks off name, Aadhaar, fingerprint (with quality), photos and consent as you go.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.14</span> Field-ready gate experience <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Aadhaar PDF import in the app</b> — pick the e-Aadhaar PDF during registration: name, DOB, gender and Aadhaar auto-fill, and the PDF attaches to the worker's record on sync. Masked PDFs verified by last-4 match. The whole registration now completes in one place.</li>
+      <li><b>Gate "verified" screen</b> — after every successful scan (finger or face): animated check, the worker's photo, name, IN/OUT with time, and a greeting. Auto-clears for the next worker.</li>
+      <li><b>Contractor tools</b> — tap a worker for live analytics (days present, hours, missed OUTs) and <b>deploy to a company</b> with a date range, right from the app.</li>
+      <li><b>Android fix:</b> the USB permission dialog now appears correctly (Android 14 restriction); plugging in a scanner offers to open TrueCrew and remembers the permission.</li>
+      <li><b>Windows:</b> Face attendance tab enabled (camera support added).</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.13</span> Scanner SDK bundled <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Android is plug-and-scan:</b> the SecuGen fingerprint SDK now ships inside the APK — connect a scanner via USB-OTG, tap Allow, capture. Nothing to install on any phone.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.12</span> Windows scanner auto-discovery <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li>Windows finds the SecuGen library automatically wherever the driver installed it — no SDK install, no manual copying, no background service. Diagnostics show exactly which library loaded.</li>
+      <li>Clear guidance when something is missing (including 32-bit vs 64-bit mismatches).</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.11</span> Full registration + on-device biometrics <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li>Complete worker registration in-app: details, consent, fingerprint, photo — offline-capable, syncs when connected. Photo auto-enrolls the worker for camera (face) attendance.</li>
+      <li>Windows talks to the scanner directly through its SDK (the old browser-service requirement is gone). Android USB scanner channel + on-device face quality checks (real face, eyes open) before any photo is accepted.</li>
+      <li>In-app camera Face attendance tab (Android); Diagnostics screen with device connect/retry and precise status for server, scanner and sync.</li>
+      <li>Password show/hide toggles on all sign-in screens.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.0–0.9.7</span> First releases <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li>Android + Windows apps: sign in, role-based screens (contractor / gate / admin view), offline store, automatic two-way sync with duplicate-proof records, simulated + real capture paths, downloads page distribution and automated builds.</li>
+    </ul>
+  </div>
+
+  <h2>Web platform</h2>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.18.1</span> PAN registration, wage approval &amp; one word for contractors <span class="date">31 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Register a worker with a PAN card</b> — Aadhaar is no longer the only way in. Upload a PAN card as a <b>photo or a PDF</b> (e-PAN PDFs open with the date of birth as the password) and the name, father's name, date of birth and PAN number are read off it. Aadhaar works the same way from a photo now, not just the UIDAI PDF. A worker can be registered on either document; the second one can be added later.</li>
+      <li><b>Register from the web portal</b> — registration no longer stops at the fingerprint step. A worker registered on the portal is saved as <b>Pending</b> and completes enrolment at the gate on the desktop or Android app, which is where the scanner is. Office staff can do the paperwork; the gate does the finger.</li>
+      <li><b>Wage changes are agreed, not imposed</b> — the company and the contractor can both set a day rate, but the company pays, so a rate a <b>contractor</b> proposes for a deployed worker <b>waits for the company to approve it</b>. The agreed rate keeps applying meanwhile. Both sides see the proposal, the note behind it and the decision; the contractor is told the outcome and the reason for a rejection. Workers on the bench are still priced by the contractor alone.</li>
+      <li><b>When the company sets a rate, the contractor is told</b> — with the old and the new number, so nobody discovers a change at payout.</li>
+      <li><b>One word: contractor</b> — the portal, the apps and the guides said "contractor" in some places and "contractor" in others. It is <b>contractor</b> everywhere now.</li>
+      <li><b>Attendance marking removed from the web</b> — a browser cannot reach a fingerprint scanner, so the page could never do the job. Marking lives in the desktop and Android apps, which talk to the scanner directly and work offline.</li>
+      <li>Fixed: the ID Document column was blank for company logins even when an Aadhaar PDF was on file.</li>
+      <li>Fixed: identity cards photographed on a coloured background (most real Aadhaar and PAN cards) failed to read. Digits read off a photograph are now always shown for confirmation rather than trusted silently.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.18.0</span> Payroll, holidays &amp; visitor approval <span class="date">31 Aug 2026</span></h3>
+    <ul>
+      <li><b>Payroll &amp; wage register</b> — a new Payroll section. Workers are paid a <b>rate per day</b> (monthly supported for staff), broken into the heads an Indian manufacturing wage sheet uses: Basic, DA/VDA, HRA, conveyance, washing, medical, night shift, incentive and special allowance. PF, ESI, professional tax and LWF are computed from those heads, with bonus and gratuity provisions shown for contractor bill verification.</li>
+      <li><b>Government holidays</b> — set the year's holidays per company. They are marked automatically on the attendance log and muster, <b>paid</b> at the day rate, and anyone who works one earns overtime for the whole day.</li>
+      <li><b>Overtime rates you control</b> — per skill grade, overridable for a single worker, with separate multipliers for holidays and weekly offs.</li>
+      <li><b>Employment tab at registration</b> — designation, department, skill grade, UAN, PF and ESIC numbers, bank details and the wage structure, with a suggested split from the day rate.</li>
+      <li><b>Create gate passes from the portal</b>, with live photo capture, vehicle number and a vehicle photo. Host approval is now <b>optional per company</b>: switch it off and passes are usable immediately.</li>
+      <li><b>One-tap host approval</b> — the host gets a link showing the visitor's photo and taps Allow or Deny. No login, works over SMS as well as WhatsApp. Gate staff can no longer approve their own visitors.</li>
+      <li>Menu rebuilt around what people actually do — grouped into People, Attendance, Payroll and Organisation, with duplicate entries removed.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.17.0</span> Hours, wage days &amp; cleaner attendance <span class="date">30 Aug 2026</span></h3>
+    <ul>
+      <li><b>Hours &amp; wage-day reports</b> — a new report on the Reports page converts hours worked into payable days: <b>8h or more = 1 full day, 4h or more = half day (0.5), less = a short day</b>, with overtime counted beyond a full day. Roll it up <b>day by day, weekly, monthly, or as a total per worker</b>, over <b>any date range</b> (This month / Last month / This week / Last week / Last 30 days / custom). Every file carries the wage rule in a note line so whoever opens it in Excel knows how the days were counted. Thresholds are configurable per installation.</li>
+      <li><b>Payable days everywhere</b> — the monthly totals export and the printable report now show full days, half days, payable days and overtime alongside hours.</li>
+      <li><b>Attendance Log cleaned up</b> — company users no longer see a Company column repeating their own name. Contractors get a <b>company dropdown</b> instead, and everyone gets a <b>worker picker</b> to select one, many, or all workers, plus a <b>date-range</b> mode (with the date shown per row). Every export button follows the filters on screen.</li>
+      <li><b>Safer spreadsheets</b> — exported cells that start with = + - @ (Indian phone numbers like +9198… are the common case) are now written so Excel treats them as plain text. This removes the spreadsheet/antivirus warnings some downloads triggered, and closes a formula-injection risk in exported files. Our own import and Excel conversion strip the guard automatically, so files still round-trip.</li>
+      <li><b>Your own company is never repeated</b> — applied consistently across the whole portal, not just one screen: company logins no longer see a Company column or line on the Attendance Log, Reports (preview <i>and</i> the downloaded CSV/Excel/printable files), Still Inside, Deployments or Worker Detail. Contractors and super admins keep it, and it disappears there too once they pick a single company. Reports also gained the same company dropdown and worker picker as the Attendance Log.</li>
+      <li>Fixed: the company list failed to load for contractor logins (a broken query), which also blocked the new company dropdown.</li>
+      <li>Fixed for HR logins: Worker Detail treated HR as an outside contractor (wrong company picker), the Contractors page tabs did not load, and "Still Inside" was hidden from the menu for HR, gate and operator logins even though the page works for them.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.16.0</span> The new Dashboard <span class="date">27 Aug 2026</span></h3>
+    <ul>
+      <li><b>Rebuilt for every role</b> — company, contractor and super admin each get their own dashboard: greeting hero with live presence and one-tap quick actions, KPI cards with day-over-day change, and a "Needs attention" strip that links straight to pending approvals, workers still inside, expiring deployments, Aadhaar backlogs and licence renewals.</li>
+      <li><b>Graphs everywhere</b> — 30-day / 7-day attendance trend, this-week bars, today's hourly IN flow, a turnout / workforce / plans donut, and presence-by-contractor (or by-company) bars. All live, refreshed every minute.</li>
+      <li><b>Weekly &amp; monthly report numbers</b> — worker-days this week and this month with % change vs the previous period, plus a Reports strip: pick any month and download the daily CSV, monthly totals, or the printable report right from the dashboard.</li>
+      <li>HR users now get the full company dashboard too (they previously saw an empty page).</li>
+      <li><b>Dedicated Reports page</b> — a new <b>Reports</b> entry in the menu for every role: pick a report (daily register, monthly totals, still-inside, workers directory, contractors directory), run it, and filter the preview on screen by contractor, company, gate, status or free search — the Excel/CSV download contains exactly the filtered view, and summary chips show rows, workers, total hours and missing OUTs live.</li>
+      <li><b>Report analytics</b> — every report renders its own charts, recomputed live as you filter: present-per-day curve and an arrival-time histogram for the daily register, top-workers rankings by days and hours, worker-days donuts by contractor/company, Aadhaar-verification and status donuts on the workers directory, still-inside-by-gate, and more. A "Charts" toggle collapses them when you just want the table.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.15.0</span> Backup finger &amp; Excel export <span class="date">27 Aug 2026</span></h3>
+    <ul>
+      <li><b>Two fingers per worker</b> — the registration wizard offers a backup finger after the first enrolls, worker records show "2 fingers enrolled", and the gate accepts whichever enrolled finger matches. Server-side verification (web gate) checks both; removing biometrics clears both.</li>
+      <li><b>Export to real Excel</b> — the Workers page now downloads a proper .xlsx workbook (sized columns, opens perfectly in Excel) alongside CSV. Exported files re-import cleanly through the import wizard — a true round trip.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.14.0</span> Made for Excel people <span class="date">23 Aug 2026</span></h3>
+    <ul>
+      <li><b>Import wizard</b> — "Import from Excel" now opens a proper wizard: drag in the .xlsx you already have (no more converting to CSV), see exactly how your columns were understood and a preview of the rows BEFORE anything uploads, download a ready-made Excel template, and get a full imported / Aadhaar-pending / skipped report with every skipped row explained.</li>
+      <li><b>Plain language</b> — "Exceptions" is now "Still Inside" (workers who checked IN but not OUT); "Templates" is "Message Templates".</li>
+      <li><b>Spreadsheet-familiar tables</b> — subtle row striping and headers that stay visible while you scroll, on every list.</li>
+      <li><b>One-line page guides</b> — key pages open with a dismissable hint explaining the page in plain words (Workers, Attendance Log), written for people moving over from Excel and paper registers.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.13.0</span> Onboarding-grade bulk import <span class="date">23 Aug 2026</span></h3>
+    <ul>
+      <li><b>Import an existing workforce and start the same day</b> — CSV columns: name, emp code, phone, joining date, Aadhaar number (<b>now optional</b>), PAN, address (+ dob/gender/email). Headers are matched flexibly (Excel-style "Adhar No", "Date of Joining", "Mobile No" all work); dates accept dd/mm/yyyy.</li>
+      <li><b>Explicit Aadhaar-verified flag</b> on every worker — rows imported without Aadhaar land as "Aadhaar pending"; adding the number later (Edit Worker or the app) verifies them. New Workers filter (verified / pending) + pending badges + export column track the backlog.</li>
+      <li><b>Employee codes</b> — the client's own emp codes import, show everywhere (#E001), are searchable, and are protected against duplicates per contractor.</li>
+      <li>Per-row error reporting as before: one bad row (invalid PAN, duplicate code, missing name) never kills the file.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.12.0</span> Plug-and-play launch layer <span class="date">22 Aug 2026</span></h3>
+    <ul>
+      <li><b>Online payment via Razorpay, dormant-wired</b> — a "Pay online" button (UPI/card/netbanking) appears automatically once gateway keys are set; the licence activates instantly on a cryptographically verified payment. Without keys, nothing shows and offline payment stands alone.</li>
+      <li><b>One-command launch verifier</b> — checks email, SMS, WhatsApp, Razorpay, payment details, prices, and production posture; every missing credential is named with exactly which variable to set.</li>
+      <li><b>Everything credential-gated now has a dev fallback</b> — emails to the log, on-screen demo OTPs, WhatsApp messages logged with manual visitor decisions, prices as placeholders.</li>
+      <li><b>Production deployment pack</b> — server bootstrap script, production nginx (static build + TLS), and a fully annotated environment template: domain day is mechanical.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.11.0</span> Licences, payments & go-live hardening <span class="date">22 Aug 2026</span></h3>
+    <ul>
+      <li><b>Offline payment, formalised</b> — pick a licence period (1/3/6/12 months), pay by UPI/bank/cash/cheque, record the reference and upload proof on the Billing page; super admins get notified, see the proof, and "Verify payment &amp; activate" starts the licence.</li>
+      <li><b>Licence management</b> — every paid plan now has a validity: countdown on the Billing page, expiry column on Subscriptions, renewal extends from the current end date, expiry reminders at ≤7 days, and a lapsed licence silently drops to trial limits (nothing deleted) until a renewal is verified.</li>
+      <li><b>Real OTP phone verification</b> for workers (SMS provider–ready; demo code in test mode) alongside manual attest.</li>
+      <li><b>Face liveness (anti-spoofing) hook</b> — activates when a PAD model + threshold are configured; photo/screen replays are then rejected at face attendance.</li>
+      <li><b>Nightly backups</b> — database + document archive with 7-day retention, offsite-ready.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.10.0</span> Visitor management <span class="date">22 Aug 2026</span></h3>
+    <ul>
+      <li><b>Visitors page</b> (company roles): today's gate passes with guest photos, status, WhatsApp/manual decision trail, entry/exit times — plus the <b>Hosts</b> tab where HR maintains who may receive visitors (name, mobile, position, department).</li>
+      <li><b>WhatsApp approval loop</b> — hosts reply YES/NO to approve passes; the webhook is live and activates fully once WhatsApp Business credentials are configured. Until then, manual decisions (with an audited note) keep gates moving.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.9.0</span> Live Board <span class="date">18 Aug 2026</span></h3>
+    <ul>
+      <li><b>The whole site at a glance</b> — new Live Board page for every role: how many are inside right now (with occupancy vs expected), per gate and department with worker photos, today's hour-by-hour IN/OUT flow, and a live activity feed. Auto-refreshes every 10 seconds.</li>
+      <li>Role-aware: companies see their site, gate users their own gate, contractors their own workers. Night-shift safe — workers who checked in before midnight stay on the board until they check out.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.8.0</span> Contractor detail view + consent <span class="date">18 Aug 2026</span></h3>
+    <ul>
+      <li><b>Tab-based contractor detail for companies</b> — click any contractor: organisation profile (contacts, GST/PAN), relationship timeline (requested / approved / consent), workers &amp; deployments history with you, and attendance history (man-days, currently inside, daily activity).</li>
+      <li><b>Details-sharing consent</b> — contractors now give explicit consent when requesting company access ("the company may view our profile and track our working history"); company-created contractors consent implicitly. Without consent the company sees only the contractor's name and request status.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.7.2</span> Biometric hardening <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Photo identity cross-check</b> — every gate capture is automatically compared to the worker's enrolled face (advisory); the day detail flags captures that don't match. Catches buddy-punching.</li>
+      <li><b>1:N ambiguity margins</b> — fingerprint (10 pts) and face (0.08) identifications are rejected when two workers score too close together; face encoder now rejects blurry/tiny faces instead of producing unreliable matches.</li>
+      <li><b>Removed the development byte-similarity fingerprint matcher</b> — server-side fingerprint verification now requires a real matcher binary and refuses clearly otherwise (the gate apps match on-device and are unaffected). Enrollment quality floor 30/100.</li>
+      <li>Developer Guide gains a full <b>Biometric Matching Internals</b> chapter: exact models, formats, score scales, thresholds, and roadmap.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.7.1</span> Verified marks on worker analytics <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Worker analytics page:</b> every recent mark now shows its gate capture photo and HOW it was verified — thumb (fingerprint + score), photo (face + score), or manual.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.7.0</span> Approval by default + photo-verified logs <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Deployment approval is now ON by default</b> — every contractor deployment waits for HR/admin review (with gate/department selection) unless the company turns it off in the approvals panel. The toggle now loads its real saved value.</li>
+      <li><b>Attendance log shows the live gate photo</b> on every row (falls back to the registration photo). Click a row for the day detail: registration + Aadhaar + gate IN/OUT captures side by side, with times, duration, events, gates, method and match scores.</li>
+      <li>Daily summary API now carries proof-photo ids, methods and best scores.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.6.1</span> Worker engagement lock <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Once a worker is engaged with a company — deployed, or currently checked IN — the contractor cannot delete, deactivate, or remove the fingerprint.</b> The API refuses with the company name and end date; cancel the deployment first. Editing details stays allowed.</li>
+      <li>Activate/deactivate now require admin roles (gate users can no longer change worker status); only the owning contractor can remove a fingerprint.</li>
+      <li>Docs reorganised into role guides: Super Admin, Company, Contractor — plus the refreshed technical Developer Guide.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.6.0</span> Deployment awareness <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Daily contractor digests</b> — workers ready but not deployed, and deployments ending within 3 days (in-app for all plans; email on Professional+).</li>
+      <li><b>Deployment-state filter</b> on the Workers page: Deployed now / Not deployed / Expiring in 3 days.</li>
+      <li><b>Timestamps where they matter</b> — user accounts show when they were added; deployments show when they were requested and decided.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.5.1</span> Worker lifecycle &amp; fair plan counting <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Delete worker</b> — contractors can delete their workers (attendance history is preserved). Deletion is blocked while the worker is checked IN.</li>
+      <li><b>Fair plan counting</b> — a worker consumes plan quota only once they have ACTUALLY WORKED (deployed + first attendance). Registering, importing and deleting workers is free; the quota check happens at first deployment. Deleting a worked worker does not free the slot.</li>
+      <li><b>Manual OUT (company/HR only)</b> — admins and HR can administratively mark a worker OUT (forgotten check-outs, before cancelling a deployment). Contractors deliberately cannot — gate truth belongs to the company. Every manual OUT is audited with who did it.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.5.0</span> Department HR role &amp; preset departments <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>New role: Department HR</b> — company admins create HR logins (Users page) who approve/reject contractor deployments and choose which departments each worker may enter. HR cannot manage users, settings or billing.</li>
+      <li><b>Preset departments</b> — a standard list (Main Gate, Security, HR, Production, Quality, Stores &amp; Warehouse, Maintenance, Dispatch, Canteen, Admin Office…) appears everywhere departments are picked; custom names still allowed.</li>
+      <li><b>Main Gate preselected</b> when approving — workers can always IN/OUT at the main gate by default; HR adds more departments per worker. An "All gates" option clears the restriction.</li>
+      <li>The approvals panel now explains itself: it says clearly when auto-approval is on and nothing will queue.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.4.0</span> Deployment approvals &amp; gate permissions <span class="date">17 Aug 2026</span></h3>
+    <ul>
+      <li><b>Company-controlled deployment approval</b> — HR/managers can require approval of contractor deployments (toggle on the Deployment Approvals page). Pending workers cannot mark attendance anywhere until approved; rejections carry a reason back to the contractor.</li>
+      <li><b>Per-gate / per-department permissions</b> — approve one or many workers at once and optionally restrict them to specific gates. The rule is enforced everywhere: web gate, both apps (online and offline), and on the server for every synced mark.</li>
+      <li>Notifications on both sides: company admins get approval requests; contractors get the decision.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.3.1</span> In-portal release notes &amp; richer plans <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>What's New inside the portal</b> — this page now lives in the sidebar for every logged-in user, so admins see each release without leaving the app.</li>
+      <li><b>Weekly attendance summary email (Enterprise)</b> — every Monday morning, company admins get the previous week's per-worker days &amp; hours digest. Template editable like all others.</li>
+      <li><b>Plan cards show everything</b> — signup and billing pages now list each edition's full feature set (face attendance, offline apps, exports, notifications, templates, bulk CSV, alerts, weekly reports, WhatsApp, OTP).</li>
+      <li><b>Workers page, operational by default</b> — opens on "Current (on deployment)" and adds filters: contractor, status, <b>Inside now</b> (last event is IN — on shift right now, night shifts included) and <b>Present today</b>.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.3.0</span> Notifications, templates &amp; verification suite <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Notification center</b> — a live bell in the portal header: contractor approvals/rejections, worker registrations, plan decisions, daily "IN but never OUT" alerts.</li>
+      <li><b>Editable templates</b> — super admin edits the platform defaults; companies and contractors customise their own texts (welcome, password reset, contractor approved/rejected, plan decisions, missing-OUT, IN/OUT pings) with placeholder variables. Professional+.</li>
+      <li><b>Bulk import / export</b> — workers CSV import with per-row validation report and duplicate protection; workers &amp; contractors CSV exports. Professional+.</li>
+      <li><b>Worker verification steps</b> — Aadhaar, fingerprint, face, email and phone each tracked with an at-a-glance panel on the worker page; email/phone attestable today, OTP-ready.</li>
+      <li><b>Plan feature matrix</b> — plan cards now list exactly which capabilities each edition includes; features enforced server-side.</li>
+      <li><b>WhatsApp IN/OUT notifications (Enterprise)</b> — plumbing complete for contractor + worker WhatsApp pings; activates when the WhatsApp Business API is connected.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.2.0</span> Exports, gate scoping, self-service reset <span class="date">16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Attendance exports</b> — daily CSV and monthly-totals CSV (Excel-ready) plus a print-ready month report, with a month picker on the Attendance Log.</li>
+      <li><b>Per-gate scoping</b> — gate logins with a location set see only their own gate's records, everywhere.</li>
+      <li><b>Forgot password</b> — self-service reset from the sign-in page; email notifications for contractor approvals and plan decisions.</li>
+      <li>Fingerprint Test page removed — biometrics live in the apps now.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.1.x</span> Face attendance + SaaS <span class="date">15–16 Aug 2026</span></h3>
+    <ul>
+      <li><b>Camera face attendance</b> on the web gate — workers enrolled automatically from their registration photo; every mark re-verified on the server.</li>
+      <li><b>SaaS self-service:</b> public signup for companies and contractors, Trial / Professional / Enterprise plans with live usage meters, upgrade requests (offline payment), super-admin Subscriptions console.</li>
+      <li>Company admins create their own contractors (auto-approved) and gate/contractor logins.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.0.0</span> Launch <span class="date">15 Aug 2026</span></h3>
+    <ul>
+      <li>Multi-company, multi-contractor workforce registration with contractor approval workflow.</li>
+      <li><b>Aadhaar-verified identity:</b> PDF extraction with auto-fill, masked storage (last 4 only), duplicate detection across contractors, consent capture.</li>
+      <li>Fingerprint enrollment + gate attendance with IN/OUT tracking, daily summaries, exceptions (who's still inside), worker analytics.</li>
+      <li>Role-scoped access for super admin, company admin, gate, contractor admin and operators; full audit logging; private document storage.</li>
+    </ul>
+  </div>
+
+  <footer>TrueCrew · <a href="/download.html">Downloads</a> · <a href="/terms.html">Terms</a> · <a href="/privacy.html">Privacy</a></footer>
+</div>
+</body>
+</html>

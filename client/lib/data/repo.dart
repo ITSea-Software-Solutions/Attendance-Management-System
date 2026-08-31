@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:io';
+
+import 'dart:async';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
-import 'package:dio/dio.dart' show FormData, MultipartFile;
+import 'package:dio/dio.dart' show DioException, FormData, MultipartFile;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -22,8 +25,12 @@ class AppState extends ChangeNotifier {
   bool get isVendor => role == 'vendor_admin' || role == 'vendor_operator';
   bool get isGate => role == 'company_gate';
   bool get isCompanyAdmin => role == 'company_admin';
+  bool get isHr => role == 'company_hr';
   bool get isSuperAdmin => role == 'super_admin';
   bool get canMark => isGate || isCompanyAdmin || isSuperAdmin;
+
+  /// Company HR/admin (or the platform owner): approve deployments, manual OUT.
+  bool get isApprover => isCompanyAdmin || isHr || isSuperAdmin;
 
   Future<void> bootstrap() async {
     final u = await LocalDb.getMeta('user');
@@ -40,6 +47,11 @@ class AppState extends ChangeNotifier {
     online = !now.contains(ConnectivityResult.none);
     notifyListeners();
     if (user != null && online) await sync();
+    // Keep devices fresh without manual taps: newly approved deployments,
+    // templates and photos land within ~90s everywhere that's online.
+    Timer.periodic(const Duration(seconds: 90), (_) {
+      if (user != null && online && !syncing) sync();
+    });
   }
 
   Future<void> login(String server, String email, String password) async {
@@ -121,6 +133,10 @@ class AppState extends ChangeNotifier {
                 'consent': true,
                 'fingerprint_template': w['fingerprint_template'],
                 'fingerprint_quality': w['fingerprint_quality'],
+                'fingerprint_template_2': w['fingerprint_template_2'],
+                'fingerprint_quality_2': w['fingerprint_quality_2'],
+                'fingerprint_template_3': w['fingerprint_template_3'],
+                'fingerprint_quality_3': w['fingerprint_quality_3'],
               })
           .toList(),
       'marks': marks
@@ -148,6 +164,8 @@ class AppState extends ChangeNotifier {
                   'aadhaar_masked': item['aadhaar_number_masked'],
                   'aadhaar_number': null, // discard raw number once server has it
                   'fingerprint_template': null, // server holds it encrypted now
+                  'fingerprint_template_2': null,
+                  'fingerprint_template_3': null,
                   'sync_state': 'synced',
                   'sync_error': null,
                 }
@@ -172,6 +190,40 @@ class AppState extends ChangeNotifier {
             where: 'client_uuid = ?', whereArgs: [w['client_uuid']]);
       } catch (_) {/* retry next sync */}
     }
+    // Aadhaar PDFs: same post-sync pattern as photos — once the server id
+    // exists, attach the PDF the vendor imported during registration.
+    final pdfRows = await db.query('workers',
+        where: 'aadhaar_pdf_path IS NOT NULL AND aadhaar_pdf_synced = 0 AND server_id IS NOT NULL');
+    for (final w in pdfRows) {
+      try {
+        final fd = FormData.fromMap({
+          'aadhaar_number_masked': w['aadhaar_masked'],
+          'pdf': await MultipartFile.fromFile(w['aadhaar_pdf_path'] as String,
+              filename: 'aadhaar.pdf'),
+        });
+        await api.post('/aadhaar/upload/${w['server_id']}', data: fd);
+        await db.update('workers', {'aadhaar_pdf_synced': 1},
+            where: 'client_uuid = ?', whereArgs: [w['client_uuid']]);
+      } catch (_) {/* retry next sync */}
+    }
+    // Aadhaar DOCUMENT photo (extracted from the PDF at registration):
+    // uploaded once the worker has a server id — gate screens show it
+    // beside the live photos.
+    final aPhotoRows = await db.query('workers',
+        where: 'aadhaar_photo_b64 IS NOT NULL AND aadhaar_photo_synced = 0 AND server_id IS NOT NULL');
+    for (final w in aPhotoRows) {
+      try {
+        final tmp = File('${Directory.systemTemp.path}/aadhaar_photo_${w['server_id']}.png');
+        await tmp.writeAsBytes(base64Decode(w['aadhaar_photo_b64'] as String));
+        final fd = FormData.fromMap({
+          'photo': await MultipartFile.fromFile(tmp.path, filename: 'aadhaar.png'),
+        });
+        await api.post('/workers/${w['server_id']}/aadhaar-photo', data: fd);
+        await db.update('workers', {'aadhaar_photo_synced': 1},
+            where: 'client_uuid = ?', whereArgs: [w['client_uuid']]);
+        try { await tmp.delete(); } catch (_) {}
+      } catch (_) {/* retry next sync */}
+    }
     for (final item in List<Map>.from(res['marks'] as List? ?? [])) {
       final ok = item['status'] == 'created' || item['status'] == 'duplicate_uuid';
       await db.update(
@@ -185,6 +237,21 @@ class AppState extends ChangeNotifier {
               : {'sync_state': 'error', 'sync_error': item['message']},
           where: 'client_uuid = ?',
           whereArgs: [item['uuid']]);
+    }
+
+    // Gate proof photos: attach to their synced marks (best-effort, retried).
+    final proofRows = await db.query('attendance',
+        where: 'proof_path IS NOT NULL AND proof_synced = 0 AND server_id IS NOT NULL');
+    for (final m in proofRows) {
+      try {
+        final fd = FormData.fromMap({
+          'photo': await MultipartFile.fromFile(m['proof_path'] as String,
+              filename: 'proof.jpg'),
+        });
+        await api.post('/attendance/${m['server_id']}/proof', data: fd);
+        await db.update('attendance', {'proof_synced': 1},
+            where: 'client_uuid = ?', whereArgs: [m['client_uuid']]);
+      } catch (_) {/* retry next sync */}
     }
   }
 
@@ -214,6 +281,11 @@ class AppState extends ChangeNotifier {
         'phone': w['phone'],
         'status': w['status'],
         'vendor_id': w['vendor_id'],
+        // Enrolled template (marking-capable roles only — server decides):
+        // enables OFFLINE 1:N fingerprint matching at this gate device.
+        'fingerprint_template': w['fingerprint_template'],
+        'fingerprint_template_2': w['fingerprint_template_2'],
+        'fingerprint_template_3': w['fingerprint_template_3'],
         'sync_state': 'synced',
         'sync_error': null,
         'updated_at': w['updated_at']?.toString(),
@@ -237,6 +309,12 @@ class AppState extends ChangeNotifier {
         'start_date': a['start_date']?.toString(),
         'end_date': a['end_date']?.toString(),
         'status': a['status'],
+        'approval_status': a['approval_status'] ?? 'approved',
+        'allowed_locations': a['allowed_locations'] == null
+            ? null
+            : jsonEncode(a['allowed_locations']),
+        'created_at': a['created_at']?.toString(),
+        'approved_at': a['approved_at']?.toString(),
       });
     }
 
@@ -297,6 +375,287 @@ class AppState extends ChangeNotifier {
     return (r.data is Map ? (r.data['message'] ?? 'Marked.') : 'Marked.').toString();
   }
 
+  /// Aadhaar PDF import (online): server-side extraction, no storage.
+  /// Returns the extracted data map (name/dob/gender/aadhaar fields).
+  Future<Map<String, dynamic>> extractAadhaar(String pdfPath,
+      {String? password}) async {
+    final api = await Api.client();
+    final fd = FormData.fromMap({
+      if (password != null && password.isNotEmpty) 'password': password,
+      'pdf': await MultipartFile.fromFile(pdfPath, filename: 'aadhaar.pdf'),
+    });
+    final r = await api.post('/aadhaar/extract', data: fd);
+    final body = Map<String, dynamic>.from(r.data as Map);
+    return Map<String, dynamic>.from(body['data'] as Map? ?? {});
+  }
+
+  /// Enrollment identity check: Aadhaar PDF photo vs live camera photo,
+  /// compared server-side (ArcFace). Advisory — old Aadhaar photos score low.
+  Future<Map<String, dynamic>> verifyAadhaarFace(
+      String aadhaarPhotoB64, String livePhotoPath) async {
+    final api = await Api.client();
+    final fd = FormData.fromMap({
+      'aadhaar_photo_base64': aadhaarPhotoB64,
+      'live_photo':
+          await MultipartFile.fromFile(livePhotoPath, filename: 'live.jpg'),
+    });
+    final r = await api.post('/aadhaar/face-verify', data: fd);
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  /// Authenticated URL + headers for the Aadhaar DOCUMENT photo.
+  Future<(String, Map<String, String>)?> aadhaarPhotoRequest(int? serverId) async {
+    if (serverId == null) return null;
+    final server = await LocalDb.getMeta('server');
+    final token = await LocalDb.getMeta('token');
+    if (server == null || token == null) return null;
+    return (
+      '$server/api/workers/$serverId/aadhaar-photo',
+      {'Authorization': 'Bearer $token', 'Accept': 'image/*'}
+    );
+  }
+
+  /// Authenticated URL + headers for a worker's photo (gate result card).
+  Future<(String, Map<String, String>)?> workerPhotoRequest(
+      int? serverId) async {
+    if (serverId == null) return null;
+    final server = await LocalDb.getMeta('server');
+    final token = await LocalDb.getMeta('token');
+    if (server == null || token == null) return null;
+    return (
+      '$server/api/workers/$serverId/photo',
+      {'Authorization': 'Bearer $token', 'Accept': 'image/*'}
+    );
+  }
+
+  /// Authenticated URL + headers for a synced mark's gate proof photo.
+  Future<(String, Map<String, String>)?> proofPhotoRequest(
+      int? logServerId) async {
+    if (logServerId == null) return null;
+    final server = await LocalDb.getMeta('server');
+    final token = await LocalDb.getMeta('token');
+    if (server == null || token == null) return null;
+    return (
+      '$server/api/attendance/proof/$logServerId',
+      {'Authorization': 'Bearer $token', 'Accept': 'image/*'}
+    );
+  }
+
+  // ── Company HR/admin: deployment approvals + manual OUT (online) ──────────
+
+  /// Deployments waiting for this company's approval.
+  Future<List<Map<String, dynamic>>> pendingAssignments() async {
+    final api = await Api.client();
+    final r = await api.get('/assignments-pending');
+    final rows = (r.data is Map ? r.data['pending'] ?? [] : r.data) as List;
+    return List<Map>.from(rows).map(Map<String, dynamic>.from).toList();
+  }
+
+  /// This company's gate/department list (presets + custom).
+  Future<List<String>> companyLocations() async {
+    final api = await Api.client();
+    final companyId = user?['company_id'];
+    if (companyId == null) return const [];
+    final r = await api.get('/companies/$companyId/locations');
+    final rows = (r.data is Map ? r.data['locations'] ?? [] : r.data) as List;
+    return rows.map((e) => '$e').toList();
+  }
+
+  /// Approve one or many deployments, optionally restricted to gates.
+  Future<String> approveAssignments(List<int> ids,
+      {List<String>? locations}) async {
+    final api = await Api.client();
+    final r = await api.post('/assignments-approve', data: {
+      'ids': ids,
+      'allowed_locations':
+          (locations == null || locations.isEmpty) ? null : locations,
+    });
+    await sync();
+    return (r.data is Map ? (r.data['message'] ?? 'Approved.') : 'Approved.')
+        .toString();
+  }
+
+  Future<String> rejectAssignment(int id, String reason) async {
+    final api = await Api.client();
+    await api.post('/assignments/$id/reject', data: {'reason': reason});
+    await sync();
+    return 'Deployment rejected.';
+  }
+
+  /// Company-side manual OUT for a worker who left without scanning.
+  Future<String> manualOut(int workerServerId) async {
+    final api = await Api.client();
+    final r = await api
+        .post('/attendance/manual-out', data: {'worker_id': workerServerId});
+    await sync();
+    return (r.data is Map ? (r.data['message'] ?? 'Manual OUT recorded.') : 'Manual OUT recorded.')
+        .toString();
+  }
+
+  // ── Vendor: online admin actions (deploy, stats, companies) ───────────────
+
+  /// Companies this vendor can deploy to (approved access only).
+  Future<List<Map<String, dynamic>>> approvedCompanies() async {
+    final api = await Api.client();
+    final r = await api.get('/vendors/${user?['vendor_id']}/available-companies');
+    final rows = List<Map>.from(
+        (r.data is Map ? r.data['companies'] ?? r.data['data'] ?? [] : r.data) as List);
+    return rows
+        .map(Map<String, dynamic>.from)
+        .where((c) =>
+            (c['request_status'] ?? c['status'] ?? c['pivot_status'] ?? '') ==
+            'approved')
+        .toList();
+  }
+
+  /// Deploy a worker to a company for a date range (online).
+  Future<String> deployWorker({
+    required int workerServerId,
+    required int companyId,
+    required String startDate,
+    required String endDate,
+  }) async {
+    final api = await Api.client();
+    final r = await api.post('/assignments', data: {
+      'worker_id': workerServerId,
+      'company_id': companyId,
+      'start_date': startDate,
+      'end_date': endDate,
+    });
+    await sync(); // refresh local assignments
+    return (r.data is Map ? (r.data['message'] ?? 'Deployed.') : 'Deployed.')
+        .toString();
+  }
+
+  /// Worker analytics from the server (days present, hours, per-month rows).
+  Future<Map<String, dynamic>> workerStats(int serverId) async {
+    final api = await Api.client();
+    final r = await api.get('/workers/$serverId/stats');
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  // ── Visitors / gate passes (online; company-side roles) ───────────────────
+
+  /// Active hosts who may receive visitors (HR-maintained on the portal).
+  Future<List<Map<String, dynamic>>> visitorHosts() async {
+    final api = await Api.client();
+    final r = await api.get('/visitor-hosts', queryParameters: {'active_only': 1});
+    return List<Map>.from(r.data as List).map(Map<String, dynamic>.from).toList();
+  }
+
+  /// Today's gate passes (newest first).
+  Future<List<Map<String, dynamic>>> gatePasses() async {
+    final api = await Api.client();
+    final r = await api.get('/gate-passes');
+    return List<Map>.from(r.data as List).map(Map<String, dynamic>.from).toList();
+  }
+
+  /// Create a visitor pass; the host is asked on WhatsApp when configured.
+  Future<Map<String, dynamic>> createGatePass({
+    required int hostId,
+    required String guestName,
+    String? guestPhone,
+    String? purpose,
+    String? photoPath,
+    String? vehicleNumber,
+    String? vehiclePhotoPath,
+  }) async {
+    final api = await Api.client();
+    final fd = FormData.fromMap({
+      'host_id': hostId,
+      'guest_name': guestName,
+      if (guestPhone != null && guestPhone.isNotEmpty) 'guest_phone': guestPhone,
+      if (purpose != null && purpose.isNotEmpty) 'purpose': purpose,
+      if (vehicleNumber != null && vehicleNumber.isNotEmpty)
+        'vehicle_number': vehicleNumber,
+      if (photoPath != null)
+        'photo': await MultipartFile.fromFile(photoPath, filename: 'guest.jpg'),
+      if (vehiclePhotoPath != null)
+        'vehicle_photo':
+            await MultipartFile.fromFile(vehiclePhotoPath, filename: 'vehicle.jpg'),
+    });
+    final r = await api.post('/gate-passes', data: fd);
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  /// Manual decision (host answered by phone / WhatsApp not configured).
+  Future<Map<String, dynamic>> decideGatePass(int id, String decision, String note) async {
+    final api = await Api.client();
+    final r = await api.post('/gate-passes/$id/decide',
+        data: {'decision': decision, 'note': note});
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  /// Record the visitor entering / leaving.
+  Future<Map<String, dynamic>> moveGatePass(int id, String direction) async {
+    final api = await Api.client();
+    final r = await api.post('/gate-passes/$id/move', data: {'direction': direction});
+    return Map<String, dynamic>.from(r.data as Map);
+  }
+
+  /// The server's human-readable message from an API error (engagement
+  /// locks, plan limits) — fall back to a generic line when absent.
+  static String apiMessage(Object e, String fallback) {
+    if (e is DioException) {
+      final d = e.response?.data;
+      if (d is Map && d['message'] != null) return '${d['message']}';
+    }
+    return fallback;
+  }
+
+  /// Edit basic worker details (online; server is the source of truth).
+  Future<String> updateWorker(int serverId, Map<String, Object?> fields) async {
+    final api = await Api.client();
+    await api.put('/workers/$serverId', data: fields);
+    await sync(); // pull the fresh record into the local cache
+    return 'Worker updated.';
+  }
+
+  /// Activate / deactivate (online). The server enforces the engagement
+  /// lock: a deployed or checked-IN worker can't be deactivated by the vendor.
+  Future<String> setWorkerActive(int serverId, bool active) async {
+    final api = await Api.client();
+    final r = await api
+        .post('/workers/$serverId/${active ? 'activate' : 'deactivate'}');
+    await sync();
+    return (r.data is Map ? (r.data['message'] ?? 'Done.') : 'Done.').toString();
+  }
+
+  /// Enroll a fingerprint for an EXISTING worker (online). slot 2 = backup
+  /// finger — the gate then verifies against whichever finger matches.
+  Future<String> enrollWorkerFinger(
+      int serverId, String template, int quality, {int slot = 1}) async {
+    final api = await Api.client();
+    final r = await api.post('/workers/$serverId/fingerprint',
+        data: {'template': template, 'quality': quality, 'slot': slot});
+    await sync();
+    return (r.data is Map ? (r.data['message'] ?? 'Enrolled.') : 'Enrolled.')
+        .toString();
+  }
+
+  /// Delete a worker (online). The server blocks while deployed or checked
+  /// IN; on success we prune the local cache (pull only upserts, never prunes).
+  Future<String> deleteWorker(int serverId) async {
+    final api = await Api.client();
+    final r = await api.delete('/workers/$serverId');
+    final db = await LocalDb.instance();
+    await db.delete('workers', where: 'server_id = ?', whereArgs: [serverId]);
+    await db.delete('assignments',
+        where: 'worker_server_id = ?', whereArgs: [serverId]);
+    notifyListeners();
+    return (r.data is Map ? (r.data['message'] ?? 'Worker deleted.') : 'Worker deleted.')
+        .toString();
+  }
+
+  /// Remove a registration that never reached the server (offline-safe).
+  Future<void> deleteLocalWorker(String clientUuid) async {
+    final db = await LocalDb.instance();
+    await db.delete('workers',
+        where: 'client_uuid = ? AND server_id IS NULL', whereArgs: [clientUuid]);
+    await _refreshPending();
+    notifyListeners();
+  }
+
   /// Diagnostics: timed round-trip to the server (auth'd, tiny endpoint).
   Future<Map<String, Object?>> serverProbe() async {
     final server = await LocalDb.getMeta('server') ?? '(not set)';
@@ -343,19 +702,22 @@ class AppState extends ChangeNotifier {
     String? phone,
     String? fingerprintTemplate,
     int? fingerprintQuality,
+    String? fingerprintTemplate2,
+    int? fingerprintQuality2,
+    String? fingerprintTemplate3,
+    int? fingerprintQuality3,
     bool fingerprintSimulated = false,
     String? photoPath,
+    String? aadhaarPdfPath,
+    String? aadhaarPhotoB64,
   }) async {
     if (!RegExp(r'^\d{12}$').hasMatch(aadhaar)) {
       return 'Aadhaar must be exactly 12 digits.';
     }
     final db = await LocalDb.instance();
-    final dupe = await db.query('workers',
-        where: 'aadhaar_masked = ? OR aadhaar_number = ?',
-        whereArgs: ['XXXX-XXXX-${aadhaar.substring(8)}', aadhaar]);
-    if (dupe.isNotEmpty) {
-      return 'A worker with this Aadhaar already exists on this device.';
-    }
+    // No local Aadhaar-dedup block: the SERVER enforces uniqueness when
+    // enabled (AADHAAR_DEDUP, default on) and reports it as a per-row sync
+    // error — test environments may allow duplicates.
     await db.insert('workers', {
       'client_uuid': _uuid.v4(),
       'name': name,
@@ -366,9 +728,17 @@ class AppState extends ChangeNotifier {
       'phone': phone,
       'fingerprint_template': fingerprintTemplate,
       'fingerprint_quality': fingerprintQuality,
+      'fingerprint_template_2': fingerprintTemplate2,
+      'fingerprint_quality_2': fingerprintQuality2,
+      'fingerprint_template_3': fingerprintTemplate3,
+      'fingerprint_quality_3': fingerprintQuality3,
       'fp_simulated': fingerprintSimulated ? 1 : 0,
       'photo_path': photoPath,
       'photo_synced': 0,
+      'aadhaar_pdf_path': aadhaarPdfPath,
+      'aadhaar_pdf_synced': 0,
+      'aadhaar_photo_b64': aadhaarPhotoB64,
+      'aadhaar_photo_synced': 0,
       'status': fingerprintTemplate != null ? 'active' : 'pending',
       'sync_state': 'pending',
     });
@@ -384,13 +754,39 @@ class AppState extends ChangeNotifier {
   Future<List<Map<String, Object?>>> deployedWorkers() async {
     final db = await LocalDb.instance();
     final today = DateTime.now().toIso8601String().substring(0, 10);
-    return db.rawQuery('''
-      SELECT DISTINCT w.* FROM workers w
+    final rows = await db.rawQuery('''
+      SELECT DISTINCT w.*, a.allowed_locations FROM workers w
       JOIN assignments a ON a.worker_server_id = w.server_id
-      WHERE a.status = 'active' AND a.start_date <= ? AND a.end_date >= ?
+      WHERE a.status = 'active'
+        AND a.approval_status = 'approved'
+        AND a.start_date <= ? AND a.end_date >= ?
         AND w.status = 'active'
       ORDER BY w.name
     ''', [today, today]);
+    // Gate/department permission: when the deployment is restricted, only
+    // devices AT one of the allowed locations may see/match the worker.
+    final myLoc = user?['location_name'] as String?;
+    return rows.where((r) {
+      final raw = r['allowed_locations'] as String?;
+      if (raw == null || raw.isEmpty) return true; // all gates
+      try {
+        final list = List<String>.from(jsonDecode(raw) as List);
+        if (list.isEmpty) return true;
+        return myLoc != null && list.contains(myLoc);
+      } catch (_) {
+        return true;
+      }
+    }).toList();
+  }
+
+  /// This worker's deployments from the local store (works offline).
+  Future<List<Map<String, Object?>>> workerDeployments(int? serverId) async {
+    if (serverId == null) return const [];
+    final db = await LocalDb.instance();
+    return db.query('assignments',
+        where: 'worker_server_id = ?',
+        whereArgs: [serverId],
+        orderBy: 'start_date DESC');
   }
 
   /// Last IN/OUT for a worker → suggests the next type.
@@ -411,6 +807,7 @@ class AppState extends ChangeNotifier {
     required String method,
     int? score,
     bool simulated = false,
+    String? proofPath,
   }) async {
     final db = await LocalDb.instance();
     await db.insert('attendance', {
@@ -426,6 +823,8 @@ class AppState extends ChangeNotifier {
       'simulated': simulated ? 1 : 0,
       'location_type': user?['location_type'],
       'location_name': user?['location_name'],
+      'proof_path': proofPath,
+      'proof_synced': 0,
       'sync_state': 'pending',
     });
     await _refreshPending();
@@ -460,5 +859,47 @@ class AppState extends ChangeNotifier {
     }
     return db.query('workers',
         where: 'name LIKE ?', whereArgs: ['%$search%'], orderBy: 'name');
+  }
+
+  /// Vendor list rows WITH their best current/upcoming deployment — all from
+  /// the local store, so the summary works offline.
+  Future<List<Map<String, Object?>>> workersWithDeployment(
+      {String? search}) async {
+    final db = await LocalDb.instance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    return db.rawQuery('''
+      SELECT w.*,
+             a.company_name  AS dep_company,
+             a.end_date      AS dep_end,
+             a.start_date    AS dep_start,
+             a.approval_status AS dep_approval
+      FROM workers w
+      LEFT JOIN assignments a ON a.server_id = (
+        SELECT a2.server_id FROM assignments a2
+        WHERE a2.worker_server_id = w.server_id
+          AND a2.status = 'active' AND a2.end_date >= ?
+        ORDER BY a2.start_date ASC LIMIT 1
+      )
+      ${search != null && search.isNotEmpty ? "WHERE w.name LIKE ?" : ""}
+      ORDER BY w.name
+    ''', search != null && search.isNotEmpty ? [today, '%$search%'] : [today]);
+  }
+
+  /// In-app notification center (online): same feed as the web bell.
+  Future<(List<Map<String, dynamic>>, int)> notifications() async {
+    final api = await Api.client();
+    final r = await api.get('/notifications');
+    final d = Map<String, dynamic>.from(r.data as Map);
+    return (
+      List<Map>.from(d['notifications'] as List? ?? [])
+          .map(Map<String, dynamic>.from)
+          .toList(),
+      (d['unread'] as num?)?.toInt() ?? 0
+    );
+  }
+
+  Future<void> markNotificationsRead() async {
+    final api = await Api.client();
+    await api.post('/notifications/read', data: {});
   }
 }

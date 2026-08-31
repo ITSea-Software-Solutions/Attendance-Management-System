@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import api from "@/lib/axios";
+import { useOrgScope } from "@/lib/scope";
 import { useAuth } from "@/contexts/AuthContext";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
@@ -15,7 +16,10 @@ const STATUS_COLORS = {
 export default function WorkerAssign() {
   const queryClient   = useQueryClient();
   const { user }      = useAuth();
+  const { showCompany } = useOrgScope();
   const isVendorAdmin = ["vendor_admin", "vendor_operator"].includes(user?.role);
+  const isCompanyAdmin = user?.role === "company_admin";
+  const isApprover = ["company_admin", "company_hr"].includes(user?.role) || user?.role === "super_admin";
 
   const today = format(new Date(), "yyyy-MM-dd");
   const [form, setForm] = useState({
@@ -53,13 +57,81 @@ export default function WorkerAssign() {
 
   const deploy = useMutation({
     mutationFn: (d) => api.post("/assignments", d),
-    onSuccess: () => {
-      toast.success("Worker deployed successfully.");
+    onSuccess: (r) => {
+      toast.success(r.data?.message ?? "Worker deployed successfully.", { duration: 5000 });
       queryClient.invalidateQueries(["assignments"]);
       setForm({ worker_id: "", company_id: "", start_date: today, end_date: "", shift: "general", notes: "" });
       setShowForm(false);
     },
     onError: (err) => toast.error(err.response?.data?.message ?? "Deployment failed."),
+  });
+
+  // ── Company-side approvals (HR): pending list + bulk approve/reject ──
+  const { data: pendingData } = useQuery({
+    queryKey: ["assignments-pending"],
+    queryFn:  () => api.get("/assignments-pending").then(r => r.data.pending),
+    enabled:  isApprover,
+    refetchInterval: 60000,
+  });
+  const { data: locationsData } = useQuery({
+    queryKey: ["company-locations", user?.company_id],
+    queryFn:  () => api.get(`/companies/${user.company_id}/locations`).then(r => r.data.locations),
+    enabled:  ["company_admin", "company_hr"].includes(user?.role),
+  });
+  const [selIds, setSelIds] = useState([]);
+  // "Main Gate" preselected: workers should always be able to IN/OUT at the
+  // main gate; HR adds more departments as needed. Clearing all = every gate.
+  const [selLocs, setSelLocs] = useState(["Main Gate"]);
+  const [requireApproval, setRequireApproval] = useState(null);
+
+  // Load the saved setting — approval is ON by default (v1.7); a company can
+  // opt out. `null` means "not loaded yet", so fall back to the default.
+  useQuery({
+    queryKey: ["company-settings", user?.company_id],
+    queryFn:  async () => {
+      const r = await api.get(`/companies/${user.company_id}`);
+      const v = r.data?.settings?.require_deployment_approval;
+      setRequireApproval(v === undefined || v === null ? true : !!v);
+      return r.data;
+    },
+    enabled: !!user?.company_id && isApprover,
+  });
+
+  const approveBulk = useMutation({
+    mutationFn: () => api.post("/assignments-approve", {
+      ids: selIds, allowed_locations: selLocs.length ? selLocs : null,
+    }),
+    onSuccess: (r) => {
+      toast.success(r.data.message, { duration: 5000 });
+      setSelIds([]); setSelLocs([]);
+      queryClient.invalidateQueries(["assignments-pending"]);
+      queryClient.invalidateQueries(["assignments"]);
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Approve failed."),
+  });
+  const rejectOne = useMutation({
+    mutationFn: ({ id, reason }) => api.post(`/assignments/${id}/reject`, { reason }),
+    onSuccess: () => {
+      toast.success("Deployment rejected.");
+      queryClient.invalidateQueries(["assignments-pending"]);
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Reject failed."),
+  });
+  const saveApprovalSetting = async (v) => {
+    try {
+      await api.put(`/companies/${user.company_id}/settings`, { require_deployment_approval: v });
+      setRequireApproval(v);
+      toast.success(v ? "New deployments now need your approval." : "Deployments auto-approve again.");
+    } catch { toast.error("Could not save the setting."); }
+  };
+
+  const manualOut = useMutation({
+    mutationFn: (workerId) => api.post("/attendance/manual-out", { worker_id: workerId }),
+    onSuccess: (r) => {
+      toast.success(r.data?.message ?? "Manual OUT recorded.");
+      queryClient.invalidateQueries(["assignments"]);
+    },
+    onError: (e) => toast.error(e.response?.data?.message ?? "Manual OUT failed."),
   });
 
   const cancel = useMutation({
@@ -85,6 +157,90 @@ export default function WorkerAssign() {
           New Deployment
         </button>
       </div>
+
+      {/* ── Company HR: approval requirement toggle + pending requests ── */}
+      {isApprover && user?.role !== "super_admin" && (
+        <div className="card space-y-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
+            <h2 className="font-semibold text-gray-900">Deployment approvals</h2>
+            {isCompanyAdmin && (
+              <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+                <input type="checkbox"
+                       checked={requireApproval ?? true}
+                       onChange={(e) => saveApprovalSetting(e.target.checked)} />
+                Require approval for new vendor deployments
+              </label>
+            )}
+          </div>
+          {(pendingData?.length ?? 0) === 0 ? (
+            <p className="text-sm text-gray-400">
+              No deployments waiting for approval.
+              {requireApproval === false
+                ? " Note: approval is OFF — new vendor deployments activate immediately. Turn the checkbox on to review them here first (with gate/department selection)."
+                : " New vendor deployments will appear here for review (approval is on by default)."}
+            </p>
+          ) : (
+            <>
+              <div className="divide-y divide-gray-100">
+                {pendingData.map((a) => (
+                  <div key={a.id} className="flex items-center gap-3 py-2">
+                    <input type="checkbox"
+                           checked={selIds.includes(a.id)}
+                           onChange={(e) => setSelIds((x) =>
+                             e.target.checked ? [...x, a.id] : x.filter((i) => i !== a.id))} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {a.worker?.name} <span className="text-gray-400 font-normal">· {a.vendor?.name}</span>
+                      </p>
+                      <p className="text-xs text-gray-500">{a.start_date?.slice(0,10)} → {a.end_date?.slice(0,10)}</p>
+                    </div>
+                    <button className="btn-danger text-xs"
+                            onClick={() => {
+                              const reason = window.prompt("Reason for rejecting this deployment:");
+                              if (reason?.trim()) rejectOne.mutate({ id: a.id, reason: reason.trim() });
+                            }}>
+                      Reject
+                    </button>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-2 border-t border-gray-100 space-y-2">
+                <p className="text-xs font-medium text-gray-500 uppercase">Allowed gates / departments for the selected workers</p>
+                <div className="flex flex-wrap gap-2">
+                  <button onClick={() => setSelLocs([])}
+                          className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                            selLocs.length === 0
+                              ? "bg-brand-50 border-brand-500 text-brand-700"
+                              : "border-gray-300 text-gray-500"
+                          }`}>
+                    All gates
+                  </button>
+                  {(locationsData ?? []).map((loc) => (
+                    <button key={loc}
+                            onClick={() => setSelLocs((x) =>
+                              x.includes(loc) ? x.filter((l) => l !== loc) : [...x, loc])}
+                            className={`px-3 py-1 rounded-full text-xs font-medium border ${
+                              selLocs.includes(loc)
+                                ? "bg-brand-50 border-brand-500 text-brand-700"
+                                : "border-gray-300 text-gray-500"
+                            }`}>
+                      {loc}
+                    </button>
+                  ))}
+                  <span className="text-xs text-gray-400 self-center">
+                    {selLocs.length === 0 ? "ALL gates allowed" : `Allowed at: ${selLocs.join(", ")}`}
+                  </span>
+                </div>
+                <button className="btn-primary text-sm"
+                        disabled={selIds.length === 0 || approveBulk.isPending}
+                        onClick={() => approveBulk.mutate()}>
+                  Approve {selIds.length || ""} selected
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {/* Create form */}
       {showForm && (
@@ -190,7 +346,9 @@ export default function WorkerAssign() {
           <thead className="bg-gray-50 border-b border-gray-100">
             <tr>
               <th className="text-left px-5 py-3 font-medium text-gray-500">Worker</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Company</th>
+              {showCompany() && (
+                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Company</th>
+              )}
               <th className="text-left px-4 py-3 font-medium text-gray-500">Period</th>
               <th className="text-center px-4 py-3 font-medium text-gray-500">Status</th>
               <th className="text-center px-4 py-3 font-medium text-gray-500">Lock</th>
@@ -216,12 +374,14 @@ export default function WorkerAssign() {
                   <p className="font-medium text-gray-900">{a.worker?.name}</p>
                   <p className="text-xs text-gray-400">{a.vendor?.name}</p>
                 </td>
-                <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
-                  <div className="flex items-center gap-1.5">
-                    <Building2 size={13} className="text-gray-400" />
-                    {a.company?.name}
-                  </div>
-                </td>
+                {showCompany() && (
+                  <td className="px-4 py-3 text-gray-600 hidden md:table-cell">
+                    <div className="flex items-center gap-1.5">
+                      <Building2 size={13} className="text-gray-400" />
+                      {a.company?.name}
+                    </div>
+                  </td>
+                )}
                 <td className="px-4 py-3 text-gray-600">
                   <div className="flex items-center gap-1.5 text-xs">
                     <Calendar size={12} className="text-gray-400" />
@@ -234,6 +394,15 @@ export default function WorkerAssign() {
                   <span className={`badge ${STATUS_COLORS[a.status] ?? "badge-gray"}`}>
                     {a.status}
                   </span>
+                      {a.approval_status === "pending" && <span className="badge badge-yellow ml-1">awaiting approval</span>}
+                      {a.approval_status === "rejected" && <span className="badge badge-red ml-1">rejected</span>}
+                      {Array.isArray(a.allowed_locations) && a.allowed_locations.length > 0 && (
+                        <span className="badge badge-gray ml-1">gates: {a.allowed_locations.join(", ")}</span>
+                      )}
+                      <span className="block text-[11px] text-gray-400 mt-0.5">
+                        requested {a.created_at?.slice(0, 10)}
+                        {a.approved_at ? ` · decided ${a.approved_at.slice(0, 10)}` : ""}
+                      </span>
                 </td>
                 <td className="px-4 py-3 text-center">
                   {a.is_locked ? (
@@ -247,15 +416,32 @@ export default function WorkerAssign() {
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {a.status === "active" && (
-                    <button
-                      onClick={() => cancel.mutate(a.id)}
-                      disabled={cancel.isPending}
-                      className="text-xs text-red-500 hover:text-red-700 font-medium"
-                    >
-                      Cancel
-                    </button>
-                  )}
+                  <div className="flex items-center gap-3 justify-end">
+                    {/* Company/HR only: administrative OUT for a forgotten
+                        check-out (vendors deliberately cannot). */}
+                    {a.status === "active" && ["company_admin", "company_hr", "super_admin"].includes(user?.role) && (
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Mark ${a.worker?.name ?? "this worker"} OUT manually? Use when they left without scanning.`)) {
+                            manualOut.mutate(a.worker_id);
+                          }
+                        }}
+                        disabled={manualOut.isPending}
+                        className="text-xs text-amber-600 hover:text-amber-800 font-medium"
+                      >
+                        Manual OUT
+                      </button>
+                    )}
+                    {a.status === "active" && (
+                      <button
+                        onClick={() => cancel.mutate(a.id)}
+                        disabled={cancel.isPending}
+                        className="text-xs text-red-500 hover:text-red-700 font-medium"
+                      >
+                        Cancel
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

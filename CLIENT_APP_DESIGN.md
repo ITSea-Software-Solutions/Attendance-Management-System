@@ -34,7 +34,7 @@ and SecuGen thumb scanner, with offline storage.
 - **SecuGen integration paths** (device: Hamster Pro 20 / HU20-AP already owned):
   - Windows: EITHER keep SGIBIOSRV local HTTP service (`https://localhost:8443`,
     zero native work, same as browser today) OR `dart:ffi` directly against the
-    SecuGen DLLs (`sgfplib.dll` — already in repo under `biometric-agent/`).
+    SecuGen DLLs (`sgfplib.dll` — in the repo under `client/windows/sgfp/`).
     Start with SGIBIOSRV, move to FFI if the extra service becomes operational pain.
   - Android: SecuGen **FDx SDK Pro for Android** (Java AAR) over **USB-OTG**, wrapped
     in a Flutter platform channel (MethodChannel). USB permission flow handled natively.

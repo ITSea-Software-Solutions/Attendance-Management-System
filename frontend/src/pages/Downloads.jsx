@@ -10,34 +10,52 @@ const APPS = [
   {
     icon: Smartphone,
     title: "Android App",
-    desc: "Vendor registration + gate attendance, offline-capable. v0.9 preview — fingerprint simulated; USB-OTG scanner support lands in v1.0.",
-    status: "/downloads/ams-android-v0.9.0-preview.apk",
+    desc: "Full worker registration (Aadhaar + fingerprint + face) and gate attendance, offline-capable. SecuGen SDK bundled — plug a USB scanner in and scan; camera face match on-device.",
+    status: "/downloads/truecrew-android-v0.9.37-preview.apk",
   },
   {
     icon: Monitor,
-    title: "Windows Gate App",
-    desc: "Desktop attendance station with SecuGen fingerprint scanner support.",
-    status: "in_development",
+    title: "Windows App",
+    desc: "Registration + attendance station. Talks to SecuGen scanners directly via the FDx SDK — no extra service needed.",
+    status: "/downloads/truecrew-windows-x64-v0.9.37-preview.zip",
   },
 ];
 
 const DOCS = [
   {
     icon: BookOpen,
+    title: "Super Admin Guide",
+    desc: "Platform owner — organisations, subscriptions & plans, users, templates, oversight.",
+    href: "/docs/super-admin-guide.html",
+  },
+  {
+    icon: BookOpen,
+    title: "Company Guide",
+    desc: "Admins, HR and gate teams — vendor approvals, deployment approvals, attendance, manual OUT, reports.",
+    href: "/docs/company-guide.html",
+  },
+  {
+    icon: BookOpen,
+    title: "Contractor Guide",
+    desc: "Register workers, deploy to companies, run everything from the app — offline included.",
+    href: "/docs/vendor-guide.html",
+  },
+  {
+    icon: BookOpen,
     title: "Client Guide",
-    desc: "Start here — features, the end-to-end flow, and how-tos for every role. Shareable with client teams.",
+    desc: "One-page product overview — features and the end-to-end flow. Shareable with prospects.",
     href: "/docs/client-guide.html",
   },
   {
     icon: BookOpen,
-    title: "User Manual",
-    desc: "Step-by-step guide for every role — super admin, company, gate and vendor users.",
-    href: "/docs/user-manual.html",
+    title: "Release Notes",
+    desc: "What changed in every version — apps and web platform.",
+    href: "/release-notes.html",
   },
   {
     icon: FileCode2,
     title: "Developer Guide",
-    desc: "Technical reference — architecture, API, database schema and deployment.",
+    desc: "Super admin's technical companion — architecture, API, database schema and deployment.",
     href: "/docs/developer-guide.html",
   },
 ];

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'core/scope.dart';
-import 'data/repo.dart';
 import 'ui/home.dart';
 import 'ui/login.dart';
 

@@ -33,6 +33,50 @@ class PlanService
         return config("plans.plans.$plan") ?? config('plans.plans.trial');
     }
 
+    /**
+     * Licence check: the plan that is actually IN FORCE for an org.
+     * A paid plan past its plan_expires_at degrades to trial at read time —
+     * nothing is mutated; a verified renewal instantly restores it.
+     */
+    public static function effectivePlan($org): string
+    {
+        $plan = $org->plan ?? 'trial';
+        if ($plan !== 'trial'
+            && $org->plan_expires_at
+            && now()->greaterThan($org->plan_expires_at)) {
+            return 'trial';
+        }
+
+        return $plan;
+    }
+
+    /** Days until the licence lapses (null = no expiry; negative = lapsed). */
+    public static function daysLeft($org): ?int
+    {
+        if (! $org->plan_expires_at || ($org->plan ?? 'trial') === 'trial') {
+            return null;
+        }
+
+        return (int) now()->startOfDay()->diffInDays($org->plan_expires_at, false);
+    }
+
+    /** Whether a plan includes a named feature (see config/plans.php). */
+    public static function hasFeature(string $plan, string $feature): bool
+    {
+        return in_array($feature, self::limits($plan)['features'] ?? [], true);
+    }
+
+    /** Feature check straight from a user (super admin has everything). */
+    public static function userHasFeature(User $user, string $feature): bool
+    {
+        $ctx = self::orgFor($user);
+        if (! $ctx) {
+            return true; // super admin
+        }
+
+        return self::hasFeature(self::effectivePlan($ctx['org']), $feature);
+    }
+
     /** Current usage counters for an org. */
     public static function usage(string $type, int $orgId): array
     {
@@ -46,7 +90,12 @@ class PlanService
         }
         return [
             'users'   => User::where('vendor_id', $orgId)->count(),
-            'workers' => Worker::where('vendor_id', $orgId)->count(),
+            // A worker consumes quota only once they have ACTUALLY WORKED
+            // (deployed + at least one attendance event). Registering and
+            // deleting workers is free; deleting a worked worker does NOT
+            // free the slot (withTrashed) — no delete-to-reset gaming.
+            'workers' => Worker::withTrashed()->where('vendor_id', $orgId)
+                ->whereHas('attendanceLogs')->count(),
             'links'   => DB::table('company_vendors')
                 ->where('vendor_id', $orgId)->where('status', 'approved')->count(),
         ];
@@ -63,7 +112,9 @@ class PlanService
             return null;
         }
         $org    = $orgCtx['org'];
-        $plan   = $org->plan ?? 'trial';
+        // Licence-aware: an expired paid plan enforces TRIAL limits until renewed.
+        $plan   = self::effectivePlan($org);
+        $lapsed = $plan !== ($org->plan ?? 'trial');
         $limit  = self::limits($plan)[$metric] ?? null;
         if ($limit === null) {
             return null;
@@ -74,8 +125,10 @@ class PlanService
         }
         $labels = ['users' => 'users', 'workers' => 'workers', 'links' => 'company–vendor links'];
         return [
-            'message' => ucfirst(self::limits($plan)['label']) . " plan limit reached ({$limit} {$labels[$metric]}). Upgrade your plan to add more.",
-            'code'    => 'PLAN_LIMIT',
+            'message' => $lapsed
+                ? "Your {$org->plan} licence has EXPIRED — trial limits apply ({$limit} {$labels[$metric]}). Renew on the Billing page to restore your plan."
+                : ucfirst(self::limits($plan)['label']) . " plan limit reached ({$limit} {$labels[$metric]}). Upgrade your plan to add more.",
+            'code'    => $lapsed ? 'PLAN_EXPIRED' : 'PLAN_LIMIT',
             'metric'  => $metric,
             'limit'   => $limit,
             'plan'    => $plan,

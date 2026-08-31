@@ -17,6 +17,17 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Aadhaar duplicate check
+    |--------------------------------------------------------------------------
+    | When true (DEFAULT — keep in production), a given Aadhaar can register
+    | exactly one worker across ALL vendors. Set AADHAAR_DEDUP=false only on
+    | demo/test environments to allow the same Aadhaar on multiple test
+    | workers.
+    */
+    'aadhaar_dedup' => env('AADHAAR_DEDUP', true),
+
+    /*
+    |--------------------------------------------------------------------------
     | Match threshold (SecuGen scale 0–200)
     |--------------------------------------------------------------------------
     | 40 is SecuGen's recommended default for the HU20-AP. Raise for stricter
@@ -45,5 +56,24 @@ return [
     | time from the submitted photo; the client can never assert a match.
     */
     'face_threshold' => (float) env('FACE_MATCH_THRESHOLD', 0.45),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Face anti-spoofing (PAD) — dormant until activated
+    |--------------------------------------------------------------------------
+    | Activates ONLY when (a) a PAD ONNX model is installed in the pdf-service
+    | (PAD_MODEL_PATH, default /app/models/pad.onnx) AND (b) this threshold is
+    | set. Marks whose live-probability falls below it are rejected with a
+    | clear message. Leave unset for staffed gates.
+    */
+    'face_pad_threshold' => env('FACE_PAD_THRESHOLD') !== null ? (float) env('FACE_PAD_THRESHOLD') : null,
+
+    /*
+    |--------------------------------------------------------------------------
+    | 1:N ambiguity margins
+    |--------------------------------------------------------------------------
+    */
+    'margin'      => (int) env('BIOMETRIC_MARGIN', 10),
+    'face_margin' => (float) env('FACE_MARGIN', 0.08),
 
 ];

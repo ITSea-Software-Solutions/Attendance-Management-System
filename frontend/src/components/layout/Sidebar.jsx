@@ -2,59 +2,79 @@ import PropTypes from "prop-types";
 import { NavLink } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  LayoutDashboard, Building2, Users, UserCheck, ClipboardList,
-  Fingerprint, BarChart2, AlertTriangle, ShieldCheck, X, FlaskConical, UserCog, Settings,
-  Download as DownloadIcon, CreditCard,
-} from "lucide-react";
+  LayoutDashboard, Building2, UserCog, Users, Settings, ShieldCheck,
+  UserCheck, ClipboardList, BarChart2, AlertTriangle, Activity, Contact,
+  Download as DownloadIcon, CreditCard, Fingerprint, X, Sparkles, FileSpreadsheet, IndianRupee } from "lucide-react";
 
 const NAV = [
   {
-    label: "Overview",
+    // What people open the app to do, in the order they do it.
+    label: "Daily",
     items: [
-      { to: "/dashboard", icon: LayoutDashboard, label: "Dashboard", roles: ["all"] },
+      { to: "/dashboard",       icon: LayoutDashboard, label: "Dashboard", roles: ["all"] },
+      { to: "/live",            icon: Activity, label: "Live Board", roles: ["all"] },
     ],
   },
   {
-    label: "Administration",
+    label: "People",
     items: [
-      { to: "/companies",              icon: Building2,   label: "Companies",       roles: ["super_admin"] },
-      { to: "/users",                  icon: UserCog,     label: "Users",           roles: ["super_admin"] },
-      { to: "/users",                  icon: UserCog,     label: "Users",           roles: ["company_admin"] },
-      { to: "/users",                  icon: UserCog,     label: "Operators",       roles: ["vendor_admin"] },
-      { to: "/vendors",                icon: Users,       label: "Vendors",         roles: ["super_admin", "company_admin", "company_gate"], end: true },
-      { to: "/profile",               icon: Settings,    label: "My Organization", roles: ["vendor_admin"] },
-      { to: "/vendors/approval",       icon: ShieldCheck, label: "Vendor Approvals",roles: ["super_admin", "company_admin"] },
-      { to: "/vendors/company-access", icon: Building2,   label: "Company Access",  roles: ["vendor_admin"] },
-    ],
-  },
-  {
-    label: "Workers",
-    items: [
-      { to: "/workers",          icon: UserCheck,    label: "All Workers",    roles: ["all"], end: true },
-      { to: "/workers/register", icon: Users,        label: "Register Worker",roles: ["super_admin", "vendor_admin", "vendor_operator"] },
-      { to: "/workers/assign",   icon: ClipboardList,label: "Deploy Workers", roles: ["super_admin", "vendor_admin"] },
+      { to: "/workers",          icon: UserCheck,     label: "Workers", roles: ["all"], end: true },
+      { to: "/workers/register", icon: Users,         label: "Register Worker",
+        roles: ["super_admin", "vendor_admin", "vendor_operator"] },
+      { to: "/workers/assign",   icon: ClipboardList, label: "Deploy Workers",
+        roles: ["super_admin", "vendor_admin"] },
+      { to: "/workers/assign",   icon: ShieldCheck,   label: "Deployment Approvals",
+        roles: ["company_admin", "company_hr"] },
+      { to: "/visitors",         icon: Contact,       label: "Visitors",
+        roles: ["super_admin", "company_admin", "company_hr", "company_gate"] },
     ],
   },
   {
     label: "Attendance",
     items: [
-      { to: "/attendance",            icon: BarChart2,    label: "Attendance Log",  roles: ["all"], end: true },
-      { to: "/attendance/mark",       icon: Fingerprint,  label: "In / Out",        roles: ["super_admin", "company_admin", "company_gate"] },
-      { to: "/attendance/exceptions", icon: AlertTriangle,label: "Exceptions",      roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/attendance",            icon: BarChart2,       label: "Attendance Log", roles: ["all"], end: true },
+      { to: "/attendance/exceptions", icon: AlertTriangle,   label: "Still Inside",
+        roles: ["super_admin", "company_admin", "company_hr", "company_gate", "vendor_admin", "vendor_operator"] },
+      { to: "/reports",               icon: FileSpreadsheet, label: "Reports", roles: ["all"] },
     ],
   },
   {
-    label: "Diagnostics",
+    // Money is a different job from presence — it gets its own heading.
+    label: "Payroll",
     items: [
-      { to: "/diagnostic/fingerprint", icon: FlaskConical, label: "Fingerprint Test", roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/payroll", icon: IndianRupee, label: "Wage Register", end: true,
+        roles: ["super_admin", "company_admin", "company_hr", "vendor_admin"] },
+      { to: "/payroll/wages", icon: UserCheck, label: "Workers & Wages",
+        roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/payroll/settings", icon: Settings, label: "Payroll Settings",
+        roles: ["super_admin", "company_admin", "company_hr"] },
     ],
   },
   {
-    label: "Resources",
+    label: "Organisation",
     items: [
-      { to: "/downloads", icon: DownloadIcon, label: "Downloads", roles: ["all"] },
-      { to: "/billing", icon: CreditCard, label: "Plan & Billing", roles: ["company_admin", "vendor_admin"] },
-      { to: "/subscriptions", icon: CreditCard, label: "Subscriptions", roles: ["super_admin"] },
+      { to: "/companies", icon: Building2, label: "Companies", roles: ["super_admin"] },
+      // One contractor entry, not two: the approvals page carries the same
+      // status tabs plus the approve/reject actions, so it is the superset.
+      { to: "/vendors",          icon: Users,       label: "Contractors",
+        roles: ["super_admin", "company_admin"], end: true },
+      { to: "/users",            icon: UserCog,     label: "Users",
+        roles: ["super_admin", "company_admin"] },
+      { to: "/users",            icon: UserCog,     label: "Operators", roles: ["vendor_admin"] },
+      { to: "/profile",          icon: Settings,    label: "My Organization", roles: ["vendor_admin"] },
+      { to: "/vendors/company-access", icon: Building2, label: "Company Access", roles: ["vendor_admin"] },
+    ],
+  },
+  {
+    label: "Account & Help",
+    items: [
+      { to: "/billing",            icon: CreditCard,   label: "Plan & Billing",
+        roles: ["company_admin", "vendor_admin"] },
+      { to: "/subscriptions",      icon: CreditCard,   label: "Subscriptions", roles: ["super_admin"] },
+      { to: "/settings/templates", icon: Settings,     label: "Message Templates",
+        roles: ["super_admin", "company_admin", "vendor_admin"] },
+      { to: "/downloads",          icon: DownloadIcon, label: "Apps & Guides", roles: ["all"] },
+      { to: "/whats-new",          icon: Sparkles,     label: "What's New", roles: ["all"] },
     ],
   },
 ];

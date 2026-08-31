@@ -10,6 +10,9 @@ class Vendor extends Model
 {
     use HasFactory, SoftDeletes;
 
+    protected $casts = [
+        'plan_expires_at' => 'datetime','settings' => 'array'];
+
     protected $fillable = [
         'name',
         'code',
@@ -36,7 +39,7 @@ class Vendor extends Model
     public function companies()
     {
         return $this->belongsToMany(Company::class, 'company_vendors')
-            ->withPivot(['status', 'approved_at', 'approved_by', 'rejection_reason'])
+            ->withPivot(['status', 'approved_at', 'approved_by', 'rejection_reason', 'details_consent_at'])
             ->withTimestamps();
     }
 

@@ -89,7 +89,7 @@ class _SignupScreenState extends State<SignupScreen> {
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(value: 'company', icon: Icon(Icons.factory), label: Text('Company')),
-                  ButtonSegment(value: 'vendor', icon: Icon(Icons.engineering), label: Text('Vendor')),
+                  ButtonSegment(value: 'vendor', icon: Icon(Icons.engineering), label: Text('Contractor')),
                 ],
                 selected: {_orgType},
                 onSelectionChanged: (s) => setState(() => _orgType = s.first),

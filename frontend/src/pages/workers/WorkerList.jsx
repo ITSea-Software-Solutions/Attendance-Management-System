@@ -3,8 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import api from "@/lib/axios";
 import { useAuth } from "@/contexts/AuthContext";
-import { Plus, Search, Fingerprint, Download, FileText } from "lucide-react";
+import { Plus, Search, Fingerprint, Download, FileText, Upload } from "lucide-react";
 import toast from "react-hot-toast";
+import ImportWorkersModal from "@/components/ImportWorkersModal";
+import PageHint from "@/components/PageHint";
 
 const STATUS_BADGE = {
   active:   "badge-green",
@@ -20,17 +22,47 @@ export default function WorkerList() {
   const [search, setSearch]  = useState("");
   const [status, setStatus]  = useState("");
   const [page, setPage]      = useState(1);
-  const [tab, setTab]        = useState("all"); // all | current | previous
+  // Default to CURRENT deployments — "who is on shift now" is the everyday view.
+  const [tab, setTab]        = useState("current"); // all | current | previous
+  const [vendorId, setVendorId] = useState("");
+  const [deployState, setDeployState] = useState("");
+  const [aadhaarFilter, setAadhaarFilter] = useState("");
+  const [showImport, setShowImport] = useState(false);
+  const [inside, setInside]     = useState(false);       // last event today = IN
+  const [presentToday, setPresentToday] = useState(false); // any event today
 
   const deploymentParam = tab !== "all" ? tab : undefined;
 
   const { data, isLoading } = useQuery({
-    queryKey: ["workers", search, status, page, tab],
-    queryFn:  () => api.get("/workers", { params: { search, status, page, deployment: deploymentParam } }).then((r) => r.data),
+    queryKey: ["workers", search, status, page, tab, vendorId, inside, presentToday, deployState, aadhaarFilter],
+    queryFn:  () => api.get("/workers", { params: {
+      search, status, page, deployment: deploymentParam,
+      vendor_id: vendorId || undefined,
+      deploy_state: deployState || undefined,
+      aadhaar: aadhaarFilter || undefined,
+      inside: inside ? 1 : undefined,
+      present_today: presentToday ? 1 : undefined,
+    } }).then((r) => r.data),
     keepPreviousData: true,
   });
 
+  // Vendor filter options — company users: their approved vendors; super: all.
+  const isVendorUser = ["vendor_admin", "vendor_operator"].includes(user?.role);
+  const { data: vendorOpts } = useQuery({
+    queryKey: ["vendor-options", user?.role, user?.company_id],
+    enabled: !isVendorUser,
+    queryFn: async () => {
+      const r = user?.role === "super_admin"
+        ? await api.get("/vendors")
+        : await api.get(`/companies/${user.company_id}/vendors`);
+      const rows = r.data?.data ?? r.data?.vendors ?? r.data ?? [];
+      return (Array.isArray(rows) ? rows : []).map((v) => ({ id: v.id, name: v.name }));
+    },
+  });
+
   const canRegister = ["super_admin", "vendor_admin", "vendor_operator"].includes(user?.role);
+  const canImport   = canRegister; // workers belong to vendors — vendor/SA only
+  const canDelete   = ["super_admin", "vendor_admin"].includes(user?.role);
   const canActivate = ["super_admin", "company_admin", "vendor_admin"].includes(user?.role);
 
   const downloadDoc = async (workerId, docId, workerName, typeLabel, isAadhaar = false) => {
@@ -55,14 +87,61 @@ export default function WorkerList() {
   const activateMutation = useMutation({
     mutationFn: (id) => api.post(`/workers/${id}/activate`),
     onSuccess:  () => { queryClient.invalidateQueries(["workers"]); toast.success("Worker activated."); },
-    onError:    () => toast.error("Failed to activate worker."),
+    onError:    (e) => toast.error(e.response?.data?.message ?? "Failed to activate worker."),
   });
 
   const deactivateMutation = useMutation({
     mutationFn: (id) => api.post(`/workers/${id}/deactivate`),
     onSuccess:  () => { queryClient.invalidateQueries(["workers"]); toast.success("Worker deactivated."); },
-    onError:    () => toast.error("Failed to deactivate worker."),
+    onError:    (e) => toast.error(e.response?.data?.message ?? "Failed to deactivate worker.", { duration: 6000 }),
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id) => api.delete(`/workers/${id}`),
+    onSuccess:  (r) => { queryClient.invalidateQueries(["workers"]); toast.success(r.data?.message ?? "Worker deleted.", { duration: 6000 }); },
+    onError:    (e) => toast.error(e.response?.data?.message ?? "Delete failed."),
+  });
+
+  // Export the server's authoritative CSV as-is, or converted to a real
+  // Excel workbook (same columns; headers re-import cleanly via the wizard).
+  const exportWorkers = async (asExcel) => {
+    try {
+      const r = await api.get("/workers-export", { responseType: "blob" });
+      const stamp = new Date().toISOString().slice(0, 10);
+      if (asExcel) {
+        const XLSX = await import("xlsx");
+        const wb = XLSX.read(await r.data.text(), { type: "string", raw: true });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const rows = XLSX.utils.sheet_to_json(ws, { header: 1 });
+        // Server CSVs guard formula-leading cells ("'+9198...") for Excel;
+        // an .xlsx stores text safely, so drop the guard here.
+        for (const cell of Object.keys(ws)) {
+          if (cell[0] !== "!" && typeof ws[cell].v === "string" && /^'[=+\-@]/.test(ws[cell].v)) {
+            ws[cell].v = ws[cell].v.slice(1);
+            if (ws[cell].w) ws[cell].w = ws[cell].w.replace(/^'/, "");
+          }
+        }
+        // Column widths from content so the sheet opens readable in Excel.
+        ws["!cols"] = (rows[0] || []).map((_, c) => ({
+          wch: Math.min(32, Math.max(10, ...rows.map((row) => String(row?.[c] ?? "").length + 2))),
+        }));
+        const out = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(out, ws, "Workers");
+        XLSX.writeFile(out, `truecrew-workers-${stamp}.xlsx`);
+        return;
+      }
+      const url = URL.createObjectURL(r.data);
+      const a = document.createElement("a");
+      a.href = url; a.download = `truecrew-workers-${stamp}.csv`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      toast.error(e.response?.status === 403
+        ? "Bulk export is a Professional/Enterprise feature — see Plan & Billing."
+        : "Export failed.");
+    }
+  };
+
 
   return (
     <div className="space-y-5">
@@ -71,20 +150,42 @@ export default function WorkerList() {
           <h1 className="text-2xl font-bold text-gray-900">Workers</h1>
           <p className="text-gray-500 text-sm mt-0.5">Registered labor / workers</p>
         </div>
-        {canRegister && (
-          <Link to="/workers/register" className="btn-primary">
-            <Plus size={16} />
-            Register Worker
-          </Link>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <button className="btn-secondary text-sm" onClick={() => exportWorkers(true)}
+            title="Download as an Excel workbook — Professional+ feature">
+            <Download size={14} /> Export Excel
+          </button>
+          <button className="btn-secondary text-sm" onClick={() => exportWorkers(false)} title="Professional+ feature">
+            <Download size={14} /> CSV
+          </button>
+          {canImport && (
+            <button className="btn-secondary text-sm" onClick={() => setShowImport(true)}
+              title="Bring your existing Excel sheet — Professional+ feature">
+              <Upload size={14} /> Import from Excel
+            </button>
+          )}
+          {canRegister && (
+            <Link to="/workers/register" className="btn-primary">
+              <Plus size={16} />
+              Register Worker
+            </Link>
+          )}
+        </div>
       </div>
+
+      <PageHint id="workers">
+        This page is your worker register — click any row to open that worker's full record.
+        {canImport
+          ? <> Already have workers in an Excel sheet? Use <b>Import from Excel</b> — your existing file works as-is, and Aadhaar can be added later.</>
+          : <> Your vendors register workers (from their app or Excel import); workers deployed to you appear here automatically.</>}
+      </PageHint>
 
       {/* Deployment tabs */}
       <div className="flex gap-1 border-b border-gray-200">
         {[
-          { key: "all",      label: "All Workers" },
-          { key: "current",  label: "Current" },
+          { key: "current",  label: "Current (on deployment)" },
           { key: "previous", label: "Previous" },
+          { key: "all",      label: "All Workers" },
         ].map((t) => (
           <button
             key={t.key}
@@ -112,6 +213,52 @@ export default function WorkerList() {
             className="input pl-9"
           />
         </div>
+        {!isVendorUser && (vendorOpts?.length ?? 0) > 0 && (
+          <select
+            value={vendorId}
+            onChange={(e) => { setVendorId(e.target.value); setPage(1); }}
+            className="input w-auto"
+          >
+            <option value="">All contractors</option>
+            {vendorOpts.map((v) => (
+              <option key={v.id} value={v.id}>{v.name}</option>
+            ))}
+          </select>
+        )}
+        <select className="input w-auto text-sm" value={aadhaarFilter} onChange={(e) => { setAadhaarFilter(e.target.value); setPage(1); }}>
+          <option value="">Aadhaar: any</option>
+          <option value="verified">Aadhaar verified</option>
+          <option value="unverified">Aadhaar pending</option>
+        </select>
+        <button
+          onClick={() => { setInside(!inside); setPage(1); }}
+          className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+            inside ? "bg-green-50 border-green-500 text-green-700" : "border-gray-300 text-gray-500 hover:bg-gray-50"
+          }`}
+          title="Workers whose last event today is IN — on shift right now"
+        >
+          ● Inside now
+        </button>
+        <button
+          onClick={() => { setPresentToday(!presentToday); setPage(1); }}
+          className={`px-3 py-2 rounded-lg text-sm font-medium border transition-colors ${
+            presentToday ? "bg-brand-50 border-brand-500 text-brand-700" : "border-gray-300 text-gray-500 hover:bg-gray-50"
+          }`}
+          title="Any attendance event today"
+        >
+          ✓ Present today
+        </button>
+        <select
+          value={deployState}
+          onChange={(e) => { setDeployState(e.target.value); setPage(1); }}
+          className="input w-auto"
+          title="Deployment state"
+        >
+          <option value="">Any deployment state</option>
+          <option value="deployed">Deployed now</option>
+          <option value="undeployed">Not deployed (benched)</option>
+          <option value="expiring">Expiring in 3 days</option>
+        </select>
         <select
           value={status}
           onChange={(e) => { setStatus(e.target.value); setPage(1); }}
@@ -143,7 +290,7 @@ export default function WorkerList() {
             <thead className="bg-gray-50 border-b border-gray-100">
               <tr>
                 <th className="text-left px-6 py-3 font-medium text-gray-500">Worker</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Vendor</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">Contractor</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 hidden sm:table-cell">Aadhaar</th>
                 <th className="text-center px-4 py-3 font-medium text-gray-500">FP</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500 hidden md:table-cell">ID Document</th>
@@ -170,14 +317,19 @@ export default function WorkerList() {
                         {w.name[0]}
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900">{w.name}</p>
+                        <p className="font-medium text-gray-900">
+                          {w.name}
+                          {w.emp_code && <span className="ml-1.5 text-[10px] font-mono text-gray-400">#{w.emp_code}</span>}
+                        </p>
                         <p className="text-xs text-gray-400">{w.gender === "M" ? "Male" : w.gender === "F" ? "Female" : "Other"}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-4 py-4 text-gray-600 hidden md:table-cell">{w.vendor?.name ?? "—"}</td>
                   <td className="px-4 py-4 text-gray-500 font-mono text-xs hidden sm:table-cell">
-                    {w.aadhaar_number_masked ?? <span className="text-gray-300">Not uploaded</span>}
+                    {w.aadhaar_verified_at
+                      ? (w.aadhaar_number_masked ?? "verified")
+                      : <span className="badge badge-yellow text-[10px]">Aadhaar pending</span>}
                   </td>
                   <td className="px-4 py-4 text-center">
                     {w.fingerprint_enrolled_at
@@ -187,33 +339,44 @@ export default function WorkerList() {
                   </td>
                   <td className="px-4 py-4 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                     {(() => {
-                      const doc = w.id_documents?.find(d => d.is_primary) ?? w.id_documents?.[0];
-                      if (!doc) return <span className="text-gray-300 text-xs">—</span>;
+                      // The Aadhaar PDF lives on the WORKER record
+                      // (workers.aadhaar_pdf_path), not in worker_id_documents —
+                      // two separate stores. Checking only the second one made
+                      // every Aadhaar-only worker look like it had no document.
+                      const other = w.id_documents?.find((d) => d.id_type !== "aadhaar" && d.has_document);
+                      const rows = [];
 
-                      const isAadhaar = doc.id_type === "aadhaar";
-                      const hasFile   = isAadhaar ? w.has_aadhaar_pdf : doc.has_document;
+                      if (w.has_aadhaar_pdf) {
+                        rows.push(
+                          <button key="aadhaar" type="button"
+                            onClick={() => downloadDoc(w.id, null, w.name, "Aadhaar", true)}
+                            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800">
+                            <Download size={11} /><FileText size={11} /> Aadhaar PDF
+                          </button>
+                        );
+                      }
+                      if (other) {
+                        rows.push(
+                          <button key={other.id} type="button"
+                            onClick={() => downloadDoc(w.id, other.id, w.name, other.type_label, false)}
+                            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800">
+                            <Download size={11} /><FileText size={11} /> {other.type_label}
+                          </button>
+                        );
+                      }
+                      if (rows.length) return <div className="space-y-0.5">{rows}</div>;
 
-                      const handleDownload = isAadhaar
-                        ? () => downloadDoc(w.id, null, w.name, "Aadhaar", true)
-                        : () => downloadDoc(w.id, doc.id, w.name, doc.type_label, false);
-
-                      return (
-                        <div>
-                          <p className="text-xs text-gray-700 font-medium">{doc.type_label}</p>
-                          {hasFile ? (
-                            <button
-                              type="button"
-                              onClick={handleDownload}
-                              className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 mt-0.5"
-                            >
-                              <Download size={11} /><FileText size={11} />
-                              {isAadhaar ? "Download PDF" : "Download"}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-gray-400">No file</span>
-                          )}
-                        </div>
-                      );
+                      // Aadhaar captured but no PDF (manual 12-digit entry) is a
+                      // normal state — say so instead of showing a bare dash.
+                      if (w.aadhaar_number_masked) {
+                        return (
+                          <span className="text-xs text-gray-400">
+                            Aadhaar on file{w.aadhaar_verified_at ? "" : " (unverified)"}
+                            <span className="block text-[10px]">no PDF</span>
+                          </span>
+                        );
+                      }
+                      return <span className="text-gray-300 text-xs">—</span>;
                     })()}
                   </td>
                   <td className="px-4 py-4">
@@ -255,6 +418,19 @@ export default function WorkerList() {
                           Activate
                         </button>
                       )}
+                      {canDelete && (
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Delete ${w.name}? Attendance history is kept; plan usage counts only workers who actually worked.`)) {
+                              deleteMutation.mutate(w.id);
+                            }
+                          }}
+                          disabled={deleteMutation.isPending}
+                          className="text-xs text-red-600 hover:underline disabled:opacity-50"
+                        >
+                          Delete
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -288,6 +464,14 @@ export default function WorkerList() {
           )}
         </div>
       )}
+      <ImportWorkersModal
+        open={showImport}
+        onClose={() => setShowImport(false)}
+        onImported={() => queryClient.invalidateQueries(["workers"])}
+        vendorOpts={vendorOpts}
+        isVendorUser={isVendorUser}
+        defaultVendorId={vendorId}
+      />
     </div>
   );
 }

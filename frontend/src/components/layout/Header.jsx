@@ -1,7 +1,8 @@
 import { useAuth } from "@/contexts/AuthContext";
 import { useNavigate } from "react-router-dom";
-import { Menu, LogOut, Bell } from "lucide-react";
+import { Menu, LogOut } from "lucide-react";
 import toast from "react-hot-toast";
+import NotificationBell from "@/components/NotificationBell";
 
 export default function Header({ onToggleSidebar }) {
   const { user, logout } = useAuth();
@@ -24,9 +25,7 @@ export default function Header({ onToggleSidebar }) {
       </button>
 
       <div className="flex items-center gap-3">
-        <button className="p-2 rounded-lg hover:bg-gray-100 text-gray-500 relative">
-          <Bell size={18} />
-        </button>
+        <NotificationBell />
         <div className="h-6 w-px bg-gray-200" />
         <span className="text-sm text-gray-600 hidden sm:block">{user?.name}</span>
         <button

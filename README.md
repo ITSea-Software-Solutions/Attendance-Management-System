@@ -82,8 +82,8 @@ attendance_system/
 ├── pdf-service/                # Python FastAPI — Aadhaar PDF extraction
 │   └── main.py                 # PDF text + photo extraction via pdfplumber
 │
-└── biometric-agent/            # Local Windows fingerprint bridge
-    ├── sgibiosrv_proxy.py      # HTTP proxy → SGIBIOSRV (https://localhost:8443)
+└── client/                     # Flutter apps (Windows + Android) — these own
+                                #   all biometrics; scanner DLLs ship inside
     └── winbio_server.py        # Alternative: Windows Biometric Framework (WBF)
 ```
 

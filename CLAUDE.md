@@ -35,6 +35,7 @@ Workers are registered by vendor companies, deployed to client companies, and ma
 |------|--------------|
 | `super_admin` | Platform owner — creates companies/orgs, manages ALL users, Subscriptions page (plans/upgrades) |
 | `company_admin` | **Creates & approves vendors** (auto-approved for own company), creates gate users + vendor-admin logins, views company attendance/workers, Plan & Billing |
+| `company_hr` | **Approves/rejects vendor deployments + assigns allowed departments** (no users/settings/billing) |
 | `company_gate` | Marks IN/OUT fingerprint attendance only |
 | `vendor_admin` | Registers workers, deploys to companies, views worker attendance |
 | `vendor_operator` | Registers workers only |
@@ -97,6 +98,10 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `worker_id_documents` | Additional ID documents (Aadhaar, PAN, etc.) — `document_path` on private disk |
 | `worker_assignments` | Worker↔company deployments — `start_date`, `end_date`, `status`, `is_locked` |
 | `attendance_logs` | Each IN/OUT event — `type` (IN/OUT), `worker_id`, `company_id`, `marked_at`, `gate`, `fingerprint_score` |
+| `company_holidays` | Government/festival holidays per company; `paid` flag per holiday |
+| `payroll_adjustments` | Arrears / advances / deductions / bonus for one worker for one pay period |
+| `attendance_overrides` | Manual OT hours or day status, with `approved_by` + `approved_at` |
+| `gate_passes` | Visitor passes — guest + vehicle + 2 photos, `approval_token` for the host link |
 | `audit_logs` | Every sensitive action with user, action string, model, IP |
 
 **Key design decisions:**
@@ -113,13 +118,14 @@ Frontend changes are instant (volume mount, Vite HMR).
 
 | Page | Route | Who sees it | Notes |
 |------|-------|-------------|-------|
-| `Dashboard` | `/dashboard` | all | Today's summary stats |
+| `Dashboard` | `/dashboard` | all | Role-aware overview: KPIs+deltas, trend/week/hourly SVG charts, donut, attention chips, reports strip (v1.16) |
+| `Reports` | `/reports` | all | Report tiles + client-side filters + preview + filtered Excel/CSV downloads (v1.16) |
 | `CompanyList` | `/companies` | super_admin | CRUD companies + company admin creation |
 | `VendorList` | `/vendors` | super_admin, company_admin, company_gate | Super admin: global list + create. **Company users: approval-status tabs (Approved/Pending/Suspended/Rejected/All)** fetched from `/companies/{id}/vendors` |
 | `VendorApproval` | `/vendors/approval` | super_admin, company_admin | **Tabs: Pending/Approved/Rejected/Suspended/(Not Requested for SA)/All** with counts |
 | `VendorCompanyAccess` | `/vendors/company-access` | vendor_admin, vendor_operator | Request access to companies, track status |
 | `VendorProfile` | `/profile` | vendor_admin, vendor_operator | Vendor org details |
-| `WorkerList` | `/workers` | all | **All/Current/Previous tabs**; row click → WorkerDetail; ID Document column with download |
+| `WorkerList` | `/workers` | all | **Defaults to Current-deployment tab**; filters: vendor, status, Inside-now (last event IN), Present-today; CSV import/export; row click → WorkerDetail |
 | `WorkerDetail` | `/workers/:id` | all | Analytics: stats, monthly breakdown, deployment history (vendor only), recent attendance. **Company users: fixed to their company. Vendor users: company dropdown** |
 | `WorkerRegister` | `/workers/register` `/workers/:id/edit` | super_admin, vendor_admin, vendor_operator | 5-step wizard, **Aadhaar-ONLY identity (other doc types removed 2026-08-16)**, consent checkbox required |
 | `WorkerAssign` | `/workers/assign` | super_admin, vendor_admin | **Current/Previous/All tabs**; cancel allowed even when locked (if worker OUT) |
@@ -127,8 +133,13 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `AttendanceMark` | `/attendance/mark` | super_admin, company_admin, company_gate | Fingerprint IN/OUT via SGIBIOSRV |
 | `AttendanceList` | `/attendance` | all | **Daily summary grouped view** (not raw IN/OUT). All/Current/Previous tabs. Row click → WorkerDetail |
 | `AttendanceExceptions` | `/attendance/exceptions` | all | Workers currently inside (IN without OUT) |
-| `FingerprintTest` | `/diagnostic/fingerprint` | super_admin, company_admin, vendor_admin | Scanner diagnostics |
 | `Signup` | `/signup` | PUBLIC | SaaS signup wizard: org type → details → plan cards; auto-login |
+| `ForgotPassword` | `/forgot-password` | PUBLIC | Self-service reset step 1; shows dev link when mailer=log AND debug |
+| `ResetPassword` | `/reset-password` | PUBLIC | Step 2 (from emailed link); revokes all tokens on success |
+| `LiveBoard` | `/live` | all | Real-time who-is-where: occupancy, gate cards w/ photos, hourly flow, ticker (10s refresh) |
+| `Visitors` | `/visitors` | super_admin, company_admin, company_hr, company_gate | Create gate passes (live photo + vehicle no. + vehicle photo, ≥1 photo required), decide (admin/HR ONLY — gate cannot), entry/exit, host-approval toggle + Hosts tab (HR CRUD) |
+| `VisitorApproval` | `/visitor-approval/:token` | **PUBLIC** | One-tap host approval — no login; token in the URL is the credential |
+| `Payroll` | `/payroll` | super_admin, company_admin, company_hr, vendor_admin | Wage register (cycle stepper, inline rate edit, exception strip), By-contractor split, Holidays tab; Excel/CSV/muster downloads |
 | `Downloads` | `/downloads` | all | Apps + docs; public twin at /download.html (static) |
 | `PlanBilling` | `/billing` | company_admin, vendor_admin | Current plan, usage meters, upgrade request |
 | `Subscriptions` | `/subscriptions` | super_admin | All orgs' plans/usage; approve/reject requests; set plan |
@@ -151,7 +162,9 @@ Frontend changes are instant (volume mount, Vite HMR).
 | `SignupController` | `store` | PUBLIC; creates org + admin user on Trial; vendor contact_email pre-check |
 | `PlanController` | `show`, `requestUpgrade`, `index`, `setPlan`, `decide` | Org billing + super admin subscriptions |
 | `SyncController` | `pull`, `push` | Client-app offline sync; idempotent by client_uuid; plan limits on push |
-| `DashboardController` | `stats`, `today`, `activity` | |
+| `PayrollController` | `componentsCatalogue`, `register`, `registerExport`, `muster`, `contractorSummary`, `saveRates`, `storeAdjustment`, `storeOverride`, `holidays` | Gate users blocked; vendors see only their own workers' lines |
+| `VisitorController` | hosts CRUD, `storePass`, `decidePass`, `movePass`, `passPhoto`, **public** `publicPass`/`publicDecide`/`publicPassPhoto`, WhatsApp webhook | `decidePass` excludes `company_gate` by design |
+| `DashboardController` | `stats`, `today`, `activity`, `overview` | `overview` = one role-scoped payload for the v1.16 dashboard |
 
 ---
 
@@ -192,6 +205,22 @@ GET  /api/attendance/daily-summary                 ← grouped: one row per work
 GET  /api/attendance/worker-templates              ← for fingerprint matching at gate
 POST /api/attendance/mark
 GET  /api/attendance/exceptions
+GET  /api/attendance/export                        ← ?month=YYYY-MM&type=daily|monthly — CSV (UTF-8 BOM)
+GET  /api/notifications                            ← in-app center (60 latest + unread count)
+POST /api/notifications/read                       ← mark read {ids?}
+GET  /api/templates                                ← catalogue + effective values for caller scope
+POST /api/templates | /api/templates/reset         ← save/reset (super=global; org admins=override, Professional+)
+GET  /api/workers-export · POST /api/workers-import ← CSV bulk (Professional+)
+GET  /api/vendors-export                           ← CSV (Professional+)
+POST /api/workers/{id}/verify-step                 ← {step: email|phone} manual attest
+PUT  /api/vendors/{id}/settings                    ← {whatsapp_enabled} (Enterprise)
+POST /api/aadhaar/face-verify                      ← Aadhaar-PDF photo vs live photo (ArcFace, advisory)
+POST /api/workers/{id}/aadhaar-photo · GET same    ← Aadhaar DOC photo (app uploads post-sync; gate cards fetch)
+POST /api/attendance/{log}/proof                   ← gate camera proof photo for a synced mark
+GET  /api/attendance/printable                     ← ?month= — print-ready HTML month report
+
+POST /api/auth/forgot-password                     ← PUBLIC, throttle:signup; dev_reset_url only when mailer=log && debug
+POST /api/auth/reset-password                      ← PUBLIC, throttle:login; revokes all tokens
 
 GET  /api/assignments                              ← ?deployment=current|previous (apiResource)
 POST /api/assignments                              ← deploy worker {worker_id, company_id, start_date, end_date}
@@ -204,6 +233,22 @@ POST /api/sync/push                                ← client app: idempotent ba
 GET  /api/users
 POST /api/users
 PUT  /api/users/{id}
+
+GET  /api/payroll/components            ← wage-head catalogue + statutory rates (?monthly_rate= → suggested split)
+GET  /api/payroll/register              ← ?from&to (or ?month) &company_id &worker_ids &with_days
+GET  /api/payroll/register-export       ← wage register CSV (head-wise + statutory)
+GET  /api/payroll/muster                ← the paper muster grid: P/A/WO/H + daily OT row beneath
+GET  /api/payroll/contractor-summary    ← what each contractor should bill
+POST /api/payroll/rates                 ← bulk wage rates
+POST /api/payroll/adjustments           ← arrear|advance|deduction|bonus for the period
+POST /api/payroll/overrides             ← manual OT / day status, records the approver
+GET/POST/DELETE /api/payroll/holidays   ← company holiday calendar (paid flag per holiday)
+
+POST /api/gate-passes                   ← vehicle_number + photo + vehicle_photo (≥1 photo required)
+GET  /api/gate-passes/{id}/photo        ← ?type=vehicle for the vehicle shot
+GET  /api/visitor-pass/{token}          ← PUBLIC, throttled — host approval link
+POST /api/visitor-pass/{token}/decide   ← PUBLIC — approve/deny, one use, same-day only
+GET  /api/visitor-pass/{token}/photo    ← PUBLIC — ?type=vehicle
 ```
 
 ---
@@ -287,6 +332,9 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 | PDF rejected on ID doc upload | Old validation used `image` rule | Validation: `'max:10240\|mimes:jpeg,png,jpg,pdf'` |
 | Static route shadowed by dynamic | `/workers/register` vs `/workers/:id` | In App.jsx: put static routes before `/:id` |
 | Cancel blocked on locked assignment | Old code blocked all cancels when `is_locked=true` | Now checks latest log — cancel allowed if type is OUT |
+| A new column silently ignored on create | Not in `$fillable` — mass assignment drops it without error (bit us on `gate_passes.approval_token`) | Add to `$fillable`, or `forceFill()` it after create (correct for credentials/system fields) |
+| Wages look wrong for a worker | They may be `wage_type=monthly` while the site pays daily | Daily is the DEFAULT; `daily_rate` is used as entered, monthly divides by `wage_divisor` |
+| PT/LWF amounts wrong for a client | Both are STATE-specific and change | `config/payroll.php` → `statutory.pt.slabs` / `statutory.lwf`; confirm per state before go-live |
 
 ---
 
@@ -305,7 +353,7 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 
 ---
 
-## Feature Status (as of 2026-08-15 — v1.0.0)
+## Feature Status (as of 2026-08-31 — web v1.18.1, apps v0.9.37)
 
 ### Implemented & Working
 - [x] Multi-company, multi-vendor architecture with pivot approval flow
@@ -334,19 +382,67 @@ const canActivate   = ["super_admin", "company_admin", "vendor_admin"].includes(
 - [x] Worker `$fillable` hardened — system/biometric fields writable only via forceFill()
 - [x] Downloads page (`/downloads`, all roles) — docs served from frontend/public/docs; app builds land here later
 - [x] Flutter client app design agreed → see `CLIENT_APP_DESIGN.md`
-- [x] **Flutter app v0.9.0-preview BUILT** (`client/`) — login, role modes (vendor/gate/admin-view), offline SQLite store, idempotent sync (pull/push by client UUID), SIM fingerprint + SGIBIOSRV capture on Windows. APK at `frontend/public/downloads/` (NOT in git — build via `flutter build apk`; Windows: `flutter build windows` on a Windows machine)
+- [x] **Flutter app** (`client/`) — login, role modes (vendor/gate/admin-view), offline SQLite store, idempotent sync (pull/push by client UUID), SIM fingerprint + SGIBIOSRV capture on Windows. APK at `frontend/public/downloads/` (NOT in git — build via `flutter build apk`; Windows: `flutter build windows` on a Windows machine)
 - [x] Server sync API: `GET /api/sync/pull`, `POST /api/sync/push` (`SyncController`), `client_uuid` unique columns on workers + attendance_logs
 - [x] **Company admins create their own vendors** (auto-approved for their company) + can create that vendor's `vendor_admin` login (only for approved vendors)
 - [x] **SaaS self-service**: public `/signup` (company OR vendor, minimal fields, GST/PAN optional), plans Trial(3u/10w/3links)/Professional(25/500/25)/Enterprise(100/5000/100) in `config/plans.php`, enforced server-side by `PlanService` at user/worker/link creation (+ sync push). Org admins: `/billing` (usage meters + upgrade request). Super admin: `/subscriptions` (approve/reject requests, set any plan). Payment OFFLINE — **user decision: offline payment stays a permanent option even after a payment gateway (e.g. Razorpay) is added later.** Existing orgs grandfathered to enterprise. Company-created vendors inherit the company's plan.
 - [x] **Face attendance (web, v1.1.4)** — camera-only: auto-enroll from registration photo (`FaceService`, pdf-service `/face/embed`, ArcFace 512-D), gate **Face** tab does 1:N `POST /attendance/identify-face`, marks re-verified server-side (`method=face`, `face_score`); threshold `FACE_MATCH_THRESHOLD` (0.45). First face call per pdf-service worker lazy-loads the model (~7s local, ~30-60s droplet)
+- [x] **v1.2: Attendance exports** — CSV (daily rows / monthly totals) + printable HTML month report (`AttendanceController@export/printable`), month picker + buttons on AttendanceList
+- [x] **v1.2: Per-gate scoping** — gate users with `users.location_name` set see ONLY logs whose `attendance_logs.location_name` matches (daily-summary, index, exceptions, exports); chip shows "Your gate" on AttendanceList
+- [x] **v1.2: Self-service password reset** — public forgot/reset endpoints (Password broker), Login link, demo dev-link in debug mode only
+- [x] **v1.2: Email notifications (mailer-based)** — vendor approved (to vendor contact + admins), plan upgrade decided (to org contact); Mail::raw, currently mailer=log (add SMTP creds in .env for real sends)
+- [x] **App v0.9.14** — Android USB permission FIXED (Android 14 explicit-package PendingIntent + USB_DEVICE_ATTACHED device_filter → plug-in auto-grant); gate "verified" result card (animated check, worker photo, greeting); face attendance on WINDOWS too (camera_windows; ML Kit gate is Android-only, server re-verifies everywhere); in-app Aadhaar PDF import→extract→autofill (+PDF attaches on sync; masked-PDF manual last-4 match); vendor: worker detail w/ server stats + Deploy-to-company from app. Web FingerprintTest page REMOVED (apps own biometrics)
+- [x] **App v0.9.12** — Windows scanner: multi-path sgfplib.dll discovery (exe dir → System32 → all C:\Program Files\SecuGen folders), SetDllDirectoryW for companion DLLs, 32/64-bit mismatch detection, diagnostics show which DLL loaded
+- [x] **v1.3: Notification suite** — `notification_templates` (global + org overrides, `TemplateService`, 9 seeded keys), in-app center (`notifications_inapp`, bell w/ unread badge, GET/POST /notifications), `NotifyService` fan-out (in-app all plans; email Professional+; WhatsApp Enterprise via Meta Cloud API — needs WHATSAPP_TOKEN/WHATSAPP_PHONE_ID), events wired: vendor approve/reject, plan decide, user welcome, worker registered, missing-OUT daily digest (`truecrew:missing-out-alerts`, scheduled 21:00 IST)
+- [x] **v1.3: Plan feature flags** — `features` arrays in config/plans.php + `PlanService::hasFeature/userHasFeature`; feature chips on plan cards; enforced server-side
+- [x] **v1.3: Bulk import/export** — GET /workers-export, POST /workers-import (CSV: name,aadhaar_number,dob,gender,phone,email; per-row report, hash dedup, plan limits), GET /vendors-export (Professional+)
+- [x] **v1.3: Worker verification steps** — workers.email + email/phone_verified_at, POST /workers/{id}/verify-step (manual attest until OTP provider), verification panel on WorkerDetail; vendors.settings json + PUT /vendors/{id}/settings (whatsapp_enabled, Enterprise)
+- [x] **App v0.9.15** — Aadhaar photo extracted from PDF + live-photo identity match (POST /aadhaar/face-verify, advisory), registration checklist UI; v0.9.14: gate verified card, in-app PDF import, vendor deploy/stats, Android USB permission fix, Windows Face tab
+- [x] **v1.3.1** — in-portal What's New page (/whats-new, iframes /release-notes.html — single source), public GET /plans-public (Signup fetches real catalogue + feature chips), weekly attendance summary email (`truecrew:weekly-report`, Mondays 08:00 IST, Enterprise `weekly_reports`), base feature chips (face/offline/exports) listed on all plans
+- [x] **v1.4.0 + app v0.9.21: deployment approvals & gate permissions** — companies.settings.require_deployment_approval; worker_assignments approval_status/allowed_locations; endpoints assignments-pending/-approve (bulk + gates multi-select), assignments/{id}/reject, companies/{id}/locations, PUT companies/{id}/settings; enforced in mark validation + sync push + all candidate queries + app deployedWorkers(); WorkerAssign page has HR approvals panel (company_admin route access)
+- [x] **v1.5 + app v0.9.24: company_hr role** (approvals + manual OUT only; users.role ENUM migration 028), preset departments (config/departments.php, Main Gate default-selected), 90s app auto-sync
+- [x] **v1.5.1: worker delete + fair plan counting** — destroy() soft-deletes (blocks while last log IN), plan usage = withTrashed()->whereHas('attendanceLogs') (deny at FIRST deployment of never-worked worker; registration/import/delete quota-free); manual OUT endpoint POST /attendance/manual-out (company_admin/company_hr/super only, requires last log IN at that company, method=manual + override_reason + audit); AADHAAR_DEDUP env flag (config/biometric.php, default ON, OFF on demo/local; DB unique relaxed to plain index migration 027)
+- [x] **v1.6.0 + app v0.9.26: deployment awareness** — SendDeploymentAlerts command (`truecrew:deployment-alerts`, 08:30 IST): vendor digests for benched workers + deployments ending ≤3d (in-app all plans, email Professional+); /workers?deploy_state=undeployed|deployed|expiring filter + WorkerList dropdown; users created_at in UserList "Added" column; assignment requested/decided timestamps on WorkerAssign; sync pull carries assignment created_at/approved_at (app db v6); app: worker rows show color-coded deployment summary + filter chips (All/Deployed/Not deployed/Expiring ≤3d), NotificationsScreen + bell w/ unread badge in app home
+- [x] **v1.6.1 + app v0.9.27: worker actions + engagement lock** — vendor CANNOT delete/deactivate/deleteFingerprint a worker with an active approved deployment (end_date >= today) OR whose last log is IN (`vendorEngagementBlock()` in WorkerController, 422 w/ company+date; edit stays allowed; super admin bypasses); activate/deactivate now role-guarded (super/company_admin/vendor_admin + authorizeWorkerAccess — gate users were previously unguarded!); deleteFingerprint blocked for company users; app worker sheet: Edit (name/phone/DOB/gender) + Activate/Deactivate + Delete (vendor_admin only for the latter two; local-only rows deleted device-side), server 422 messages surfaced verbatim (AppState.apiMessage)
+- [x] **v1.7.0 + app v0.9.28: approval by default + photo-verified logs + company tools in app** — require_deployment_approval defaults TRUE (per-company opt-out; super admin deploys self-approve; portal toggle now loads saved value via GET /companies/{id}); dailySummary carries in_proof_id/out_proof_id/methods/best_fp_score/best_face_score/has_photo/has_aadhaar_photo; AttendanceList: live gate photo thumb per row (AuthImg blob helper) + day-detail modal (registration+Aadhaar+gate IN/OUT photos, times, gates, scores); app: ApprovalsScreen tab for company_admin/company_hr (bulk approve w/ gate FilterChips, reject w/ reason), manual OUT on Inside tab (isApprover only), attendance detail sheet (3 photos, local proof file or synced via GET /attendance/proof/{log}), worker photo avatars in vendor list
+- [x] **v1.7.2 + app v0.9.29: biometric hardening (matching audit)** — REMOVED dev byte-similarity server matcher (matcherAvailable() gate, 501 without real binary; apps match on-device and are unaffected); 1:N ambiguity margins (fingerprint 10pts server+all 3 app drivers via BiometricDriver.matchMargin, face 0.08 biometric.face_margin); face encoder quality gates (det_score>=0.5, min side 60px); enrollment quality floor 30/100; proof-photo cross-check vs enrolled face (VerifyProofPhoto queued job, migration 029 proof_face_score/match, advisory; dailySummary carries proof_face_min/max; day-detail modal shows verdict); dev guide gains "Biometric Matching Internals" chapter. NOTE: queue container needs app/ synced too (docker cp to ams_queue) or jobs fail with incomplete-class
+- [x] **v1.8.0: consent-based vendor detail for companies** — company_vendors.details_consent_at (migration 030; required consent:true on POST request-company, 422 otherwise; implicit for company-created vendors; backfilled for pre-existing approved links); GET /companies/{c}/vendors/{v}/detail (profile+relationship+stats+deployments+daily, minimal payload when not consented); VendorDetail.jsx tabs (Overview/Workers&Deployments/Attendance) at /vendors/:id for company users; VendorList rows clickable; consent checkbox on VendorCompanyAccess
+- [x] **v1.9.0: Live Board** — GET /attendance/live-board (role-scoped: company/gate-location/vendor; inside = latest valid log is IN, date-agnostic for night shifts; gates merge presets+settings; hourly flow; recent 20; expected = approved deployments today); LiveBoard.jsx at /live (nav: all roles): hero tiles + occupancy bar + occupied-gate cards w/ AuthImg avatar stacks + empty-gate chip strip + windowed SVG hourly chart + live ticker, 10s auto-refresh
+- [x] **App v0.9.30: Mantra MFS100 driver + scanner intelligence** — MantraAndroidDriver (reflection on com.mantra.mfs100: AutoCapture→ISO 19794-2, MatchISO raw 0-100000 accept>=14000 margin 7000, normalised to 0-200 for storage), enrollCapture falls back SecuGen→Mantra, BiometricDriver.best() adds Mantra; Kotlin channel: usbInventory/mantraStatus/mantraCapture/mantraMatch (event via reflect Proxy); diagnostics lists ALL USB devices w/ per-brand guidance (MFS110/L1 = Aadhaar-locked, explained; Morpho/Startek detected); dev guide gains India scanner matrix. Mantra SDK jar NOT bundled yet (registration-gated portal) — driver activates when added to android/app/libs
+- [x] **App v0.9.31: SecuGen x64 runtime DLLs COMMITTED** (client/windows/sgfp) + CI "Bundle scanner DLLs" step — Windows zip is zero-setup (unzip→plug→scan); release gate: sgfplib.dll present + md5-identical
+- [x] **App v0.9.32: UIDAI e-Aadhaar link in registration** ("Get PDF from UIDAI" via url_launcher, myaadhaar.uidai.gov.in/genricDownloadAadhaar)
+- [x] **v1.10.0 + app v0.9.34: visitor gate passes + gate hardening** — company_hosts (HR CRUD) + gate_passes (code GP-YYYYMMDD-####, guest+phone+live photo+host, pending→approved/denied via WhatsApp webhook YES/NO or manual note (audited), entry blocked till approved, entry/exit stamps) migration 031; POST/GET /visitor-hosts, /gate-passes(+/decide,/move,/photo), public /whatsapp/webhook (Meta verify+receive); portal Visitors page (passes+hosts tabs, AuthImg guest photos); app Visitors tab (create w/ captureWithCamera, decide, entry/exit); includes v0.9.33: HANDS-FREE auto scan (kiosk loop, 90s per-worker cooldown, SIM refused, lifecycle pause; Windows captures via Isolate.run — UI no longer blocks), silentSnap enabled on WINDOWS (timeout-guarded per-camera fallback), app phone autofill from Aadhaar 'mobile' field
+- [x] **v1.11.0: licences + offline payment verification + go-live hardening** — plan_upgrade_requests gains months/payment_method/payment_reference/amount/payment_proof_path/paid_at (migrations 032-033); orgs record payment w/ proof (POST /plan/requests/{id}/payment, proof served role-checked), SA notified in-app, decide=verify&activate; companies+vendors plan_expires_at (datetime casts REQUIRED) — PlanService::effectivePlan() degrades expired paid plans to trial limits at read time (deny() emits PLAN_EXPIRED), renewals extend from current expiry, truecrew:license-alerts daily 09:00 (expiring<=7d + lapsed); PlanBilling: licence banner + months chips + renew button + payment form (config plans.payment: PAY_UPI/PAY_BANK env); Subscriptions: expiry column + months prompt on set-plan + payment row + view-proof; worker OTP phone verification (send-otp/verify-otp, cache-hashed 10min, 3/10min limit, MSG91-ready via MSG91_AUTHKEY, dev_otp in debug) + WorkerDetail "Verify by OTP"; face PAD/liveness hook (pdf-service PAD_MODEL_PATH onnx + FACE_PAD_THRESHOLD → identify-face/mark reject spoofs; dormant otherwise; /face/embed returns liveness); scripts/droplet-backup.sh + droplet cron 02:30 IST (DB dump + private tar, 7d retention)
+- [x] **v1.14.0: Excel-friendliness pass** — ImportWorkersModal.jsx wizard (SheetJS `xlsx` FRONTEND dep — npm install needed in ams_frontend container on every env!): drag .xlsx/.csv → client-side parse → column-mapping chips (mirrors server aliases, preview only; server stays authoritative via regenerated CSV w/ original headers) → 5-row preview → SA vendor picker in-modal → results panel (imported/pending/skipped w/ full error list) + downloadTemplate() generates real .xlsx; renames: Exceptions→"Still Inside", Templates→"Message Templates"; index.css zebra rows + sticky thead on .card tables; PageHint.jsx (dismissable, localStorage per id) on WorkerList (role-aware copy) + AttendanceList
+- [x] **v1.13.0: onboarding-grade bulk import** — workers gain emp_code (unique per vendor, searchable, shown #CODE), pan_number (regex-validated), joining_date, aadhaar_verified_at (migration 034, backfilled from aadhaar_hash); import: Aadhaar OPTIONAL (rows land unverified; flag set when number added later via update()), flexible header aliases (Adhar No/Date of Joining/Mobile No/Emp Code...), dd/mm/yyyy dates, per-row errors, without_aadhaar count; /workers?aadhaar=verified|unverified filter + WorkerList dropdown + pending badges (list + detail); export gains Emp code/Aadhaar verified/PAN/Joining date/Address; store()/update() accept new fields; NOTE date casts serialize UTC — UI formats correct local date
+- [x] **v1.12.0: plug-and-play launch layer** — Razorpay DORMANT integration (dependency-free REST: POST /plan/requests/{id}/razorpay-order (server-priced from plans.prices_inr × months) + /razorpay-verify (HMAC sig check → auto-activates licence, SA notified); button on PlanBilling only when RAZORPAY_KEY_ID/SECRET set, checkout.js loaded on demand); prices env-driven (PRICE_PROFESSIONAL_INR/PRICE_ENTERPRISE_INR); `truecrew:test-comms` artisan verifier (email/SMS/WhatsApp(Meta ping)/Razorpay(test order)/payment details/prices/biometric+debug posture; --to/--email live sends); NotifyService WhatsApp logs would-be messages in debug; deploy/production/ pack (setup.sh, nginx-production.conf static+TLS, .env.production.example fully annotated)
+- [x] **v1.17.0: hours/wage-day reports + attendance filters** — config/payroll.php (FULL_DAY_HOURS=8, HALF_DAY_HOURS=4, PAYROLL_OVERTIME) grades each worker-day: >=8h full (1.0), >=4h half (0.5), else short (0), OT = beyond full; GET /attendance/hours-report ?from&to (or ?month) &group=daily|weekly|monthly|summary &company_id &worker_ids → CSV w/ wage-rule preamble line (Reports parser auto-detects the real header row + shows the note); export/printable/monthRows now accept from/to (month still works) + company_id + worker_ids; monthly CSV + printable gained Full/Half/Payable/OT columns; dailySummary accepts company_id (vendor/super only — company users stay pinned), worker_ids, from/to; GET /workers-options (compact picker list, role-scoped: vendor=own, company=deployed-there OR seen-there, ?company_id= same OR-logic, cap 2000); AttendanceList: Company column hidden for company users AND when a company is picked, company dropdown for vendor/super, MultiSelect.jsx worker picker (one/many/all), single-day↔date-range toggle w/ per-row Date column, all exports follow on-screen filters + 4 hours-report buttons; Reports page: date-range presets (This/Last month, This/Last week, Last 30d, custom) replacing month picker, "Hours & wage days" tile w/ roll-up chips + its own charts (payable-days area/bar, day-type donut, top workers by days/hours, payable-days by vendor) + payable-days/overtime summary chips. **CSV injection fix**: App\Support\Csv::row() guards cells starting with = + - @ (e.g. "+919876…") with a leading apostrophe across ALL exports; Csv::unguard() in the importer + the frontend xlsx/report parsers strip it, so round-trips are unchanged. Fixed CompanyController@index for vendor users (invalid wherePivot inside whereHas + null company_id filter → 500)
+- [x] **v1.18.1: PAN registration + wage approval + one word for contractors** — identity is now **Aadhaar OR PAN** (`WorkerController` 422s only when both are missing): `PanController@extract/upload/download` mirrors `AadhaarController`, `workers.pan_number` + `pan_hash` (HMAC dedup, case-insensitive `[A-Za-z]{5}[0-9]{4}[A-Za-z]`); `pdf-service/card_ocr.py` is the SHARED card reader (`prepare()` upscales + stretches contrast, **never thresholds** — real Indian cards are colour-gradient; `read_text()` merges tesseract psm 4+11+6; `value_after_label()` drives field extraction) used by `pan_parser.py` (e-PAN PDF password = DOB DDMMYYYY) and `aadhaar_parser.extract_image()`; a number read off a **photo** always returns `needs_number_confirmation` and routes to pre-filled manual entry — OCR digits are never trusted silently. Web registration completes without a scanner (worker saved **pending**, finger enrolled later at the gate). **Wage approval**: `wage_change_requests` (migration 043) + `WageChangeRequest`; `PayrollController@saveRates` routes a contractor's change through `proposeWageChange()` when `payingCompanyFor($worker)` finds an active approved deployment (bench workers apply straight away), one open request per worker (a newer proposal supersedes), `GET /payroll/wage-requests` + `POST /payroll/wage-requests/{id}/decide` (company_admin/super only — HR and contractors 403; cross-company 403); in-app notification both ways carrying the actual numbers, and the company setting a rate directly notifies the contractor. User-facing wording is **contractor** everywhere (DB/API/role keys stay `vendor`).
+- [x] **v1.18.0 + app v0.9.37: payroll, holidays, visitors & nav rebuild**
+  - **Third finger** — `workers.fingerprint_template_3` (migration 036); `Worker::enrolledTemplates()` is now the SINGLE list every matcher reads (server identify/mark + all 3 app drivers), so a new slot can't be half-supported. Sync pull/push carry slot 3 (app DB v8). Enroll `slot:1|2|3`; `DELETE ?slot=` removes one.
+  - **Payroll module** (migrations 037/039/040) — `PayrollService` + `PayrollController`. **DAILY WAGE IS THE DEFAULT MODEL** (`workers.wage_type` daily|monthly, `daily_rate`): this product is for daily/contract labour, NOT salaried staff. Day rate is entered directly; monthly kept for staff (rate ÷ divisor). Wage heads are PER DAY for daily workers.
+  - **Wage heads** (config/payroll.php `components`): Basic, DA/VDA, HRA, conveyance, washing, medical, night shift, incentive, special + deduction heads. Each head flags `pf`/`esi` so the statutory base is right.
+  - **Statutory** (config `statutory`, all env-overridable): PF 12%/12% w/ EPS 8.33%, admin 0.5%, EDLI 0.5%, ₹15,000 ceiling; ESI 0.75%/3.25% under ₹21,000 gross; PT slabs (MH default) + Feb extra; LWF in configured months; bonus 8.33% + gratuity 4.81% provisions for contractor billing. **PT and LWF are state-specific — confirm before each new client.**
+  - **Pay cycles** 26→25 (default), 21→20, 16→15, calendar. `PayrollService::period()`.
+  - **Government holidays** — `company_holidays` + Payroll ▸ Holidays tab. Holiday is PAID at day rate to everyone deployed (per-holiday `paid` flag); working it = OT for the WHOLE day at `holiday_ot_multiplier` (2×). Attendance log shows a banner (single day) / "Holiday" label (range).
+  - **OT multiplier precedence**: worker.ot_multiplier → company.settings.ot_multipliers[skill_grade] → config default; holiday/weekly-off multipliers apply on top, each OT bucket priced separately.
+  - **Employment tab** in WorkerRegister (step 2 of 6) — designation, department, skill grade, UAN, PF/ESIC, PF/ESI applicable, bank a/c+IFSC+name, wage type, rate, per-head split w/ "Suggest split". Saves via PUT /workers/{id}. **Vendors own this** (company users get 403 on worker writes).
+  - **Endpoints**: `/payroll/{components,register,register-export,muster,contractor-summary,rates,adjustments,overrides,holidays}`. Muster CSV = their paper grid (P/A/WO/H + OT row beneath).
+  - **Visitors** (migrations 038/041) — portal can now CREATE gate passes (it previously only listed them); vehicle number (normalised upper/no-space) + vehicle photo; **at least one photo required** (server 422 + disabled button); `require_visitor_approval` per-company setting (default on) — off = auto-approved, WhatsApp ask skipped; **gate users can NO LONGER approve/reject** (403) — they raise, admin/HR decide; **one-tap host approval link** — `gate_passes.approval_token` (48 chars, set via forceFill NOT mass-assignment, hidden from payloads, cleared on decision, same-day only), public throttled routes `/visitor-pass/{token}{,/photo,/decide}`, public page `/visitor-approval/:token`. Works over SMS before WhatsApp Business is approved.
+  - **Nav rebuild** — `Mark Attendance` had NO menu entry at all (gate's primary job!); now 2nd under Dashboard. Vendors+Vendor Approvals merged to one **Contractors** entry (approval queue surfaced as an "N awaiting approval" button). Payroll got its own group. Groups: Daily / People / Attendance / Payroll / Organisation / Account & Help. Dashboard quick actions now checked against App.jsx route guards (gate was offered "Approvals", vendor_operator "Deploy Workers" — both bounced).
+  - **`frontend/src/components/LiveCapture.jsx`** — shared camera capture, `facingMode` prop (rear camera for vehicle shots), upload only as fallback.
+- [x] **v1.17.0 (round 2): own-company redundancy removed EVERYWHERE** — single source of truth `frontend/src/lib/scope.js` `useOrgScope()` → `showCompany(pickedCompanyId)` = `!isCompanyUser && !pickedCompanyId`; mirrored server-side by `AttendanceController::showsCompany(Request)`. Applied to: attendance export daily+monthly CSV, hours-report daily+grouped CSV, printable totals table (all via array_merge so columns stay aligned), Reports preview/filters/downloads, Still-Inside report headers, AttendanceList table + day-detail modal, AttendanceExceptions rows, WorkerAssign deployments table, WorkerDetail per-log company fallback. Reports page also gained the company dropdown + worker MultiSelect (sends company_id/worker_ids, so the server scopes rows AND drops the column). Role-drift fixes found in the same sweep: WorkerDetail/VendorList `isCompanyUser` were missing `company_hr` (HR got the vendor-style company picker / broken vendor tabs); Sidebar hid "Still Inside" from company_hr, company_gate and vendor_operator though the route+API serve every role. **Rule for future work: any page that can print a company name must call `useOrgScope().showCompany()` instead of re-deriving roles.**
+- [x] **v1.16.0: Reports page** — Reports.jsx at /reports (nav: all roles): report tiles (daily register/monthly totals/still-inside/workers dir/vendors dir [company+super only]) → loads server export (CSV parsed client-side via SheetJS; still-inside from /attendance/exceptions JSON) → CLIENT-side filters (dropdowns auto-built from Vendor/Company/Location(s)/Status columns + free search) + live summary chips (rows/workers/total hours/missing OUTs) + preview table (first 100) → Excel/.xlsx + CSV downloads contain EXACTLY the filtered view (client-generated); printable = server month report; dashboard reports strip links here; insights band (charts.jsx + HBarList) per report recomputed from the FILTERED view: daily=present-per-day area + arrival-hour histogram + vendor donut + top-hours ranks; monthly=days/hours ranks + vendor/company day-donuts; inside=gate/company donuts; workers=status/Aadhaar/gender donuts + per-vendor ranks; vendors=status/plan donuts; 'Charts on/off' toggle
+- [x] **v1.16.0: role-aware dashboard rebuild** — GET /dashboard/overview (one payload: role KPIs, 30d trend incl. present/marks per day, week/month worker-day compares, hourly IN flow, presence breakdown per vendor/company, donut (company: turnout; vendor: deployed/bench/pending; super: orgs by plan), attention chips w/ deep links, recent 8 marks); Dashboard.jsx rebuilt (hero + quick actions, KPI deltas vs yesterday, 7d/30d toggle, SVG charts in components/charts.jsx: AreaChart/BarChart/Donut/HourlyFlow/PresenceBars — dependency-free, title-tag tooltips), Reports strip reuses /attendance/export + /printable; company_hr now included (was blank before); old /dashboard/stats endpoints kept for the app
+- [x] **v1.15.0 + app v0.9.35: backup finger + Excel export** — workers.fingerprint_template_2/quality_2 (migration 035, AES); POST /workers/{id}/fingerprint accepts slot:1|2 (slot 2 needs primary first), DELETE ?slot=2 removes backup only (plain DELETE clears both → pending); ANY enrolled finger verifies: server identify()/mark() and all 3 app drivers score both templates per worker, keep the best → ONE score per worker feeds the cross-worker ambiguity margin (own two fingers never look ambiguous); sync pull carries fingerprint_template_2 to marking devices (app DB v7), push accepts it; app: second-capture offer in registration + "Add backup finger" in worker sheet (needs real scanner, refuses SIM); web wizard: backup-finger offer card after primary + "Add backup finger" in edit; workers.fingers_enrolled appended accessor; WorkerList "Export Excel" = real .xlsx (SheetJS client-side from server CSV, sized columns; headers verified to re-import through wizard aliases). NOTE: ams_redis no longer publishes host port 6379 (clashed with other local projects; use docker exec)
+- [x] **Go-live assets (2026-08-22)** — GO_LIVE_PLAN.md (production infra/backups/SMTP/WhatsApp/DPDP/onboarding/pricing/runbook); legal drafts frontend/public/legal/{privacy-policy,terms-of-service}.html (DPDP-aligned templates, lawyer-review placeholders, linked from download.html footer); A5 market flyer (flyer-work/*.dc.html, published as Claude artifact "TrueCrew Market Flyer")
+- [x] **Docs reorganised into role guides (2026-08-17)** — super-admin-guide.html / company-guide.html / vendor-guide.html; developer-guide.html refreshed (addressed to super admin, v1.2→v1.6.1 delta banner); user-manual.html = chooser page; Downloads.jsx + download.html link all guides
 - [ ] Payroll/salary — explicitly deferred until attendance ships properly (user decision 2026-08-16)
 - [x] AuditService used in every write operation
 
 ### Not Yet Implemented / Future
-- [ ] Self-service password reset
-- [ ] Email notifications (vendor approved, worker registered, etc.)
-- [ ] Export attendance to Excel/PDF
-- [ ] Face recognition (tables exist: `face_descriptor`, `face_enrolled_at`)
+- [ ] Real SMTP on droplet (mailer=log now; reset mails + notifications land in laravel.log)
+- [ ] Worker-registered email notification
 - [ ] S3 storage (currently local private disk)
 - [ ] Laravel Horizon for queue monitoring UI
 - [ ] Mobile app / PWA for gate users
@@ -383,8 +479,13 @@ docker exec ams_backend php artisan migrate
 |------|---------|
 | `CLAUDE.md` | This file — project context for Claude sessions |
 | `README.md` | Technical overview, architecture, API reference |
-| `USER_MANUAL.md` | User-facing guide for all roles |
-| `docs/developer-guide.html` | Full technical reference (styled HTML) |
-| `docs/user-manual.html` | Full user guide (styled HTML) |
+| `USER_MANUAL.md` | Map of the role guides + server-enforced rules summary |
+| `frontend/public/docs/super-admin-guide.html` | Role guide: platform owner (orgs, plans, users, oversight) |
+| `frontend/public/docs/company-guide.html` | Role guide: company admin + HR + gate |
+| `frontend/public/docs/vendor-guide.html` | Role guide: vendor admin + operator (app-first) |
+| `frontend/public/docs/developer-guide.html` | Super admin's technical companion (architecture, schema, deploy) |
+| `frontend/public/docs/user-manual.html` | Chooser page → the role guides (keeps old links alive) |
+| `frontend/public/docs/client-guide.html` | One-page product overview for prospects |
 
-**Keep all five in sync when features change.**
+**Keep these in sync when features change** (role guides carry the user-facing
+truth; release-notes.html carries the changelog).

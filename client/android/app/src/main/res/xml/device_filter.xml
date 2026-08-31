@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SecuGen fingerprint scanners (USB vendor 0x1162 = 4450).
+     Attach-filter: plugging the scanner in offers to open TrueCrew and grants
+     USB permission permanently for this device — no dialog on later plugs. -->
+<resources>
+    <usb-device vendor-id="4450" />
+</resources>

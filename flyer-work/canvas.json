@@ -1,0 +1,10 @@
+{
+  "artboards": [
+    { "file": "Main.dc.html", "x": 0, "y": 0, "w": 559, "h": 794, "title": "Front", "print": "fixed" },
+    { "file": "Back.dc.html", "x": 620, "y": 0, "w": 559, "h": 794, "title": "Back", "print": "fixed" }
+  ],
+  "annotations": [
+    { "id": "print-note", "x": 0, "y": -150, "w": 320, "text": "A5 flyer, front and back (559x794 px = 148x210 mm at 96 dpi).\nFill the [bracketed] placeholders: phone, website, email, plan prices.\nExport PDF from the toolbar for the print shop." }
+  ],
+  "launch": { "view": "canvas" }
+}

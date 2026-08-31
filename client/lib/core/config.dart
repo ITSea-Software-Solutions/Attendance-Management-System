@@ -15,5 +15,5 @@ class AppConfig {
   /// SecuGen match-score scale is 0..200; server threshold default.
   static const int matchThreshold = 40;
 
-  static const String appVersion = '0.9.11-preview';
+  static const String appVersion = '0.9.38-preview';
 }

@@ -9,11 +9,12 @@ const ALL_ROLES = [
   { value: "super_admin",      label: "Super Admin" },
   { value: "company_admin",    label: "Company Admin" },
   { value: "company_gate",     label: "Company Gate" },
-  { value: "vendor_admin",     label: "Vendor Admin" },
-  { value: "vendor_operator",  label: "Vendor Operator" },
+  { value: "vendor_admin",     label: "Contractor Admin" },
+  { value: "vendor_operator",  label: "Contractor Operator" },
 ];
 
 const ROLE_BADGE = {
+  company_hr: "bg-purple-100 text-purple-700",
   super_admin:     "bg-purple-100 text-purple-700",
   company_admin:   "bg-blue-100 text-blue-700",
   company_gate:    "bg-cyan-100 text-cyan-700",
@@ -56,12 +57,24 @@ export default function UserList() {
   const isVendorAdmin  = authUser?.role === "vendor_admin";
 
   const availableRoles = isCompanyAdmin
-    ? [{ value: "company_gate",    label: "Company Gate" }]
+    ? [
+        { value: "company_gate", label: "Gate user (marks IN/OUT at a gate)" },
+        { value: "company_hr",   label: "Department HR (approves deployments)" },
+      ]
     : isVendorAdmin
-    ? [{ value: "vendor_operator", label: "Vendor Operator" }]
+    ? [{ value: "vendor_operator", label: "Contractor Operator" }]
     : ALL_ROLES;
 
-  const isGateRole = form.role === "company_gate" || isCompanyAdmin;
+  const isGateRole = form.role === "company_gate" || (isCompanyAdmin && form.role !== "company_hr");
+  const isHrRole   = form.role === "company_hr";
+
+  // Preset + existing departments for consistent naming (server merges
+  // config presets with this company's known gate/department names).
+  const { data: deptOptions } = useQuery({
+    queryKey: ["company-locations", authUser?.company_id],
+    queryFn:  () => api.get(`/companies/${authUser.company_id}/locations`).then(r => r.data.locations),
+    enabled:  isCompanyAdmin,
+  });
 
   const { data: usersData, isLoading } = useQuery({
     queryKey: ["users"],
@@ -181,7 +194,7 @@ export default function UserList() {
                 {!isCompanyAdmin && !isVendorAdmin && <th className="text-left px-4 py-3 font-medium text-gray-600">Role</th>}
                 {!isCompanyAdmin && !isVendorAdmin && <th className="text-left px-4 py-3 font-medium text-gray-600">Linked To</th>}
                 {!isVendorAdmin && <th className="text-left px-4 py-3 font-medium text-gray-600">Location</th>}
-                <th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
+                <th className="px-4 py-3 text-left font-medium">Added</th><th className="text-left px-4 py-3 font-medium text-gray-600">Status</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -217,6 +230,9 @@ export default function UserList() {
                       )}
                     </td>
                   )}
+                  <td className="px-4 py-3 text-xs text-gray-400 whitespace-nowrap">
+                    {u.created_at?.slice(0, 10) ?? "—"}
+                  </td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => toggleMutation.mutate({ id: u.id, is_active: !u.is_active })}
@@ -244,7 +260,7 @@ export default function UserList() {
               ))}
               {!users.length && (
                 <tr>
-                  <td colSpan={isVendorAdmin ? 4 : isCompanyAdmin ? 5 : 7} className="px-4 py-8 text-center text-gray-400">
+                  <td colSpan={isVendorAdmin ? 5 : isCompanyAdmin ? 6 : 8} className="px-4 py-8 text-center text-gray-400">
                     {isVendorAdmin
                       ? "No operators yet. Add one to allow attendance scanning."
                       : isCompanyAdmin
@@ -274,7 +290,7 @@ export default function UserList() {
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
 
               {/* ── 1. Role ── */}
-              {!isCompanyAdmin && !isVendorAdmin && (
+              {!isVendorAdmin && (
                 <div>
                   <label className="label">Role</label>
                   <select className="input" required {...field("role")}>
@@ -297,7 +313,7 @@ export default function UserList() {
 
               {needsVendor && (
                 <div>
-                  <label className="label">Vendor</label>
+                  <label className="label">Contractor</label>
                   <select className="input" required {...field("vendor_id")}>
                     <option value="">Select vendor…</option>
                     {vendors.map(v => <option key={v.id} value={v.id}>{v.name}</option>)}
@@ -328,14 +344,37 @@ export default function UserList() {
                       <label className="label">Location Name</label>
                       <input
                         className="input"
+                        list="dept-presets"
                         placeholder={locTypePlaceholder}
                         {...field("location_name")}
                       />
+                      <datalist id="dept-presets">
+                        {(deptOptions ?? []).map((d) => <option key={d} value={d} />)}
+                      </datalist>
                       <p className="text-xs text-gray-400 mt-1">
-                        Attendance marked by this user will be tagged with this location.
+                        Attendance marked by this user will be tagged with this location. Pick a preset or type a custom name.
                       </p>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* ── 3b. HR department ── */}
+              {isHrRole && (
+                <div>
+                  <label className="label">Department (optional)</label>
+                  <input
+                    className="input"
+                    list="dept-presets"
+                    placeholder="e.g. HR"
+                    {...field("location_name")}
+                  />
+                  <datalist id="dept-presets">
+                    {(deptOptions ?? []).map((d) => <option key={d} value={d} />)}
+                  </datalist>
+                  <p className="text-xs text-gray-400 mt-1">
+                    HR users review vendor deployments: approve/reject and choose which gates/departments each worker may enter.
+                  </p>
                 </div>
               )}
 

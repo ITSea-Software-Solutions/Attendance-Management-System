@@ -63,10 +63,45 @@ abstract class BiometricDriver {
   Future<bool> available();
   Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates);
 
+  /// Gate threshold — same scale + cutoff as the web gate (score 0–199).
+  static const int matchThreshold = 40;
+
+  /// 1:N ambiguity margin: SecuGen's 40 cutoff is calibrated for a SINGLE
+  /// comparison; matching against N workers multiplies the false-accept
+  /// chance. If the best and second-best DIFFERENT workers score within this
+  /// margin, the identification is not trustworthy — treat as no-match and
+  /// rescan rather than pick whoever edged ahead.
+  static const int matchMargin = 10;
+
+  /// All valid enrolled templates of a candidate — primary + backup finger.
+  /// ANY of them identifies the worker; loops take the worker's best score,
+  /// so one score per WORKER feeds the cross-worker ambiguity margin (a
+  /// worker's own two fingers never look like two different people).
+  static List<String> templatesOf(Map<String, Object?> w) {
+    final out = <String>[];
+    for (final k in [
+      'fingerprint_template',
+      'fingerprint_template_2',
+      'fingerprint_template_3',
+    ]) {
+      final t = w[k] as String?;
+      if (t != null && t.length >= 80 && !t.startsWith('U0lNRk1EOg')) out.add(t);
+    }
+    return out;
+  }
+
   static Future<BiometricDriver> best() async {
     if (Platform.isWindows) {
+      final direct = SgfpDirectDriver();
+      if (await direct.available()) return direct;
       final sg = SgibiosrvDriver();
       if (await sg.available()) return sg;
+    }
+    if (Platform.isAndroid) {
+      final droid = AndroidSgDriver();
+      if (await droid.available()) return droid;
+      final mantra = MantraAndroidDriver();
+      if (await mantra.available()) return mantra;
     }
     return SimDriver();
   }
@@ -76,6 +111,46 @@ abstract class BiometricDriver {
   /// Diagnostics: probe the fingerprint scanner with timing + detail.
   /// Windows: 1) DIRECT SDK via sgfplib.dll, 2) WebAPI, 3) report both.
   /// Android: USB device presence + permission + SDK-AAR presence, precisely.
+  /// One human line per attached USB device, with brand-specific guidance —
+  /// so any Indian market scanner plugged in gets a precise answer.
+  static Future<String> usbInventoryText() async {
+    try {
+      final list = List<Map>.from(
+          await _android.invokeMethod('usbInventory') as List);
+      if (list.isEmpty) return '';
+      final mantraSt = Map<String, dynamic>.from(
+          await _android.invokeMethod('mantraStatus') as Map);
+      final lines = <String>['USB devices:'];
+      for (final d in list) {
+        final name = '${d['name'] ?? 'device'}';
+        switch ('${d['brand']}') {
+          case 'secugen':
+            lines.add('- $name (SecuGen): supported — native driver.');
+            break;
+          case 'mantra':
+            lines.add(mantraSt['sdkPresent'] == true
+                ? '- $name (Mantra MFS100-class): supported — driver active.'
+                : '- $name (Mantra MFS100-class): driver built-in, but the Mantra SDK is not bundled in this build yet — it activates in the official APK once added.');
+            break;
+          case 'mantra_l1':
+            lines.add('- $name (Mantra L1, e.g. MFS110): Aadhaar-secure device — it encrypts fingerprints INSIDE the sensor and cannot share them with any app (UIDAI rule, not a missing driver). Use an MFS100/MFS500 or SecuGen HP20 for attendance.');
+            break;
+          case 'morpho':
+            lines.add('- $name (Morpho/IDEMIA): detected. Their SDK is licence-gated; support can be added when you have it. L1 units are Aadhaar-only.');
+            break;
+          case 'startek':
+            lines.add('- $name (Startek FM220-class): detected. Support planned — share the ACPL SDK to activate.');
+            break;
+          default:
+            lines.add('- $name: detected (unrecognised brand).');
+        }
+      }
+      return lines.join('\n');
+    } catch (_) {
+      return '';
+    }
+  }
+
   static Future<DeviceProbe> probeScanner() async {
     if (Platform.isAndroid) {
       try {
@@ -84,14 +159,23 @@ abstract class BiometricDriver {
         final attached = st['deviceAttached'] == true;
         final perm = st['permission'] == true;
         final sdk = st['sdkPresent'] == true;
+        final inventory = await usbInventoryText();
         if (!attached) {
+          // No SecuGen — maybe a Mantra (or another Indian brand) is plugged in.
+          final mantra = MantraAndroidDriver();
+          if (await mantra.available()) {
+            return DeviceProbe(true,
+                'Mantra MFS100-class scanner ready via USB-OTG — real captures enabled.\n$inventory');
+          }
           return DeviceProbe(false,
-              'No SecuGen scanner on USB. Plug the scanner in via an OTG cable/adapter — the phone must supply power. (Fingerprint falls back to SIMULATION; camera Face attendance works without any scanner.)');
+              inventory.isNotEmpty
+                  ? 'No usable fingerprint scanner.\n$inventory\n(Fingerprint falls back to SIMULATION; camera Face attendance works without any scanner.)'
+                  : 'No scanner on USB. Plug it in via an OTG cable/adapter — the phone must supply power. (Fingerprint falls back to SIMULATION; camera Face attendance works without any scanner.)');
         }
         final name = st['deviceName'] ?? 'SecuGen device';
         if (!sdk) {
           return DeviceProbe(false,
-              'Scanner DETECTED on USB ($name) — but the SecuGen Android SDK (FDxSDKPro.aar) is not bundled in this build. Drop the AAR into client/android/app/libs/ and rebuild to enable REAL captures.');
+              'Scanner DETECTED on USB ($name) — but the SecuGen SDK library (FDxSDKProFDAndroid.jar) is missing from this build. Use the official TrueCrew APK from the download page (the SDK ships inside it).');
         }
         if (!perm) {
           return DeviceProbe(false,
@@ -177,7 +261,14 @@ abstract class BiometricDriver {
           lastEnrollError = (r['error'] as String?) ?? 'Capture failed.';
           return null; // real hardware present — let the user retry
         }
-        // No scanner / no AAR → clearly-marked simulation below.
+        // No SecuGen? Try a Mantra MFS100-class scanner (same ISO templates).
+        final mantra = MantraAndroidDriver();
+        if (await mantra.available()) {
+          final r = await mantra.enrollCapture();
+          if (r != null) return r;
+          return null; // real device present — surface error, let user retry
+        }
+        // No scanner / no SDK → clearly-marked simulation below.
       } catch (_) {/* channel unavailable → simulate */}
     }
     if (Platform.isWindows) {
@@ -299,9 +390,234 @@ class SgibiosrvDriver implements BiometricDriver {
 
   @override
   Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates) async {
-    // Real 1:N on-device matching arrives with the SDK matcher integration.
-    // Until then the UI routes real captures through server identify (online)
-    // or manual selection; SimDriver covers offline demo behaviour.
-    return null;
+    final live = await captureTemplate();
+    if (live == null) return null;
+    Map<String, Object?>? best;
+    var bestScore = -1;
+    var secondScore = -1;
+    for (final w in candidates) {
+      var score = -1; // worker's best across enrolled fingers
+      for (final stored in BiometricDriver.templatesOf(w)) {
+        try {
+          final r = await _dio.post('${AppConfig.sgibiosrvUrl}/SGIMatchScore',
+              data: 'template1=${Uri.encodeComponent(live)}'
+                  '&template2=${Uri.encodeComponent(stored)}'
+                  '&licstr=&templateFormat=ISO',
+              options: Options(contentType: 'text/plain;charset=UTF-8'));
+          final data = r.data is Map ? r.data as Map : {};
+          final s = (data['MatchingScore'] as num?)?.toInt() ?? -1;
+          if (s > score) score = s;
+        } catch (_) {/* keep trying others */}
+      }
+      if (score < 0) continue;
+      if (score > bestScore) {
+        secondScore = bestScore;
+        bestScore = score;
+        best = w;
+      } else if (score > secondScore) {
+        secondScore = score;
+      }
+    }
+    if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+    if (secondScore >= 0 &&
+        bestScore - secondScore < BiometricDriver.matchMargin) {
+      return null; // ambiguous between two workers — rescan
+    }
+    return IdentifyResult(best, bestScore);
+  }
+}
+
+/// Windows DIRECT-SDK driver: capture + true on-device 1:N matching via
+/// SGFPM_GetMatchingScore — fully offline, no service.
+class SgfpDirectDriver implements BiometricDriver {
+  @override
+  Future<bool> available() async =>
+      Platform.isWindows && SgfpDirect.instance.ensureReady() == null;
+
+  @override
+  Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates) async {
+    final cap = SgfpDirect.instance.captureTemplate();
+    final live = cap.template;
+    if (live == null) return null;
+    Map<String, Object?>? best;
+    var bestScore = -1;
+    var secondScore = -1;
+    for (final w in candidates) {
+      // Skip missing/simulated/garbage templates — only real enrollments match.
+      final stored2 = BiometricDriver.templatesOf(w);
+      if (stored2.isEmpty) continue;
+      var score = -1;
+      for (final stored in stored2) {
+        final s = SgfpDirect.instance.matchScore(live, stored);
+        if (s > score) score = s;
+      }
+      if (score > bestScore) {
+        secondScore = bestScore;
+        bestScore = score;
+        best = w;
+      } else if (score > secondScore) {
+        secondScore = score;
+      }
+    }
+    if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+    if (secondScore >= 0 &&
+        bestScore - secondScore < BiometricDriver.matchMargin) {
+      return null; // ambiguous between two workers — rescan
+    }
+    return IdentifyResult(best, bestScore);
+  }
+}
+
+/// Android USB-OTG driver for Mantra MFS100-class scanners (India's most
+/// common brand) — reflection-bound like the SecuGen driver, so the app
+/// ships without the SDK and activates when mantra.mfs100.jar is bundled.
+///
+/// Score scale: Mantra MatchISO returns 0–100000 (recommended accept 14000).
+/// We accept/margin on the RAW scale, then normalise to 0–200 so scores are
+/// stored and displayed consistently with SecuGen marks.
+///
+/// NOTE: the MFS110 is an Aadhaar L1 SECURE device — it encrypts fingerprints
+/// inside the sensor and can never hand templates to any app (UIDAI design).
+/// This driver therefore targets MFS100/MFS500-class L0 scanners only; the
+/// diagnostics screen explains this when an L1 device is detected.
+class MantraAndroidDriver implements BiometricDriver {
+  static const _ch = MethodChannel('truecrew/sgfp');
+  static const int rawThreshold = 14000; // Mantra's documented accept score
+  static const int rawMargin = 7000;     // 1:N ambiguity margin on raw scale
+
+  static int normalise(int raw) => (raw * 200 / 100000).round().clamp(0, 200);
+
+  @override
+  Future<bool> available() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final st = Map<String, dynamic>.from(
+          await _ch.invokeMethod('mantraStatus') as Map);
+      if (st['deviceAttached'] != true || st['sdkPresent'] != true) return false;
+      if (st['permission'] != true) {
+        return await _ch.invokeMethod('requestPermission') as bool? ?? false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Enrollment capture — ISO 19794-2 template, same storage as SecuGen.
+  Future<EnrollCapture?> enrollCapture() async {
+    try {
+      final r = Map<String, dynamic>.from(await _ch
+          .invokeMethod('mantraCapture', {'timeoutMs': 12000}) as Map);
+      final tpl = r['template'] as String?;
+      if (tpl == null) {
+        BiometricDriver.lastEnrollError = '${r['error'] ?? 'capture failed'}';
+        return null;
+      }
+      return EnrollCapture(tpl, (r['quality'] as num?)?.toInt() ?? 0,
+          simulated: false);
+    } catch (e) {
+      BiometricDriver.lastEnrollError = 'Mantra channel error: $e';
+      return null;
+    }
+  }
+
+  @override
+  Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates) async {
+    try {
+      final r = Map<String, dynamic>.from(await _ch
+          .invokeMethod('mantraCapture', {'timeoutMs': 10000}) as Map);
+      final live = r['template'] as String?;
+      if (live == null) return null;
+      Map<String, Object?>? best;
+      var bestRaw = -1;
+      var secondRaw = -1;
+      for (final w in candidates) {
+        var raw = -1; // worker's best across enrolled fingers
+        for (final stored in BiometricDriver.templatesOf(w)) {
+          try {
+            final m = Map<String, dynamic>.from(await _ch
+                .invokeMethod('mantraMatch', {'t1': live, 't2': stored}) as Map);
+            final r2 = (m['raw'] as num?)?.toInt() ?? -1;
+            if (r2 > raw) raw = r2;
+          } catch (_) {/* try next */}
+        }
+        if (raw < 0) continue;
+        if (raw > bestRaw) {
+          secondRaw = bestRaw;
+          bestRaw = raw;
+          best = w;
+        } else if (raw > secondRaw) {
+          secondRaw = raw;
+        }
+      }
+      if (best == null || bestRaw < rawThreshold) return null;
+      if (secondRaw >= 0 && bestRaw - secondRaw < rawMargin) {
+        return null; // ambiguous between two workers — rescan
+      }
+      return IdentifyResult(best, normalise(bestRaw));
+    } catch (_) {
+      return null;
+    }
+  }
+}
+
+/// Android USB-OTG driver: capture + match through the native SecuGen SDK
+/// channel — fully offline.
+class AndroidSgDriver implements BiometricDriver {
+  static const _ch = MethodChannel('truecrew/sgfp');
+
+  @override
+  Future<bool> available() async {
+    if (!Platform.isAndroid) return false;
+    try {
+      final st = Map<String, dynamic>.from(await _ch.invokeMethod('status') as Map);
+      if (st['deviceAttached'] != true || st['sdkPresent'] != true) return false;
+      if (st['permission'] != true) {
+        return await _ch.invokeMethod('requestPermission') as bool? ?? false;
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<IdentifyResult?> identify(List<Map<String, Object?>> candidates) async {
+    try {
+      final r = Map<String, dynamic>.from(
+          await _ch.invokeMethod('capture', {'timeoutMs': 10000}) as Map);
+      final live = r['template'] as String?;
+      if (live == null) return null;
+      Map<String, Object?>? best;
+      var bestScore = -1;
+      var secondScore = -1;
+      for (final w in candidates) {
+        var score = -1; // worker's best across enrolled fingers
+        for (final stored in BiometricDriver.templatesOf(w)) {
+          try {
+            final m = Map<String, dynamic>.from(await _ch.invokeMethod(
+                'matchScore', {'t1': live, 't2': stored}) as Map);
+            final s2 = (m['score'] as num?)?.toInt() ?? -1;
+            if (s2 > score) score = s2;
+          } catch (_) {/* try next */}
+        }
+        if (score < 0) continue;
+        if (score > bestScore) {
+          secondScore = bestScore;
+          bestScore = score;
+          best = w;
+        } else if (score > secondScore) {
+          secondScore = score;
+        }
+      }
+      if (best == null || bestScore < BiometricDriver.matchThreshold) return null;
+      if (secondScore >= 0 &&
+          bestScore - secondScore < BiometricDriver.matchMargin) {
+        return null; // ambiguous between two workers — rescan
+      }
+      return IdentifyResult(best, bestScore);
+    } catch (_) {
+      return null;
+    }
   }
 }

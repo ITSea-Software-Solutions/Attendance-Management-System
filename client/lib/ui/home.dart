@@ -3,9 +3,13 @@ import 'package:flutter/material.dart';
 import '../core/scope.dart';
 import 'dart:io' show Platform;
 
+import 'approvals_screen.dart';
+import 'attendance_detail.dart';
 import 'diagnostics.dart';
+import 'notifications_screen.dart';
 import 'face_attendance.dart';
 import 'gate_attendance.dart';
+import 'visitors_screen.dart';
 import 'vendor_workers.dart';
 
 /// Role-aware shell: tabs depend on who is signed in.
@@ -17,6 +21,22 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _tab = 0;
+  int _unread = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshUnread();
+  }
+
+  Future<void> _refreshUnread() async {
+    final app = AppScope.of(context);
+    if (!app.online) return;
+    try {
+      final (_, unread) = await app.notifications();
+      if (mounted) setState(() => _unread = unread);
+    } catch (_) {}
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -31,16 +51,31 @@ class _HomeScreenState extends State<HomeScreen> {
           icon: Icons.fingerprint,
           body: const GateAttendanceScreen()
         ),
-      if (app.canMark && Platform.isAndroid)
+      if (app.canMark && (Platform.isAndroid || Platform.isWindows))
         (
           label: 'Face',
           icon: Icons.face_retouching_natural,
           body: const FaceAttendanceScreen()
         ),
+      if (app.isApprover)
+        (
+          label: 'Approvals',
+          icon: Icons.approval,
+          body: const ApprovalsScreen()
+        ),
+      if (app.canMark || app.isApprover)
+        (
+          label: 'Visitors',
+          icon: Icons.badge,
+          body: const VisitorsScreen()
+        ),
       (label: 'Inside', icon: Icons.meeting_room, body: const ExceptionsScreen()),
       (label: 'Activity', icon: Icons.receipt_long, body: const _ActivityScreen()),
     ];
     final tab = _tab.clamp(0, tabs.length - 1);
+    // Desktop-responsive shell: side rail on wide windows (Windows/tablets),
+    // phone-style bottom bar otherwise.
+    final wide = MediaQuery.of(context).size.width >= 840;
 
     return Scaffold(
       appBar: AppBar(
@@ -81,6 +116,19 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ),
           IconButton(
+            tooltip: 'Notifications',
+            icon: Badge(
+              isLabelVisible: _unread > 0,
+              label: Text('$_unread'),
+              child: const Icon(Icons.notifications_outlined),
+            ),
+            onPressed: () async {
+              await Navigator.push(context,
+                  MaterialPageRoute(builder: (_) => const NotificationsScreen()));
+              _refreshUnread();
+            },
+          ),
+          IconButton(
             tooltip: 'Diagnostics — device & connection status',
             icon: const Icon(Icons.troubleshoot),
             onPressed: () => Navigator.push(context,
@@ -112,24 +160,45 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      body: tabs[tab].body,
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: tab,
-        onDestinationSelected: (i) => setState(() => _tab = i),
-        destinations: [
-          for (final t in tabs)
-            NavigationDestination(icon: Icon(t.icon), label: t.label),
-        ],
-      ),
+      body: wide
+          ? Row(children: [
+              NavigationRail(
+                selectedIndex: tab,
+                onDestinationSelected: (i) => setState(() => _tab = i),
+                extended: MediaQuery.of(context).size.width >= 1150,
+                labelType: MediaQuery.of(context).size.width >= 1150
+                    ? NavigationRailLabelType.none
+                    : NavigationRailLabelType.all,
+                destinations: [
+                  for (final t in tabs)
+                    NavigationRailDestination(
+                        icon: Icon(t.icon), label: Text(t.label)),
+                ],
+              ),
+              const VerticalDivider(width: 1),
+              Expanded(child: tabs[tab].body),
+            ])
+          : tabs[tab].body,
+      bottomNavigationBar: wide
+          ? null
+          : NavigationBar(
+              selectedIndex: tab,
+              onDestinationSelected: (i) => setState(() => _tab = i),
+              destinations: [
+                for (final t in tabs)
+                  NavigationDestination(icon: Icon(t.icon), label: t.label),
+              ],
+            ),
     );
   }
 
   static String _roleLabel(String role) => switch (role) {
         'super_admin' => 'Super Admin',
         'company_admin' => 'Company Admin',
+        'company_hr' => 'HR',
         'company_gate' => 'Gate',
-        'vendor_admin' => 'Vendor',
-        'vendor_operator' => 'Vendor Operator',
+        'vendor_admin' => 'Contractor',
+        'vendor_operator' => 'Contractor Operator',
         _ => role,
       };
 }
@@ -154,8 +223,11 @@ class _ActivityScreen extends StatelessWidget {
           itemBuilder: (context, i) {
             final m = rows[i];
             final isIn = m['type'] == 'IN';
+            final hasProof = m['proof_path'] != null ||
+                (m['server_id'] != null && m['proof_synced'] == 1);
             return ListTile(
               dense: true,
+              onTap: () => showAttendanceDetail(context, m),
               leading: Icon(isIn ? Icons.login : Icons.logout,
                   color: isIn ? Colors.teal : Colors.orange),
               title: Text('${m['worker_name'] ?? 'Worker #${m['worker_server_id']}'}'
@@ -164,14 +236,22 @@ class _ActivityScreen extends StatelessWidget {
                   '${ExceptionsScreen.fmt(m['marked_at'])}'
                   '${m['location_name'] != null ? ' · ${m['location_name']}' : ''}'
                   '${m['simulated'] == 1 ? ' · simulated' : ''}'),
-              trailing: switch (m['sync_state'] as String? ?? 'synced') {
-                'pending' => const Icon(Icons.cloud_upload,
-                    size: 18, color: Colors.amber),
-                'error' =>
-                    const Icon(Icons.error, size: 18, color: Colors.red),
-                _ => const Icon(Icons.cloud_done,
-                    size: 18, color: Colors.teal),
-              },
+              trailing: Row(mainAxisSize: MainAxisSize.min, children: [
+                if (hasProof)
+                  const Padding(
+                    padding: EdgeInsets.only(right: 6),
+                    child: Icon(Icons.photo_camera,
+                        size: 16, color: Colors.blueGrey),
+                  ),
+                switch (m['sync_state'] as String? ?? 'synced') {
+                  'pending' => const Icon(Icons.cloud_upload,
+                      size: 18, color: Colors.amber),
+                  'error' =>
+                      const Icon(Icons.error, size: 18, color: Colors.red),
+                  _ => const Icon(Icons.cloud_done,
+                      size: 18, color: Colors.teal),
+                },
+              ]),
             );
           },
         );

@@ -3,11 +3,14 @@ import { useParams, Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "@/lib/axios";
 import { useAuth } from "@/contexts/AuthContext";
+import { useOrgScope } from "@/lib/scope";
 import { format } from "date-fns";
+import toast from "react-hot-toast";
 import {
   ArrowLeft, Calendar, LogIn, LogOut, MapPin, Building2,
-  Fingerprint, User, Clock, ChevronDown,
+  Fingerprint, User, Clock, ChevronDown, Camera, PenLine,
 } from "lucide-react";
+import AuthImg from "@/components/AuthImg";
 
 const STATUS_BADGE = {
   active:   "badge-green",
@@ -15,6 +18,32 @@ const STATUS_BADGE = {
   inactive: "badge-gray",
   blocked:  "badge-red",
 };
+
+/** How the mark was verified: thumb (fingerprint), photo (face), or manual. */
+function MethodBadge({ log }) {
+  if (log.method === "face") {
+    return (
+      <span className="badge badge-blue text-[10px] whitespace-nowrap">
+        <Camera size={9} className="mr-0.5 inline" />
+        photo{log.face_score ? ` ${Number(log.face_score).toFixed(2)}` : ""}
+      </span>
+    );
+  }
+  if (log.method === "manual") {
+    return (
+      <span className="badge badge-yellow text-[10px] whitespace-nowrap">
+        <PenLine size={9} className="mr-0.5 inline" />
+        manual
+      </span>
+    );
+  }
+  return (
+    <span className="badge badge-gray text-[10px] whitespace-nowrap">
+      <Fingerprint size={9} className="mr-0.5 inline" />
+      thumb{log.fingerprint_score ? ` ${log.fingerprint_score}` : ""}
+    </span>
+  );
+}
 
 const DEPLOYMENT_COLORS = {
   active:    "badge-green",
@@ -42,8 +71,9 @@ export default function WorkerDetail() {
   const { id }   = useParams();
   const { user } = useAuth();
 
-  const isCompanyUser = ["company_admin", "company_gate"].includes(user?.role);
-  const isVendorUser  = ["vendor_admin", "vendor_operator"].includes(user?.role);
+  // Shared rule (lib/scope.js) — company_hr counts as a company user, so HR
+  // sees their own company's data, not a vendor-style company picker.
+  const { isCompanyUser, isVendorUser, showCompany } = useOrgScope();
 
   // Company filter — company users are always fixed to their own company
   const [companyId, setCompanyId]       = useState(null); // null = all
@@ -70,7 +100,40 @@ export default function WorkerDetail() {
     }
   }, [data, companyId, companyOptions]);
 
-  const { worker, summary, monthly, deployments, recent_logs } = data ?? {};
+  const { worker: workerStats, summary, monthly, deployments, recent_logs } = data ?? {};
+
+  // Full record (verification fields, PDF flag) + manual verify actions.
+  const { data: workerFull, refetch: refetchWorker } = useQuery({
+    queryKey: ["worker-record", id],
+    queryFn:  () => api.get(`/workers/${id}`).then((r) => r.data),
+  });
+  const worker = workerFull ?? workerStats;
+  const canVerify = ["super_admin", "vendor_admin"].includes(user?.role);
+  const verifyStep = async (step) => {
+    try {
+      const r = await api.post(`/workers/${id}/verify-step`, { step });
+      toast.success(r.data.message);
+      refetchWorker();
+    } catch (e) {
+      toast.error(e.response?.data?.message ?? "Could not verify.");
+    }
+  };
+
+  // Real OTP path for phone: send a code to the worker's phone, then confirm
+  // it here. Falls back to a demo code in debug when no SMS provider is set.
+  const otpVerifyPhone = async () => {
+    try {
+      const r = await api.post(`/workers/${id}/send-otp`);
+      const dev = r.data.dev_otp ? ` (demo code: ${r.data.dev_otp})` : "";
+      const code = window.prompt(`${r.data.message}${dev}\n\nEnter the 6-digit code the worker received:`);
+      if (!code?.trim()) return;
+      const v = await api.post(`/workers/${id}/verify-otp`, { otp: code.trim() });
+      toast.success(v.data.message);
+      refetchWorker();
+    } catch (e) {
+      toast.error(e.response?.data?.message ?? "OTP verification failed.");
+    }
+  };
 
   // Label shown above stats — company name for company users, selected company for vendors
   const scopeLabel = isCompanyUser
@@ -112,7 +175,10 @@ export default function WorkerDetail() {
             </div>
           ) : (
             <>
-              <h1 className="text-2xl font-bold text-gray-900 truncate">{worker?.name}</h1>
+              <h1 className="text-2xl font-bold text-gray-900 truncate">
+                {worker?.name}
+                {worker?.emp_code && <span className="ml-2 text-sm font-mono text-gray-400">#{worker.emp_code}</span>}
+              </h1>
               <p className="text-sm text-gray-500 mt-0.5">{worker?.vendor?.name}</p>
               <div className="flex flex-wrap items-center gap-2 mt-2">
                 <span className={`badge ${STATUS_BADGE[worker?.status] ?? "badge-gray"}`}>
@@ -120,7 +186,8 @@ export default function WorkerDetail() {
                 </span>
                 {worker?.fingerprint_enrolled_at && (
                   <span className="badge badge-green text-xs">
-                    <Fingerprint size={10} className="mr-1 inline" />Fingerprint Enrolled
+                    <Fingerprint size={10} className="mr-1 inline" />
+                    {worker.fingers_enrolled > 1 ? `${worker.fingers_enrolled} Fingers Enrolled` : "Fingerprint Enrolled"}
                   </span>
                 )}
                 {worker?.gender && (
@@ -130,6 +197,12 @@ export default function WorkerDetail() {
                 )}
                 {worker?.aadhaar_number_masked && (
                   <span className="text-xs text-gray-400 font-mono">{worker.aadhaar_number_masked}</span>
+                )}
+                {worker && !worker.aadhaar_verified_at && (
+                  <span className="badge badge-yellow text-[10px]">Aadhaar pending</span>
+                )}
+                {worker?.joining_date && (
+                  <span className="text-xs text-gray-400">joined {format(new Date(worker.joining_date), "dd MMM yyyy")}</span>
                 )}
               </div>
             </>
@@ -143,6 +216,52 @@ export default function WorkerDetail() {
           </div>
         )}
       </div>
+
+      {/* Verification steps — each identity check, at a glance */}
+      {worker && (
+        <div className="card">
+          <p className="text-sm font-semibold text-gray-800 mb-3">Verification steps</p>
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
+            {[
+              { label: "Aadhaar", done: !!worker.aadhaar_verified_at, hint: worker.aadhaar_number_masked ? (worker.has_aadhaar_pdf ? "PDF on file" : "number on file") : "pending — add via Edit Worker" },
+              { label: "Fingerprint", done: !!worker.fingerprint_enrolled_at, hint: worker.fingerprint_enrolled_at ? `${worker.fingers_enrolled} finger${worker.fingers_enrolled > 1 ? "s" : ""}` : "pending" },
+              { label: "Face / photo", done: !!worker.face_enrolled_at, hint: worker.face_enrolled_at ? "enrolled" : "pending" },
+              { label: "Email", done: !!worker.email_verified_at, hint: worker.email ?? "no email", verifyStep: "email", can: !!worker.email && !worker.email_verified_at },
+              { label: "Phone", done: !!worker.phone_verified_at, hint: worker.phone ?? worker.mobile ?? "no phone", verifyStep: "phone", can: !!(worker.phone || worker.mobile) && !worker.phone_verified_at },
+            ].map((s) => (
+              <div key={s.label} className={`rounded-lg border p-3 ${s.done ? "border-green-200 bg-green-50" : "border-gray-200 bg-gray-50"}`}>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-2 h-2 rounded-full ${s.done ? "bg-green-500" : "bg-gray-300"}`} />
+                  <span className="text-xs font-semibold text-gray-700">{s.label}</span>
+                </div>
+                <p className="text-[11px] text-gray-500 mt-1 truncate">{s.done ? "Verified" : s.hint}</p>
+                {canVerify && s.can && (
+                  <div className="flex gap-2 mt-1">
+                    {s.verifyStep === "phone" && (
+                      <button
+                        className="text-[11px] text-brand-700 font-semibold underline"
+                        onClick={otpVerifyPhone}
+                      >
+                        Verify by OTP
+                      </button>
+                    )}
+                    <button
+                      className="text-[11px] text-gray-500 font-medium underline"
+                      onClick={() => verifyStep(s.verifyStep)}
+                    >
+                      Mark verified
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+          <p className="text-[11px] text-gray-400 mt-2">
+            Aadhaar, fingerprint and face verify through their own flows. Phone verifies by OTP
+            (real SMS with a provider configured; demo code in test mode) — "Mark verified" stays as the manual attest.
+          </p>
+        </div>
+      )}
 
       {/* Scope bar */}
       <div className="flex items-center gap-3">
@@ -215,20 +334,34 @@ export default function WorkerDetail() {
               <p className="text-center text-gray-400 py-10 text-sm">No attendance records.</p>
             )}
             {!isLoading && recent_logs?.map((log) => (
-              <div key={log.id} className="flex items-center justify-between px-5 py-3 hover:bg-gray-50/50">
-                <div>
-                  <p className="text-sm font-medium text-gray-900">
-                    {format(new Date(log.marked_at), "dd MMM yyyy")}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1">
-                    {log.location_name
-                      ? <><MapPin size={10} />{log.location_name}</>
-                      : log.company?.name
-                        ? <><Building2 size={10} />{log.company.name}</>
-                        : null}
-                  </p>
+              <div key={log.id} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-gray-50/50">
+                <div className="flex items-center gap-3 min-w-0">
+                  {/* Gate capture of THIS mark (when the device took one) */}
+                  <AuthImg
+                    url={log.has_proof_photo ? `/attendance/proof/${log.id}` : null}
+                    alt="gate capture"
+                    className="w-9 h-9 rounded-lg object-cover border border-gray-200 shrink-0"
+                    fallback={
+                      <div className="w-9 h-9 rounded-lg bg-gray-50 border border-dashed border-gray-200 flex items-center justify-center shrink-0">
+                        <Camera size={13} className="text-gray-300" />
+                      </div>
+                    }
+                  />
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-gray-900">
+                      {format(new Date(log.marked_at), "dd MMM yyyy")}
+                    </p>
+                    <p className="text-xs text-gray-400 mt-0.5 flex items-center gap-1 truncate">
+                      {log.location_name
+                        ? <><MapPin size={10} />{log.location_name}</>
+                        : showCompany(companyId) && log.company?.name
+                          ? <><Building2 size={10} />{log.company.name}</>
+                          : null}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 shrink-0">
+                  <MethodBadge log={log} />
                   <span className={`badge text-xs ${log.type === "IN" ? "badge-green" : "badge-blue"}`}>
                     {log.type === "IN"
                       ? <LogIn size={9} className="mr-0.5 inline" />

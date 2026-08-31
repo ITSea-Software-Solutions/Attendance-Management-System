@@ -8,18 +8,28 @@ import VendorList from "@/pages/vendors/VendorList";
 import VendorProfile from "@/pages/vendors/VendorProfile";
 import VendorApproval from "@/pages/vendors/VendorApproval";
 import VendorCompanyAccess from "@/pages/vendors/VendorCompanyAccess";
+import VendorDetail from "@/pages/vendors/VendorDetail";
 import WorkerList from "@/pages/workers/WorkerList";
 import WorkerDetail from "@/pages/workers/WorkerDetail";
 import WorkerRegister from "@/pages/workers/WorkerRegister";
 import WorkerAssign from "@/pages/workers/WorkerAssign";
-import AttendanceMark from "@/pages/attendance/AttendanceMark";
 import AttendanceList from "@/pages/attendance/AttendanceList";
+import LiveBoard from "@/pages/attendance/LiveBoard";
+import Visitors from "@/pages/visitors/Visitors";
 import AttendanceExceptions from "@/pages/attendance/AttendanceExceptions";
-import FingerprintTest from "@/pages/diagnostic/FingerprintTest";
+import Reports from "@/pages/Reports";
+import Payroll from "@/pages/Payroll";
+import PayrollWages from "@/pages/PayrollWages";
+import PayrollSettings from "@/pages/PayrollSettings";
+import VisitorApproval from "@/pages/VisitorApproval";
 import UserList from "@/pages/users/UserList";
 import Downloads from "@/pages/Downloads";
 import Signup from "@/pages/Signup";
+import ForgotPassword from "@/pages/ForgotPassword";
+import ResetPassword from "@/pages/ResetPassword";
 import PlanBilling from "@/pages/PlanBilling";
+import Templates from "@/pages/Templates";
+import ReleaseNotes from "@/pages/ReleaseNotes";
 import Subscriptions from "@/pages/Subscriptions";
 
 function PrivateRoute({ children, roles }) {
@@ -36,14 +46,21 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-      <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
+      <Route path="/visitor-approval/:token" element={<VisitorApproval />} />
+        <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
+      <Route path="/forgot-password" element={<ForgotPassword />} />
+      <Route path="/reset-password" element={<ResetPassword />} />
 
       <Route path="/" element={<PrivateRoute><MainLayout /></PrivateRoute>}>
         <Route index element={<Navigate to="/dashboard" />} />
         <Route path="dashboard" element={<Dashboard />} />
         <Route path="downloads" element={<Downloads />} />
+        <Route path="whats-new" element={<ReleaseNotes />} />
         <Route path="billing" element={
           <PrivateRoute roles={["company_admin", "vendor_admin"]}><PlanBilling /></PrivateRoute>
+        } />
+        <Route path="settings/templates" element={
+          <PrivateRoute roles={["super_admin", "company_admin", "vendor_admin"]}><Templates /></PrivateRoute>
         } />
         <Route path="subscriptions" element={
           <PrivateRoute roles={["super_admin"]}><Subscriptions /></PrivateRoute>
@@ -84,6 +101,11 @@ export default function App() {
             <VendorCompanyAccess />
           </PrivateRoute>
         } />
+        <Route path="vendors/:id" element={
+          <PrivateRoute roles={["company_admin", "company_hr", "company_gate"]}>
+            <VendorDetail />
+          </PrivateRoute>
+        } />
 
         {/* Workers */}
         <Route path="workers" element={<WorkerList />} />
@@ -99,24 +121,24 @@ export default function App() {
           </PrivateRoute>
         } />
         <Route path="workers/assign" element={
-          <PrivateRoute roles={["super_admin", "vendor_admin"]}>
+          <PrivateRoute roles={["super_admin", "vendor_admin", "company_admin", "company_hr"]}>
             <WorkerAssign />
           </PrivateRoute>
         } />
 
         {/* Attendance */}
         <Route path="attendance" element={<AttendanceList />} />
-        <Route path="attendance/mark" element={
-          <PrivateRoute roles={["super_admin", "company_admin", "company_gate"]}>
-            <AttendanceMark />
+        <Route path="live" element={<LiveBoard />} />
+        <Route path="visitors" element={
+          <PrivateRoute roles={["super_admin", "company_admin", "company_hr", "company_gate"]}>
+            <Visitors />
           </PrivateRoute>
         } />
         <Route path="attendance/exceptions" element={<AttendanceExceptions />} />
-        <Route path="diagnostic/fingerprint" element={
-          <PrivateRoute roles={["super_admin", "company_admin", "vendor_admin"]}>
-            <FingerprintTest />
-          </PrivateRoute>
-        } />
+        <Route path="reports" element={<Reports />} />
+        <Route path="payroll" element={<Payroll />} />
+        <Route path="payroll/wages" element={<PayrollWages />} />
+        <Route path="payroll/settings" element={<PayrollSettings />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" />} />

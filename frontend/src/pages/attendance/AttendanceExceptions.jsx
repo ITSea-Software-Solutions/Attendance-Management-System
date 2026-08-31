@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import api from "@/lib/axios";
+import { useOrgScope } from "@/lib/scope";
 import { AlertTriangle } from "lucide-react";
 import { useState } from "react";
 
 export default function AttendanceExceptions() {
+  const { showCompany } = useOrgScope();
   const [date, setDate] = useState(format(new Date(), "yyyy-MM-dd"));
 
   const { data, isLoading } = useQuery({
@@ -16,7 +18,7 @@ export default function AttendanceExceptions() {
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Attendance Exceptions</h1>
+          <h1 className="text-2xl font-bold text-gray-900">Still Inside</h1>
           <p className="text-sm text-gray-500 mt-0.5">Workers with IN but missing OUT</p>
         </div>
         <input
@@ -49,7 +51,9 @@ export default function AttendanceExceptions() {
                 className="flex items-center justify-between p-4 bg-amber-50 rounded-xl border border-amber-200">
                 <div>
                   <p className="font-medium text-gray-900">{log.worker?.name}</p>
-                  <p className="text-xs text-gray-500">{log.company?.name}</p>
+                  {showCompany() && (
+                    <p className="text-xs text-gray-500">{log.company?.name}</p>
+                  )}
                 </div>
                 <span className="badge badge-yellow">Missing OUT</span>
               </div>

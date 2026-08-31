@@ -1,0 +1,19 @@
+# Local dev override (NOT in git — use with: -f docker-compose.yml -f docker-compose.local.yml)
+# This Mac already runs other projects holding host ports 3306 (native mysqld),
+# 5173 (another vite) and 6379 (kafka demo redis). The app is reached entirely
+# via nginx on :80, so mysql/redis/frontend do NOT need host port publishing.
+# Also enables hardware-free biometric simulation for local dev (no SecuGen device).
+services:
+  frontend:
+    ports: !reset []
+    environment:
+      - VITE_BIOMETRIC_SIM=true
+  mysql:
+    ports: !reset []
+  redis:
+    ports: !reset []
+  backend:
+    environment:
+      - BIOMETRIC_SIM=true
+      - BIOMETRIC_THRESHOLD=40
+      - AADHAAR_DEDUP=false

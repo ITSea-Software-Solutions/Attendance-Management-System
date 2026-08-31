@@ -7,12 +7,10 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/axios";
 import toast from "react-hot-toast";
 import AadhaarFlow from "@/components/AadhaarFlow";
-import FingerprintCapture from "@/components/FingerprintCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CheckCircle, ChevronRight, User, CreditCard, Fingerprint,
-  Upload, Camera, FileText, RefreshCw, AlertCircle, VideoOff, Download,
-} from "lucide-react";
+  Upload, Camera, FileText, RefreshCw, AlertCircle, VideoOff, Download, Briefcase, IndianRupee, Landmark } from "lucide-react";
 import { format } from "date-fns";
 
 // ─── LivePhotoCapture ─────────────────────────────────────────────────────────
@@ -154,7 +152,7 @@ const ID_TYPES = [
 const STEPS = [
   { id: "id_doc",      label: "Aadhaar",     icon: CreditCard  },
   { id: "details",     label: "Details",     icon: User        },
-  { id: "fingerprint", label: "Fingerprint", icon: Fingerprint },
+  { id: "employment",  label: "Employment",  icon: Briefcase   },
   { id: "photo",       label: "Photo",       icon: Camera      },
   { id: "confirm",     label: "Confirm",     icon: CheckCircle },
 ];
@@ -184,11 +182,48 @@ export default function WorkerRegister() {
   // Aadhaar is MANDATORY: manual 12-digit entry when there is no PDF to extract
   const [manualEntry, setManualEntry]     = useState(false);
   const [manualAadhaar, setManualAadhaar] = useState("");
+
+  // PAN — the alternative identity when a worker has no Aadhaar to hand.
+  const [panNumber, setPanNumber] = useState("");
+  const [panFile, setPanFile]     = useState(null);
+  const [panData, setPanData]     = useState(null);
+  const [panBusy, setPanBusy]     = useState(false);
+  const validPan = /^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/.test(panNumber.trim());
+
+  const readPanCard = async (file) => {
+    if (!file) return;
+    setPanBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api.post("/pan/extract", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setPanData(r.data);
+      setPanFile(file);
+      setPanNumber(r.data.pan_number ?? "");
+      if (r.data.name) setValue("name", r.data.name);
+      if (r.data.dob) setValue("dob", r.data.dob);
+      if (r.data.already_registered) {
+        toast.error("This PAN is already registered to another worker.");
+      } else {
+        toast.success("PAN card read — check the details and continue.");
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message ?? "Could not read the PAN card. Enter the number manually.");
+      setPanFile(file);
+    } finally {
+      setPanBusy(false);
+    }
+  };
+
+  const handlePanNext = () => {
+    if (!consent) { toast.error("Please confirm the worker's consent first (checkbox at the top)."); return; }
+    if (!validPan) { toast.error("Enter a valid PAN — ABCDE1234F."); return; }
+    setStep(1);
+  };
   // DPDP: registering org must confirm the worker's informed consent
   const [consent, setConsent] = useState(false);
 
   // Step 2
-  const [reEnrollFP, setReEnrollFP] = useState(false); // edit: toggle to re-enroll
 
   // Step 3
   const [photoFile, setPhotoFile]           = useState(null);   // live capture blob/File
@@ -198,8 +233,73 @@ export default function WorkerRegister() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Shared
+  // Read-only: shown on the summary. Enrolment itself belongs to the apps,
+  // which are the only clients that can talk to a scanner.
   const [fingerprint, setFP]    = useState(null);
   const [savedWorker, setSaved] = useState(null);
+
+  // ── Employment & wages (step 2) ─────────────────────────────────────────
+  const EMP_INIT = {
+    designation: "", department: "", skill_category: "",
+    uan: "", pf_number: "", esic_number: "",
+    pf_applicable: true, esi_applicable: true,
+    bank_account_number: "", bank_ifsc: "", bank_name: "",
+    wage_type: "daily", daily_rate: "", monthly_rate: "", ot_multiplier: "",
+  };
+  const [emp, setEmp] = useState(EMP_INIT);
+  const [wageHeads, setWageHeads] = useState({});   // { basic: 9000, da: 3600, ... }
+  const [savingEmp, setSavingEmp] = useState(false);
+
+  const { data: payCatalogue } = useQuery({
+    queryKey: ["payroll-components"],
+    queryFn: () => api.get("/payroll/components").then((r) => r.data),
+    staleTime: 30 * 60_000,
+  });
+
+  // Fill an empty structure from the monthly rate, so the vendor starts from a
+  // sensible split instead of a blank grid.
+  const suggestHeads = async () => {
+    const daily = emp.wage_type === "daily";
+    const rate = Number(daily ? emp.daily_rate : emp.monthly_rate) || 0;
+    if (rate <= 0) { toast.error(`Enter the ${daily ? "day" : "monthly"} rate first.`); return; }
+    try {
+      const div = payCatalogue?.defaults?.wage_divisor ?? 26;
+      const r = await api.get("/payroll/components", {
+        params: { monthly_rate: daily ? rate * div : rate },
+      });
+      const sug = r.data?.suggested ?? {};
+      setWageHeads(daily
+        ? Object.fromEntries(Object.entries(sug).map(([k, v]) => [k, Math.round(v / div)]))
+        : sug);
+      toast.success("Suggested split filled in — adjust as needed.");
+    } catch { toast.error("Could not build a suggestion."); }
+  };
+
+  const headsTotal = Object.values(wageHeads).reduce((a, b) => a + (Number(b) || 0), 0);
+
+  const saveEmployment = async (goNext = true) => {
+    if (!savedWorker) return;
+    setSavingEmp(true);
+    try {
+      const payload = {
+        ...emp,
+        daily_rate:    emp.daily_rate === "" ? null : Number(emp.daily_rate),
+        monthly_rate:  emp.monthly_rate === "" ? null : Number(emp.monthly_rate),
+        ot_multiplier: emp.ot_multiplier === "" ? null : Number(emp.ot_multiplier),
+        wage_components: Object.fromEntries(
+          Object.entries(wageHeads).filter(([, v]) => Number(v) > 0).map(([k, v]) => [k, Number(v)])),
+      };
+      const r = await api.put(`/workers/${savedWorker.id}`, payload);
+      setSaved(r.data?.worker ?? r.data ?? savedWorker);
+      toast.success("Employment details saved.");
+      if (goNext) setStep(2);
+    } catch (e) {
+      const errs = e.response?.data?.errors;
+      toast.error(errs ? Object.values(errs).flat()[0] : "Could not save employment details.");
+    } finally {
+      setSavingEmp(false);
+    }
+  };
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm({
     resolver: zodResolver(schema),
@@ -254,7 +354,7 @@ export default function WorkerRegister() {
     // Existing photo — shown in step 3
     if (existingWorker.photo_url) setPhotoPreview(existingWorker.photo_url);
 
-    // Existing fingerprint — shown in step 2
+    // Existing fingerprint — surfaced read-only on the summary
     if (existingWorker.fingerprint_enrolled_at) {
       setFP({ quality: existingWorker.fingerprint_quality ?? "?" });
     }
@@ -283,6 +383,15 @@ export default function WorkerRegister() {
     }
     setAadhaar(data);
     setAadhaarPdf(file);
+    // A photographed card gives OCR'd digits, and one wrong digit would
+    // corrupt the record and defeat duplicate detection — so the number is
+    // only ever a suggestion the operator confirms.
+    if (data.needs_number_confirmation) {
+      setManualEntry(true);
+      if (data.aadhaar_number_suggested) setManualAadhaar(data.aadhaar_number_suggested);
+      toast("Details filled in from the photo. Please check the 12-digit number against the card.",
+        { icon: "🔍", duration: 7000 });
+    }
     if (data.name)                 setValue("name", data.name);
     if (data.dob)                  setValue("dob", data.dob);
     if (data.gender)               setValue("gender", data.gender);
@@ -335,6 +444,7 @@ export default function WorkerRegister() {
         aadhaar_number_masked:  aadhaarData?.aadhaar_number_masked,
         aadhaar_hash:           aadhaarData?.aadhaar_hash,          // extract path
         aadhaar_number:         manualAadhaar.trim() || undefined,  // manual path (hashed server-side)
+        pan_number:             panNumber.trim().toUpperCase() || undefined,
         aadhaar_data_extracted: aadhaarData ?? undefined,
         consent: consent,
       };
@@ -344,6 +454,14 @@ export default function WorkerRegister() {
     onSuccess: async (worker) => {
       setSaved(worker);
       if (!isEdit) {
+        // Keep the PAN card with the worker, same as the Aadhaar PDF.
+        if (panFile) {
+          const panFd = new FormData();
+          panFd.append("file", panFile);
+          api.post(`/pan/upload/${worker.id}`, panFd,
+            { headers: { "Content-Type": "multipart/form-data" } })
+            .catch(() => toast.error("Worker saved, but the PAN card file did not upload."));
+        }
         if (aadhaarPdf) {
           const fd = new FormData();
           fd.append("pdf", aadhaarPdf);
@@ -373,7 +491,7 @@ export default function WorkerRegister() {
           headers: { "Content-Type": "multipart/form-data" },
         }).catch(() => {});
       }
-      setStep(2);
+      setStep(3);
     },
     onError: (err) => {
       const errs = err.response?.data?.errors;
@@ -381,19 +499,6 @@ export default function WorkerRegister() {
     },
   });
 
-  // ── Step 2: fingerprint ───────────────────────────────────────────────────
-
-  const handleFingerprintCaptured = async (template, quality) => {
-    if (!savedWorker) return;
-    try {
-      await api.post(`/workers/${savedWorker.id}/fingerprint`, { template, quality });
-      setFP({ quality });
-      toast.success("Fingerprint enrolled!");
-      setStep(3);
-    } catch {
-      toast.error("Fingerprint enrollment failed. Please retry.");
-    }
-  };
 
   // ── Step 3: photo ─────────────────────────────────────────────────────────
 
@@ -453,7 +558,7 @@ export default function WorkerRegister() {
         <p className="text-gray-500 text-sm mt-1">
           {isEdit
             ? `Editing: ${existingWorker?.name ?? "…"}`
-            : "ID Document → Details → Fingerprint → Photo → Confirm"}
+            : "ID Document → Details → Employment → Photo → Confirm"}
         </p>
       </div>
 
@@ -478,9 +583,11 @@ export default function WorkerRegister() {
       {step === 0 && (
         <div className="card space-y-5">
           <div>
-            <h2 className="font-semibold text-gray-900">Aadhaar</h2>
+            <h2 className="font-semibold text-gray-900">Identity document</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              {isEdit ? "Review or replace the worker's Aadhaar." : "Verify the worker's Aadhaar — PDF auto-fill or manual 12-digit entry."}
+              {isEdit
+                ? "Review or replace the worker's identity document."
+                : "Aadhaar is preferred. If the worker does not have one to hand, a PAN card is enough to register them and start attendance."}
             </p>
           </div>
 
@@ -590,8 +697,85 @@ export default function WorkerRegister() {
           {(!isEdit || changeDoc) && (
             <>
 
+              {!isEdit && (
+                <div className="flex gap-2 flex-wrap">
+                  {[["aadhaar", "Aadhaar"], ["pan", "PAN card"]].map(([v, label]) => (
+                    <button key={v} type="button" onClick={() => setIdType(v)}
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium border transition-colors ${
+                        idType === v
+                          ? "bg-brand-50 text-brand-700 border-brand-300"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}>
+                      {label}
+                    </button>
+                  ))}
+                  <span className="text-xs text-gray-400 self-center">
+                    Either one registers the worker — the other can be added later.
+                  </span>
+                </div>
+              )}
+
               {idType === "aadhaar" && !manualEntry && (
                 <AadhaarFlow onExtracted={handleAadhaarExtracted} onSkip={() => setManualEntry(true)} />
+              )}
+
+              {idType === "pan" && (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center">
+                    <p className="text-sm text-gray-600">
+                      Upload the PAN card — a photo of the card or an e-PAN PDF.
+                      We read the number, name and date of birth from it.
+                    </p>
+                    <label className="btn-secondary mt-3 inline-flex cursor-pointer">
+                      <Upload size={14} /> {panBusy ? "Reading…" : "Choose PAN card"}
+                      <input type="file" accept="image/*,application/pdf" className="hidden"
+                        disabled={panBusy}
+                        onChange={(e) => readPanCard(e.target.files?.[0])} />
+                    </label>
+                    {panFile && (
+                      <p className="text-xs text-gray-500 mt-2">{panFile.name}</p>
+                    )}
+                  </div>
+
+                  {panData && (
+                    <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm space-y-0.5">
+                      <p className="font-medium text-green-800">Read from the card</p>
+                      <p className="text-green-700">
+                        {panData.name}{panData.father_name ? ` · father: ${panData.father_name}` : ""}
+                        {panData.dob ? ` · DOB ${panData.dob}` : ""}
+                      </p>
+                      {panData.holder_type && panData.holder_type !== "individual" && (
+                        <p className="text-amber-700">
+                          This PAN belongs to a {panData.holder_type}, not an individual — check the card.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="label">
+                      PAN number * <span className="text-gray-400 font-normal">(ABCDE1234F)</span>
+                    </label>
+                    <input
+                      value={panNumber}
+                      onChange={(e) => setPanNumber(e.target.value.toUpperCase().slice(0, 10))}
+                      className="input font-mono tracking-widest uppercase"
+                      placeholder="ABCDE1234F"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Read from the card above, or type it in if the photo is unclear.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                    Registering on PAN alone is fine to get started. The worker stays
+                    <b> pending</b> until a finger is enrolled from the TrueCrew app, and
+                    the Aadhaar can be added later from the worker's page.
+                  </div>
+
+                  <button type="button" onClick={handlePanNext} className="btn-primary" disabled={!validPan}>
+                    Continue to Details
+                  </button>
+                </div>
               )}
 
               {idType === "aadhaar" && manualEntry && (
@@ -655,9 +839,9 @@ export default function WorkerRegister() {
 
             {needsVendor && (
               <div>
-                <label className="label">Vendor *</label>
+                <label className="label">Contractor *</label>
                 <select {...register("vendor_id")} className={`input ${errors.vendor_id ? "input-error" : ""}`}>
-                  <option value="">— Select Vendor —</option>
+                  <option value="">— Select contractor —</option>
                   {(vendors ?? []).map(v => (
                     <option key={v.id} value={v.id}>{v.name}</option>
                   ))}
@@ -726,53 +910,203 @@ export default function WorkerRegister() {
         </form>
       )}
 
-      {/* ── Step 2: Fingerprint ───────────────────────────────────────────────── */}
+
+      {/* ── Step 2: Employment, statutory & wage structure ─────────────────── */}
       {step === 2 && savedWorker && (
-        <>
-          {/* Edit mode with existing fingerprint — show status + options */}
-          {isEdit && existingWorker?.fingerprint_enrolled_at && !reEnrollFP ? (
-            <div className="card space-y-5">
+        <div className="space-y-4">
+          <div className="card space-y-4">
+            <div>
+              <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                <Briefcase size={17} className="text-brand-600" /> Employment details
+              </h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Everything payroll needs. All optional here — you can complete it later from the
+                worker's page, but wages cannot be computed until the monthly rate is set.
+              </p>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-3">
               <div>
-                <h2 className="font-semibold text-gray-900">Fingerprint</h2>
-                <p className="text-sm text-gray-500 mt-0.5">Worker already has a fingerprint enrolled.</p>
+                <label className="label">Designation</label>
+                <input className="input" maxLength={80} placeholder="e.g. Machine Operator"
+                  value={emp.designation} onChange={(e) => setEmp({ ...emp, designation: e.target.value })} />
               </div>
-
-              <div className="flex items-start gap-4 p-4 rounded-xl bg-green-50 border border-green-200">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-                  <Fingerprint size={20} className="text-green-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-green-800">Fingerprint enrolled</p>
-                  <p className="text-sm text-green-700 mt-0.5">
-                    Quality: {existingWorker.fingerprint_quality ?? "?"}%
-                  </p>
-                  <p className="text-xs text-green-600 mt-0.5">
-                    Enrolled: {format(new Date(existingWorker.fingerprint_enrolled_at), "dd MMM yyyy")}
-                  </p>
-                </div>
+              <div>
+                <label className="label">Department</label>
+                <input className="input" maxLength={80} placeholder="e.g. Press Shop"
+                  value={emp.department} onChange={(e) => setEmp({ ...emp, department: e.target.value })} />
               </div>
-
-              <div className="flex gap-3 pt-2 border-t border-gray-100">
-                <button type="button" onClick={() => setStep(3)} className="btn-primary">
-                  Keep & Continue
-                </button>
-                <button type="button" onClick={() => setReEnrollFP(true)} className="btn-secondary">
-                  <RefreshCw size={14} /> Re-enroll
-                </button>
+              <div>
+                <label className="label">Skill category</label>
+                <select className="input" value={emp.skill_category}
+                  onChange={(e) => setEmp({ ...emp, skill_category: e.target.value })}>
+                  <option value="">Select…</option>
+                  <option value="unskilled">Unskilled</option>
+                  <option value="semi_skilled">Semi-skilled</option>
+                  <option value="skilled">Skilled</option>
+                  <option value="highly_skilled">Highly skilled</option>
+                </select>
+                <p className="text-[11px] text-gray-400 mt-1">Minimum wages are set against this grade.</p>
               </div>
             </div>
-          ) : (
-            /* New registration or re-enroll */
-            <FingerprintCapture
-              worker={savedWorker}
-              onCaptured={handleFingerprintCaptured}
-              onSkip={() => setStep(3)}
-            />
-          )}
-        </>
+          </div>
+
+          <div className="card space-y-4">
+            <h2 className="font-semibold text-gray-900">Statutory (PF / ESI)</h2>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="label">UAN</label>
+                <input className="input" inputMode="numeric" maxLength={12} placeholder="12 digits"
+                  value={emp.uan} onChange={(e) => setEmp({ ...emp, uan: e.target.value.replace(/\D/g, "") })} />
+              </div>
+              <div>
+                <label className="label">PF number</label>
+                <input className="input" maxLength={30} value={emp.pf_number}
+                  onChange={(e) => setEmp({ ...emp, pf_number: e.target.value })} />
+              </div>
+              <div>
+                <label className="label">ESIC number</label>
+                <input className="input" maxLength={20} value={emp.esic_number}
+                  onChange={(e) => setEmp({ ...emp, esic_number: e.target.value })} />
+              </div>
+            </div>
+            <div className="flex gap-5 flex-wrap">
+              {[["pf_applicable", "PF applicable"], ["esi_applicable", "ESI applicable"]].map(([k, label]) => (
+                <label key={k} className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" className="w-4 h-4" checked={emp[k]}
+                    onChange={(e) => setEmp({ ...emp, [k]: e.target.checked })} />
+                  {label}
+                </label>
+              ))}
+              <span className="text-[11px] text-gray-400 self-center">
+                ESI applies while gross stays under ₹{payCatalogue?.statutory?.esi?.gross_ceiling ?? 21000}.
+              </span>
+            </div>
+          </div>
+
+          <div className="card space-y-4">
+            <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+              <Landmark size={16} className="text-brand-600" /> Bank account (for wage transfer)
+            </h2>
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="label">Account number</label>
+                <input className="input" maxLength={24} value={emp.bank_account_number}
+                  onChange={(e) => setEmp({ ...emp, bank_account_number: e.target.value.replace(/\s/g, "") })} />
+              </div>
+              <div>
+                <label className="label">IFSC</label>
+                <input className="input uppercase" maxLength={11} placeholder="HDFC0001234"
+                  value={emp.bank_ifsc}
+                  onChange={(e) => setEmp({ ...emp, bank_ifsc: e.target.value.toUpperCase() })} />
+              </div>
+              <div>
+                <label className="label">Bank name</label>
+                <input className="input" maxLength={80} value={emp.bank_name}
+                  onChange={(e) => setEmp({ ...emp, bank_name: e.target.value })} />
+              </div>
+            </div>
+          </div>
+
+          <div className="card space-y-4">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="font-semibold text-gray-900 flex items-center gap-2">
+                  <IndianRupee size={16} className="text-brand-600" /> Wage structure
+                </h2>
+                <p className="text-sm text-gray-500 mt-0.5">
+                  Break the rate into heads so PF, ESI and the wage register are correct.
+                  {emp.wage_type === "daily"
+                    ? " Amounts are PER DAY and should add up to the day rate."
+                    : " Amounts are per month and should add up to the monthly rate."}
+                </p>
+              </div>
+              <button type="button" className="btn-secondary text-sm" onClick={suggestHeads}>
+                <RefreshCw size={14} /> Suggest split
+              </button>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-3">
+              <div>
+                <label className="label">Paid</label>
+                <select className="input" value={emp.wage_type}
+                  onChange={(e) => setEmp({ ...emp, wage_type: e.target.value })}>
+                  <option value="daily">Per day (daily wage)</option>
+                  <option value="monthly">Per month (salaried)</option>
+                </select>
+              </div>
+              {emp.wage_type === "daily" ? (
+                <div>
+                  <label className="label">Rate per day (₹) *</label>
+                  <input className="input" type="number" min="0" step="10" value={emp.daily_rate}
+                    onChange={(e) => setEmp({ ...emp, daily_rate: e.target.value })} />
+                  <p className="text-[11px] text-gray-400 mt-1">Paid for each day present.</p>
+                </div>
+              ) : (
+                <div>
+                  <label className="label">Monthly rate (₹) *</label>
+                  <input className="input" type="number" min="0" step="100" value={emp.monthly_rate}
+                    onChange={(e) => setEmp({ ...emp, monthly_rate: e.target.value })} />
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    Day rate = this ÷ {payCatalogue?.defaults?.wage_divisor ?? 26}.
+                  </p>
+                </div>
+              )}
+              <div>
+                <label className="label">Overtime multiplier</label>
+                <input className="input" type="number" min="0" max="4" step="0.25"
+                  placeholder="default" value={emp.ot_multiplier}
+                  onChange={(e) => setEmp({ ...emp, ot_multiplier: e.target.value })} />
+                <p className="text-[11px] text-gray-400 mt-1">
+                  Blank = the company's rate for this grade. Holidays pay
+                  {" "}{payCatalogue?.holiday_ot_multiplier ?? 2}× on top.
+                </p>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-3">
+              {(payCatalogue?.components ?? []).filter((c) => c.type === "earning").map((c) => (
+                <div key={c.code}>
+                  <label className="label flex items-center gap-1.5">
+                    {c.label}
+                    {c.pf && <span className="text-[10px] bg-blue-50 text-blue-600 px-1 rounded">PF</span>}
+                    {c.esi && <span className="text-[10px] bg-violet-50 text-violet-600 px-1 rounded">ESI</span>}
+                  </label>
+                  <input className="input" type="number" min="0" step="10"
+                    value={wageHeads[c.code] ?? ""}
+                    onChange={(e) => setWageHeads({ ...wageHeads, [c.code]: e.target.value })} />
+                </div>
+              ))}
+            </div>
+
+            {headsTotal > 0 && (
+              <div className={`text-sm rounded-lg px-3 py-2 border ${
+                Math.abs(headsTotal - (Number(emp.wage_type === "daily" ? emp.daily_rate : emp.monthly_rate) || 0)) < 1
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-800"
+                  : "bg-amber-50 border-amber-200 text-amber-800"}`}>
+                Heads total <b>₹{headsTotal.toLocaleString("en-IN")}</b>
+                {emp.wage_type === "daily" ? " vs day rate " : " vs monthly rate "}
+                <b>₹{(Number(emp.wage_type === "daily" ? emp.daily_rate : emp.monthly_rate) || 0).toLocaleString("en-IN")}</b>
+                {Math.abs(headsTotal - (Number(emp.wage_type === "daily" ? emp.daily_rate : emp.monthly_rate) || 0)) < 1
+                  ? " — matches."
+                  : " — these should normally match."}
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3">
+            <button type="button" className="btn-primary" disabled={savingEmp}
+              onClick={() => saveEmployment(true)}>
+              Save &amp; Continue
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setStep(3)}>
+              Skip for now
+            </button>
+            <button type="button" className="btn-secondary" onClick={() => setStep(1)}>Back</button>
+          </div>
+        </div>
       )}
 
-      {/* ── Step 3: Photo ─────────────────────────────────────────────────────── */}
       {step === 3 && savedWorker && (
         <div className="card space-y-5">
           <div>
@@ -837,7 +1171,7 @@ export default function WorkerRegister() {
           </div>
 
           <div className="flex gap-3 pt-2 border-t border-gray-100">
-            <button type="button" className="btn-secondary" onClick={() => setStep(2)}>Back</button>
+            <button type="button" className="btn-secondary" onClick={() => setStep(3)}>Back</button>
             <button
               type="button"
               onClick={handlePhotoContinue}
@@ -898,8 +1232,13 @@ export default function WorkerRegister() {
               : <p className="text-amber-500">⚠ No live photo — can be added later from the worker list</p>
             }
             {fingerprint
-              ? <p className="text-green-600 font-medium">✓ Fingerprint enrolled (quality: {fingerprint.quality}%)</p>
-              : <p className="text-amber-500">⚠ Fingerprint not enrolled</p>
+              ? <p className="text-green-600 font-medium">
+                  ✓ Fingerprint already enrolled (quality: {fingerprint.quality}%)
+                </p>
+              : <p className="text-amber-500">
+                  ⚠ Fingerprint not enrolled — enrol it from the TrueCrew app on the
+                  device with the scanner. The worker stays <b>pending</b> until then.
+                </p>
             }
           </div>
 

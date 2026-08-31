@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/contexts/AuthContext";
 import api from "@/lib/axios";
@@ -6,8 +7,7 @@ import toast from "react-hot-toast";
 import {
   Search, Plus, Eye, EyeOff, RefreshCw, Copy, Pencil,
   ToggleLeft, ToggleRight, X, MoreVertical,
-  CheckCircle, Clock, PauseCircle, XCircle,
-} from "lucide-react";
+  CheckCircle, Clock, PauseCircle, XCircle, Download, ShieldCheck } from "lucide-react";
 
 function CardMenu({ vendor, onEdit, onToggle }) {
   const [open, setOpen] = useState(false);
@@ -95,7 +95,8 @@ export default function VendorList() {
   const [showPass, setShowPass]     = useState(false);
 
   const isSuperAdmin  = user?.role === "super_admin";
-  const isCompanyUser = ["company_admin", "company_gate"].includes(user?.role);
+  const isCompanyUser = ["company_admin", "company_hr", "company_gate"].includes(user?.role);
+  const navigate      = useNavigate();
 
   // ── Data fetching ──────────────────────────────────────────────────────────
 
@@ -188,18 +189,48 @@ export default function VendorList() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-2xl font-bold">Vendors</h1>
+          <h1 className="text-2xl font-bold">Contractors</h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {isCompanyUser ? "Vendors associated with your company" : "Registered vendor companies"}
+            {isCompanyUser ? "Labour contractors supplying workers to your company" : "Registered contractor companies"}
           </p>
         </div>
-        {(isSuperAdmin || user?.role === "company_admin") && (
-          <button className="btn-primary" onClick={() => { setShowCreate(true); setForm(VENDOR_INIT); setAdmin(ADMIN_INIT); }}>
-            <Plus size={16} /> Add Vendor
+        <div className="flex items-center gap-2">
+          {/* The approval queue lives one click away instead of a second
+              menu item that repeats this same list. */}
+          {counts?.pending > 0 && (
+            <Link to="/vendors/approval"
+              className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100">
+              <ShieldCheck size={15} /> {counts.pending} awaiting approval
+            </Link>
+          )}
+          <button
+            className="btn-secondary text-sm"
+            title="Professional+ feature"
+            onClick={async () => {
+              try {
+                const r = await api.get("/vendors-export", { responseType: "blob" });
+                const url = URL.createObjectURL(r.data);
+                const a = document.createElement("a");
+                a.href = url; a.download = `truecrew-vendors-${new Date().toISOString().slice(0, 10)}.csv`;
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+              } catch (e) {
+                toast.error(e.response?.status === 403
+                  ? "Bulk export is a Professional/Enterprise feature — see Plan & Billing."
+                  : "Export failed.");
+              }
+            }}
+          >
+            <Download size={14} /> Export CSV
           </button>
-        )}
+          {(isSuperAdmin || user?.role === "company_admin") && (
+            <button className="btn-primary" onClick={() => { setShowCreate(true); setForm(VENDOR_INIT); setAdmin(ADMIN_INIT); }}>
+              <Plus size={16} /> Add Contractor
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Status tabs — company users only */}
@@ -239,7 +270,7 @@ export default function VendorList() {
       {showCreate && (
         <div className="card space-y-5">
           <div className="flex items-center justify-between">
-            <h2 className="font-semibold text-gray-900">New Vendor</h2>
+            <h2 className="font-semibold text-gray-900">New Contractor</h2>
             <button onClick={() => setShowCreate(false)}><X size={18} className="text-gray-400" /></button>
           </div>
 
@@ -254,7 +285,7 @@ export default function VendorList() {
 
           <div className="border-t border-gray-100 pt-4 space-y-3">
             <p className="text-sm font-semibold text-gray-700">
-              Vendor Admin Login <span className="text-xs text-gray-400 font-normal">(optional — vendor admin can register workers)</span>
+              Contractor Admin Login <span className="text-xs text-gray-400 font-normal">(optional — they can then register workers)</span>
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -309,7 +340,11 @@ export default function VendorList() {
           : vendors.length === 0
             ? <p className="text-gray-400 text-sm col-span-3 text-center py-10">No vendors in this category.</p>
             : vendors.map(v => (
-              <div key={v.id} className="card hover:shadow-md transition-shadow">
+              <div
+                key={v.id}
+                className={`card hover:shadow-md transition-shadow ${isCompanyUser ? "cursor-pointer" : ""}`}
+                onClick={() => isCompanyUser && navigate(`/vendors/${v.id}`)}
+              >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h3 className="font-semibold text-gray-900 truncate">{v.name}</h3>

@@ -1,0 +1,763 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TrueCrew — Super Admin Guide</title>
+<style>
+  :root {
+    --accent:     #7c3aed;
+    --accent-lt:  #ede9fe;
+    --accent-dk:  #5b21b6;
+    --ink:        #111827;
+    --muted:      #4b5563;
+    --soft:       #6b7280;
+    --border:     #e5e7eb;
+    --bg:         #f8fafc;
+    --card:       #ffffff;
+    --green:      #16a34a;
+    --green-lt:   #dcfce7;
+    --amber:      #b45309;
+    --amber-lt:   #fef3c7;
+    --red:        #b91c1c;
+    --red-lt:     #fee2e2;
+    --blue:       #1d4ed8;
+    --blue-lt:    #dbeafe;
+    --radius:     10px;
+    --shadow:     0 1px 6px rgba(17, 24, 39, .08);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.7;
+    font-size: 15px;
+  }
+  a { color: var(--accent); }
+
+  /* ── STICKY TOP NAV ─────────────────────────────── */
+  .topnav {
+    position: sticky; top: 0; z-index: 100;
+    background: #1e1b4b; color: #c7d2fe;
+    display: flex; align-items: center;
+    overflow-x: auto; white-space: nowrap;
+    font-size: 13px; border-bottom: 2px solid #3730a3;
+    -webkit-overflow-scrolling: touch;
+  }
+  .topnav .brand {
+    background: var(--accent); color: #fff;
+    font-weight: 700; font-size: 15px; padding: 13px 22px;
+    letter-spacing: .5px; flex-shrink: 0;
+  }
+  .topnav a {
+    color: #c7d2fe; text-decoration: none;
+    padding: 13px 14px; display: block; flex-shrink: 0;
+    transition: background .15s, color .15s;
+  }
+  .topnav a:hover { background: #312e81; color: #fff; }
+
+  /* ── HERO ───────────────────────────────────────── */
+  .hero {
+    background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+    color: #fff; padding: 64px 20px 56px; text-align: center;
+  }
+  .hero h1 { font-size: 2.4rem; font-weight: 800; letter-spacing: -.5px; }
+  .hero p  { margin-top: 12px; font-size: 1.1rem; opacity: .85; max-width: 640px; margin-left: auto; margin-right: auto; }
+  .hero .badges { margin-top: 24px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .pill {
+    padding: 5px 14px; border-radius: 999px; font-size: 12px;
+    font-weight: 600; letter-spacing: .3px;
+    background: rgba(255,255,255,.14); color: #e0e7ff;
+    border: 1px solid rgba(255,255,255,.25);
+  }
+
+  /* ── LAYOUT ─────────────────────────────────────── */
+  .page { max-width: 960px; margin: 0 auto; padding: 0 20px 60px; }
+  section { margin-top: 36px; }
+
+  /* ── SECTION CARDS ──────────────────────────────── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    padding: 28px;
+    margin-bottom: 20px;
+  }
+  h2 {
+    font-size: 1.35rem; font-weight: 700; color: #1e1b4b;
+    border-left: 5px solid var(--accent);
+    padding-left: 14px; margin-bottom: 16px;
+    letter-spacing: -.2px;
+  }
+  h3 { font-size: 1rem; font-weight: 700; margin: 20px 0 8px; color: var(--ink); }
+  .card > h3:first-of-type { margin-top: 0; }
+  .card p { margin-bottom: 10px; color: var(--muted); }
+  .card p strong, .card li strong { color: var(--ink); }
+  .card ul.plain { margin: 6px 0 12px 20px; color: var(--muted); }
+  .card ul.plain li { margin: 5px 0; }
+
+  /* ── FLOW (diagram in words) ────────────────────── */
+  .flow { list-style: none; margin: 14px 0 4px; }
+  .flow li {
+    position: relative;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    padding: 12px 16px 12px 52px;
+    margin-bottom: 22px;
+    color: var(--muted);
+  }
+  .flow li:last-child { margin-bottom: 0; }
+  .flow li strong { display: block; color: var(--ink); }
+  .flow .n {
+    position: absolute; left: 12px; top: 14px;
+    width: 26px; height: 26px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-size: 13px; font-weight: 700;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .flow li:not(:last-child)::after {
+    content: "\2193";                 /* down arrow */
+    position: absolute; left: 22px; bottom: -21px;
+    color: var(--accent); font-weight: 700; font-size: 14px;
+  }
+
+  /* ── NUMBERED STEPS ─────────────────────────────── */
+  ol.steps { list-style: none; counter-reset: step; margin: 14px 0 6px; }
+  ol.steps li {
+    counter-increment: step;
+    position: relative;
+    padding: 12px 16px 12px 54px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    margin-bottom: 10px;
+    color: var(--muted);
+  }
+  ol.steps li::before {
+    content: counter(step);
+    position: absolute; left: 14px; top: 13px;
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: #fff;
+    font-weight: 700; font-size: 13px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  ol.steps li strong { color: var(--ink); }
+
+  /* ── TABLES ─────────────────────────────────────── */
+  .table-wrap { overflow-x: auto; margin: 12px 0; border: 1px solid var(--border); border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; min-width: 640px; }
+  th {
+    background: #f1f5f9; text-align: left; padding: 10px 14px;
+    font-weight: 600; border-bottom: 2px solid var(--border);
+    color: var(--ink); white-space: nowrap;
+  }
+  td { padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--muted); }
+  tr:last-child td { border-bottom: none; }
+  td strong { color: var(--ink); }
+
+  /* ── BADGES & TAGS ──────────────────────────────── */
+  .tag {
+    display: inline-block; padding: 2px 10px; border-radius: 999px;
+    font-size: 12px; font-weight: 600; white-space: nowrap;
+  }
+  .tag-purple { background: var(--accent-lt); color: var(--accent-dk); }
+  .tag-green  { background: var(--green-lt);  color: #166534; }
+  .tag-amber  { background: var(--amber-lt);  color: var(--amber); }
+  .tag-gray   { background: #f3f4f6;          color: #374151; }
+  .tag-blue   { background: var(--blue-lt);   color: var(--blue); }
+  .tag-red    { background: var(--red-lt);    color: var(--red); }
+
+  .dept-list { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 4px; }
+  .dept-list .tag { border: 1px solid var(--border); background: var(--bg); color: var(--muted); }
+  .dept-list .tag.default { background: var(--accent-lt); color: var(--accent-dk); border-color: var(--accent-lt); }
+
+  /* ── CALLOUTS ───────────────────────────────────── */
+  .callout {
+    padding: 14px 18px; border-radius: 8px;
+    border-left: 4px solid; margin: 14px 0; font-size: .92rem;
+  }
+  .callout strong { display: block; margin-bottom: 4px; }
+  .callout.tip  { background: #f0fdf4; border-color: var(--green); color: #166534; }
+  .callout.warn { background: #fffbeb; border-color: #f59e0b;      color: #92400e; }
+  .callout.info { background: #eff6ff; border-color: var(--blue);  color: #1e40af; }
+  .callout.rule { background: var(--accent-lt); border-color: var(--accent); color: var(--accent-dk); }
+
+  /* ── FAQ ────────────────────────────────────────── */
+  details {
+    border: 1px solid var(--border); border-radius: var(--radius);
+    margin-bottom: 10px; overflow: hidden; background: var(--card);
+    box-shadow: var(--shadow);
+  }
+  summary {
+    padding: 14px 18px; cursor: pointer; font-weight: 600;
+    background: var(--card); user-select: none; list-style: none;
+    display: flex; justify-content: space-between; align-items: center; gap: 12px;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::after { content: "+"; font-size: 1.2rem; color: var(--accent); flex-shrink: 0; }
+  details[open] summary::after { content: "\2212"; }
+  details > div {
+    padding: 4px 18px 16px; font-size: .92rem; line-height: 1.8;
+    color: var(--muted); border-top: 1px solid var(--border);
+    padding-top: 12px;
+  }
+
+  /* ── FOOTER ─────────────────────────────────────── */
+  footer {
+    margin-top: 60px; padding: 24px 20px; text-align: center;
+    border-top: 1px solid var(--border); color: var(--soft); font-size: 13px;
+  }
+
+  /* ── PRINT ──────────────────────────────────────── */
+  @media print {
+    .topnav { display: none; }
+    body { background: #fff; }
+    .hero { background: #1e1b4b !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .card, details { box-shadow: none; break-inside: avoid; }
+    section { break-inside: avoid; }
+    details > div { display: block; }
+  }
+
+  /* ── MOBILE ─────────────────────────────────────── */
+  @media (max-width: 600px) {
+    .hero h1 { font-size: 1.7rem; }
+    .hero p { font-size: 1rem; }
+    .card { padding: 20px; }
+    h2 { font-size: 1.15rem; }
+  }
+</style>
+</head>
+<body>
+
+<!-- STICKY TOP NAV -->
+<nav class="topnav">
+  <span class="brand">TrueCrew</span>
+  <a href="#overview">Overview</a>
+  <a href="#your-role">Your role</a>
+  <a href="#organisations">Organisations</a>
+  <a href="#roles">Roles</a>
+  <a href="#plans">Plans</a>
+  <a href="#approvals">Approvals</a>
+  <a href="#workers">Workers</a>
+  <a href="#verification">Photo proof</a>
+  <a href="#visitors">Visitors</a>
+  <a href="#notifications">Notifications</a>
+  <a href="#oversight">Oversight</a>
+  <a href="#apps">Apps</a>
+  <a href="#faq">FAQ</a>
+</nav>
+
+<!-- HERO -->
+<div class="hero">
+  <h1>Super Admin Guide</h1>
+  <p>Run the TrueCrew platform: organisations, plans, users, and oversight</p>
+  <div class="badges">
+    <span class="pill">Platform v1.10.0</span>
+    <span class="pill">Apps v0.9.34</span>
+    <span class="pill">Updated 22 Aug 2026</span>
+  </div>
+</div>
+
+<div class="page">
+
+<!-- ═══════════ 1. WHAT TRUECREW IS ═══════════ -->
+<section id="overview">
+  <div class="card">
+    <h2>1. What TrueCrew is</h2>
+    <p>TrueCrew is a workforce attendance platform for sites that use contract labor. Contractor companies register their workers with an Aadhaar-verified identity and a fingerprint. Companies approve those contractors and receive the workers. At the gate, each worker marks IN and OUT with a fingerprint or face scan. There is no paper register and no proxy attendance — every record is tied to a verified person, a time, and a gate.</p>
+    <p><strong>The whole system in four steps:</strong></p>
+    <ul class="flow">
+      <li><span class="n">1</span><strong>Contractors register workers</strong> Each worker is enrolled with their Aadhaar (verified identity) and a fingerprint. A photo enables face attendance too.</li>
+      <li><span class="n">2</span><strong>Contractors deploy workers to companies</strong> A deployment says which worker goes to which company, and for which dates. It waits for the company's approval by default, and can be limited to specific gates.</li>
+      <li><span class="n">3</span><strong>Workers mark IN / OUT at the gate</strong> A fingerprint or face scan identifies the worker in seconds — on the web gate or on the Android / Windows apps, even offline.</li>
+      <li><span class="n">4</span><strong>Everyone sees role-scoped attendance</strong> Companies see attendance at their site. Contractors see their own workers. You, the Super Admin, see everything.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════ 2. YOUR ROLE ═══════════ -->
+<section id="your-role">
+  <div class="card">
+    <h2>2. Your role</h2>
+    <p>You are the platform owner. Nothing on TrueCrew is hidden from you. Every company, contractor, worker, attendance record, and plan is visible in your portal.</p>
+    <p><strong>What only the Super Admin can do:</strong></p>
+    <ul class="plain">
+      <li><strong>Create organisations</strong> — set up companies and contractors, each with their first admin login.</li>
+      <li><strong>Manage all users</strong> — create, edit, or disable any user account on the platform, in any organisation.</li>
+      <li><strong>Control subscriptions</strong> — approve or reject upgrade requests, or set any organisation's plan directly.</li>
+      <li><strong>Edit global notification templates</strong> — the default texts every organisation starts with.</li>
+      <li><strong>Override safety locks</strong> — for example, remove a worker that a contractor cannot (see <a href="#workers">Worker lifecycle rules</a>).</li>
+      <li><strong>Watch everything</strong> — dashboards, attendance views, exports, and the audit log across all organisations.</li>
+    </ul>
+    <div class="callout tip">
+      <strong>Day-to-day work belongs to the organisations.</strong>
+      Companies approve contractors and deployments; contractors register and deploy workers. Your job is to set organisations up, keep plans in order, and step in when something needs an override.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 3. ORGANISATIONS ═══════════ -->
+<section id="organisations">
+  <div class="card">
+    <h2>3. Organisations</h2>
+    <p>There are two kinds of organisations. A <strong>company</strong> runs a site and receives workers. A <strong>contractor</strong> supplies the workers. Organisations reach TrueCrew in three ways — you create them, they sign up themselves, or a company creates its own contractor.</p>
+
+    <h3>Create a company (Companies page)</h3>
+    <ol class="steps">
+      <li><strong>Open Companies and click Add Company.</strong> Fill in the name, address, and contact details. GST is optional.</li>
+      <li><strong>Create the Company Admin login.</strong> Enter the admin's name and email, then generate a password. <strong>The password is shown only once — copy it before saving.</strong></li>
+      <li><strong>Share the credentials.</strong> Send the login email and password to the Company Admin and confirm they can sign in.</li>
+    </ol>
+
+    <h3>Create a contractor (Contractors page)</h3>
+    <p>Your Contractors page is the global list — every contractor on the platform. Creating a contractor works the same way as a company: fill in the details, create the Contractor Admin login, and share the credentials.</p>
+
+    <h3>Self-signup</h3>
+    <p>Anyone can sign up at <strong>/signup</strong> as a Company or a Contractor. New organisations start on the free <strong>Trial</strong> plan. If they pick a paid plan during signup, an upgrade request is filed for you to approve (see <a href="#plans">Subscriptions &amp; plans</a>).</p>
+
+    <div class="callout info">
+      <strong>Company admins can create their own contractors.</strong>
+      A company can add a contractor it already works with. That contractor is auto-approved for the company and inherits the company's plan. You will see these contractors on your global Contractors page like any other.
+    </div>
+
+    <h3>Contractor detail &amp; sharing consent (new in v1.8)</h3>
+    <p>Companies can click any contractor in their list to open a <strong>contractor detail view</strong> — the organisation's profile and contacts, the relationship timeline, the workers and deployments that contractor has with them, and the contractor's attendance history at their site.</p>
+    <ul class="plain">
+      <li><strong>Consent is collected on the access request.</strong> When a contractor asks for access to a company, it explicitly consents to sharing these details. Contractors a company creates itself consent implicitly.</li>
+      <li><strong>No consent, no details.</strong> Without it, the company sees only the contractor's name and the request status.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════ 4. ROLES REFERENCE ═══════════ -->
+<section id="roles">
+  <div class="card">
+    <h2>4. Roles reference</h2>
+    <p>Six roles cover everyone on the platform. Each person sees only what their role allows.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Role</th><th>Belongs to</th><th>What they can do</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="tag tag-purple">Super Admin</span></td>
+            <td>Platform</td>
+            <td><strong>Everything.</strong> Creates organisations, manages all users, controls subscriptions, edits global templates, sees all data.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-blue">Company Admin</span></td>
+            <td>Company</td>
+            <td>Approves or suspends contractors. Creates gate and HR users, plus contractor logins. Manages company settings, views attendance, handles Plan &amp; Billing.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-blue">Department HR</span></td>
+            <td>Company</td>
+            <td>Approves or rejects contractor deployments and chooses which departments or gates each worker may use. Can mark a manual OUT, and maintains the visitor Hosts list. Nothing else — no users, settings, or billing.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-blue">Gate User</span></td>
+            <td>Company</td>
+            <td>Marks IN / OUT attendance, by fingerprint or face, at their gate — and creates visitor gate passes. Nothing else.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-amber">Contractor Admin</span></td>
+            <td>Contractor</td>
+            <td>Registers and deploys workers. Can edit, deactivate, or delete their own workers (see the lifecycle rules below). Handles the contractor's Plan &amp; Billing.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-amber">Contractor Operator</span></td>
+            <td>Contractor</td>
+            <td>Registers workers only.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout tip">
+      <strong>Who creates whom?</strong>
+      You can create any user. Company Admins create their own gate users, HR users, and contractor logins. Contractor Admins create their own operators. Plan limits cap how many users each organisation can have.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 5. SUBSCRIPTIONS & PLANS ═══════════ -->
+<section id="plans">
+  <div class="card">
+    <h2>5. Subscriptions &amp; plans</h2>
+    <p>Your <strong>Subscriptions</strong> page shows every organisation's plan and live usage. Three plans are available:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Plan</th><th>Users</th><th>Workers</th><th>Company links</th><th>Adds</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><span class="tag tag-gray">Trial</span></td>
+            <td>3</td><td>10</td><td>3</td>
+            <td>The core platform: Aadhaar registration, fingerprint and face attendance, offline apps, exports, in-app notifications.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-blue">Professional</span></td>
+            <td>25</td><td>500</td><td>25</td>
+            <td>Email notifications, bulk CSV import / export, and the ability to override notification templates.</td>
+          </tr>
+          <tr>
+            <td><span class="tag tag-purple">Enterprise</span></td>
+            <td>100</td><td>5000</td><td>100</td>
+            <td>WhatsApp notifications and weekly attendance report emails.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <p><em>Company links</em> are the number of company–contractor relationships an organisation can hold.</p>
+
+    <h3>How payment works (offline)</h3>
+    <p>TrueCrew does not take payment online. Money changes hands outside the system — bank transfer, UPI, cheque, whatever you agree. The portal just tracks the request and the decision:</p>
+    <ol class="steps">
+      <li><strong>The organisation requests an upgrade.</strong> Their admin opens Plan &amp; Billing and files an upgrade request (or picks a paid plan at signup).</li>
+      <li><strong>You see the request on Subscriptions.</strong> The row shows the organisation, its current plan, its usage, and the requested plan.</li>
+      <li><strong>You settle payment offline, then decide.</strong> Approve to apply the new plan at once, or reject with a note. The organisation is notified either way.</li>
+    </ol>
+    <div class="callout info">
+      <strong>You can also set any plan directly.</strong>
+      No request needed — pick the organisation on Subscriptions and set its plan. Useful for partners, demos, or corrections.
+    </div>
+    <div class="callout rule">
+      <strong>Fairness rule: only workers who actually worked count.</strong>
+      An organisation's "workers" usage counts a worker only once they have been deployed <em>and</em> marked IN at least once. Registering workers is free. Importing hundreds by CSV is free. The quota is spent when a worker actually starts working.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 6. DEPLOYMENT APPROVALS & PERMISSIONS ═══════════ -->
+<section id="approvals">
+  <div class="card">
+    <h2>6. Deployment approvals &amp; permissions</h2>
+    <p>This is a company-side feature, but you should know how it works — it changes who can pass a gate.</p>
+    <p><strong>Approval is required by default</strong> (since v1.7) for every company: each new contractor deployment waits for the company's HR or admin to review it. A company that prefers instant deployments can switch the requirement off in its approvals panel. While approval is required:</p>
+    <ul class="plain">
+      <li>Each new deployment waits in a <strong>pending</strong> queue for the company's HR or admin.</li>
+      <li>A pending worker <strong>cannot mark attendance anywhere</strong> at that company until approved.</li>
+      <li>Rejections carry a reason back to the contractor.</li>
+      <li>On approval, the company can <strong>restrict the worker to specific gates or departments</strong>. The rule is enforced everywhere — web gate, both apps (even offline), and on the server for every synced mark.</li>
+    </ul>
+    <div class="callout info">
+      <strong>Your own deployments skip the queue.</strong>
+      A deployment you create yourself as Super Admin is approved automatically — handy for demos and corrections. Contractor deployments always follow the company's setting.
+    </div>
+
+    <h3>Preset departments</h3>
+    <p>Wherever departments are picked, a standard list is offered. <strong>Main Gate</strong> is preselected, so workers can always enter and exit at the main gate unless HR says otherwise. Custom names are also allowed, and an "All gates" option clears the restriction.</p>
+    <div class="dept-list">
+      <span class="tag default">Main Gate (default)</span>
+      <span class="tag">Back Gate</span>
+      <span class="tag">Security</span>
+      <span class="tag">HR</span>
+      <span class="tag">Production</span>
+      <span class="tag">Quality</span>
+      <span class="tag">Stores &amp; Warehouse</span>
+      <span class="tag">Maintenance</span>
+      <span class="tag">Dispatch</span>
+      <span class="tag">Canteen</span>
+      <span class="tag">Admin Office</span>
+    </div>
+    <div class="callout tip">
+      <strong>Both sides are notified.</strong>
+      Company admins get a notification when a deployment needs approval; the contractor gets the decision. Gate devices pick up approvals automatically within about 90 seconds.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 7. WORKER LIFECYCLE RULES ═══════════ -->
+<section id="workers">
+  <div class="card">
+    <h2>7. Worker lifecycle rules</h2>
+
+    <h3>Status flow</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+        <tbody>
+          <tr><td><span class="tag tag-amber">Pending</span></td><td>Registered, but no fingerprint enrolled yet. Cannot mark attendance.</td></tr>
+          <tr><td><span class="tag tag-green">Active</span></td><td>Fingerprint enrolled. Ready to be deployed and to mark attendance.</td></tr>
+          <tr><td><span class="tag tag-gray">Inactive</span></td><td>Manually disabled. Cannot mark attendance until reactivated.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Aadhaar is mandatory</h3>
+    <ul class="plain">
+      <li>Every worker is registered with Aadhaar — either by importing the e-Aadhaar PDF (details auto-fill) or by typing the 12-digit number.</li>
+      <li><strong>The raw Aadhaar number is never stored.</strong> TrueCrew keeps only the masked last four digits and a secure one-way code used for duplicate checks.</li>
+      <li><strong>Duplicates are rejected across all contractors.</strong> The same Aadhaar cannot be registered twice on the platform, even by different contractors.</li>
+    </ul>
+
+    <h3>The engagement lock (new in v1.6.1)</h3>
+    <div class="callout rule">
+      <strong>A working worker is protected.</strong>
+      Once a worker is deployed to a company — or is currently checked IN — the contractor cannot <em>delete</em> the worker, <em>deactivate</em> them, or <em>remove their fingerprint</em>. The deployment must be cancelled first. This stops a contractor from silently pulling a worker's identity out from under a company mid-engagement.
+    </div>
+    <ul class="plain">
+      <li>To remove a worker, the contractor cancels the deployment first (the worker must be checked OUT), then deletes.</li>
+      <li><strong>You, the Super Admin, can override the lock</strong> when there is a genuine reason.</li>
+      <li><strong>Deleting a worker never deletes their attendance.</strong> The history stays for company records and audits.</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ═══════════ 8. PHOTO-VERIFIED ATTENDANCE ═══════════ -->
+<section id="verification">
+  <div class="card">
+    <h2>8. Photo-verified attendance</h2>
+    <p>Since v1.7, an attendance mark is more than a time — it is a picture. The moment a fingerprint or face scan verifies at the gate, the device quietly photographs the person and saves the capture with that IN / OUT record. This works on Android and Windows gate machines alike, and it is best-effort: a missing camera never blocks a mark.</p>
+
+    <h3>Where the photos show up</h3>
+    <ul class="plain">
+      <li><strong>Attendance Log</strong> — every row carries the day's live gate photo (falling back to the registration photo). Click the row for the day detail: the registration photo, the Aadhaar photo, and the gate IN and OUT captures side by side, with times, gates, methods, and match scores.</li>
+      <li><strong>Worker analytics</strong> — every recent mark shows its own gate capture and exactly how it was verified: thumb (fingerprint + score), photo (face + score), or manual.</li>
+    </ul>
+
+    <h3>The automatic face cross-check</h3>
+    <p>Every gate capture is automatically compared against the worker's enrolled face. A capture that does not match is <strong>flagged in the day detail</strong>. The flag is advisory — the mark still stands — but it is the buddy-punching alarm: if worker A scanned and worker B stood at the camera, the mismatch shows.</p>
+    <div class="callout info">
+      <strong>Identification is conservative, too.</strong>
+      When two different workers score too close together on a fingerprint or face scan, the scan is rejected and retried rather than guessed — the system never picks a winner from an ambiguous match.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 9. VISITORS & GATE PASSES ═══════════ -->
+<section id="visitors">
+  <div class="card">
+    <h2>9. Visitors &amp; gate passes</h2>
+    <p>New in v1.10, TrueCrew handles the <em>other</em> people at the gate — guests, couriers, candidates — with the same discipline as workers: a photo, a named approver, and a full decision trail. No visitor enters without an approval on record.</p>
+    <ol class="steps">
+      <li><strong>HR maintains the Hosts list.</strong> On the Visitors page, the company's HR keeps the list of people allowed to receive visitors — name, mobile, position, department. Only listed hosts can be picked at the gate.</li>
+      <li><strong>The gate creates the pass.</strong> From the gate app's Visitors tab, the gate user enters the guest's name and phone, takes a live photo, and picks the host the guest came to meet — done in seconds.</li>
+      <li><strong>The host decides.</strong> Where the organisation's WhatsApp Business connection is configured, the host is asked on WhatsApp and replies <strong>YES</strong> or <strong>NO</strong>. Otherwise — or when the host answers by phone — the gate records the decision manually with a <strong>mandatory note</strong>, and it is audited.</li>
+      <li><strong>Entry only after approval.</strong> The pass moves waiting → approved (or denied) → inside → left, with entry and exit times stamped along the way.</li>
+    </ol>
+    <p>The portal's <strong>Visitors</strong> page shows the company's passes — guest photos, status, the WhatsApp or manual decision trail, and entry / exit times.</p>
+    <div class="callout info">
+      <strong>WhatsApp is optional.</strong>
+      The reply-to-approve loop activates once the organisation's WhatsApp Business connection is set up. Until then, manual decisions with the audited note keep gates moving — nothing is blocked.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 10. NOTIFICATIONS & DIGESTS ═══════════ -->
+<section id="notifications">
+  <div class="card">
+    <h2>10. Notifications &amp; digests</h2>
+
+    <h3>Channels by plan</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Channel</th><th>Available on</th><th>Notes</th></tr></thead>
+        <tbody>
+          <tr><td><strong>In-app bell</strong></td><td>All plans</td><td>The bell in the portal header (and in the apps) shows approvals, rejections, plan decisions, and digests, with an unread badge.</td></tr>
+          <tr><td><strong>Email</strong></td><td>Professional and above</td><td>Key events are also emailed to the right people.</td></tr>
+          <tr><td><strong>WhatsApp</strong></td><td>Enterprise</td><td>Messages via the WhatsApp Business connection, once it is set up for the organisation.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Templates</h3>
+    <p>Every message comes from an editable template with placeholder variables (worker name, company, time, and so on). <strong>The global defaults are yours</strong> — edit them on the Templates page and every organisation inherits the change. Organisations on Professional and above can override the texts for their own messages; your defaults still apply wherever they have not.</p>
+
+    <h3>Scheduled digests</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Digest</th><th>When</th><th>What it says</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Missing-OUT alert</strong></td>
+            <td>Daily, 21:00 IST</td>
+            <td>Workers who marked IN but never OUT that day.</td>
+          </tr>
+          <tr>
+            <td><strong>Contractor deployment digest</strong></td>
+            <td>Daily, 08:30 IST</td>
+            <td>Workers who are ready but not deployed (benched), and deployments ending within 3 days.</td>
+          </tr>
+          <tr>
+            <td><strong>Weekly attendance summary</strong></td>
+            <td>Monday, 08:00 IST</td>
+            <td>The previous week's days and hours per worker. Enterprise plan.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 11. MONITORING & OVERSIGHT ═══════════ -->
+<section id="oversight">
+  <div class="card">
+    <h2>11. Monitoring &amp; oversight</h2>
+    <p>You see the same views every organisation uses — but across the whole platform.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>View</th><th>What it shows</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>Dashboard</strong></td>
+            <td>Today's numbers at a glance — who is in, marks so far, and key totals.</td>
+          </tr>
+          <tr>
+            <td><strong>Live Board</strong> <span class="tag tag-purple">v1.9</span></td>
+            <td>Who is inside <em>right now</em>: occupancy against how many are expected, every gate and department with the workers' photos, the day's hour-by-hour IN / OUT flow, and a live ticker of the latest marks. Refreshes itself every 10 seconds. Every role gets it, scoped to their own view — and it is night-shift safe: a worker who checked IN before midnight stays on the board until they check OUT.</td>
+          </tr>
+          <tr>
+            <td><strong>Attendance Log</strong></td>
+            <td>A daily summary: one row per worker per day, with first IN, last OUT, total duration, and status (Inside / Done / Incomplete). Filter by date, name, or deployment tab. Every row carries the day's live gate photo — click through for the full photo detail.</td>
+          </tr>
+          <tr>
+            <td><strong>Worker Detail</strong></td>
+            <td>Click any worker row anywhere to open their analytics — days worked, average hours, a monthly breakdown with missed OUTs, deployments, and recent events. Every recent mark shows its gate capture and how it was verified.</td>
+          </tr>
+          <tr>
+            <td><strong>Exceptions</strong></td>
+            <td>Everyone currently inside (marked IN with no OUT). Useful for an end-of-day check.</td>
+          </tr>
+          <tr>
+            <td><strong>Exports</strong></td>
+            <td>Daily CSV, monthly-totals CSV (Excel-ready), and a print-ready month report — all from the Attendance Log's month picker.</td>
+          </tr>
+          <tr>
+            <td><strong>Audit log</strong></td>
+            <td>Every sensitive action — approvals, edits, manual OUTs, overrides — recorded with who did it, when, and from which IP address.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout tip">
+      <strong>Trust the daily summary, check the audit log.</strong>
+      The summary view answers "who worked, and for how long". When something looks odd — a surprise manual OUT, a cancelled deployment — the audit log tells you exactly who did what.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 12. APPS & DOWNLOADS ═══════════ -->
+<section id="apps">
+  <div class="card">
+    <h2>12. Apps &amp; downloads</h2>
+    <p>TrueCrew ships two apps alongside the web portal — an <strong>Android app (APK)</strong> and a <strong>Windows app (zip)</strong>. Both are on the <strong>Downloads</strong> page in the portal, together with the user documents.</p>
+    <p><strong>What the apps do that the browser cannot:</strong></p>
+    <ul class="plain">
+      <li><strong>Offline worker registration</strong> — details, Aadhaar PDF import, fingerprint, and photo, all without a connection. Everything uploads when the device is back online.</li>
+      <li><strong>Offline fingerprint matching at the gate</strong> — enrolled fingerprints sync to gate devices, and every scan is matched on the device itself. The gate keeps working when the internet does not.</li>
+      <li><strong>Photos and proof</strong> — a gate photo is taken automatically the moment a scan verifies, and saved with that IN / OUT record as tamper-evident proof — on Android and, since v0.9.34, on Windows gate machines too (internal or USB webcam). The verified screen shows the Aadhaar photo, the registration photo, and the gate photo side by side.</li>
+      <li><strong>Hands-free auto scan</strong> — flip the switch on the gate screen and the scanner stays armed: a worker just places a finger and the mark happens automatically (IN or OUT by their last state), with the verified card showing and clearing itself. A 90-second per-worker cooldown prevents double-marks.</li>
+      <li><strong>In-app Aadhaar tools</strong> — a "Get PDF from UIDAI" button opens the official myAadhaar download page right inside registration, and the worker's phone number auto-fills from the e-Aadhaar PDF (a manually typed number is never overwritten).</li>
+      <li><strong>Zero-setup Windows install</strong> — the fingerprint-scanner runtime ships inside the Windows app: unzip, plug the scanner in, scan. Nothing to install on gate machines. Android is just as simple — connect the scanner over USB and tap Allow.</li>
+      <li><strong>Auto-sync every 90 seconds</strong> — while online, devices quietly pull new approvals, fingerprints, and photos, and push their marks. Nobody has to press a sync button.</li>
+    </ul>
+
+    <h3>Which fingerprint scanners work</h3>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Scanner</th><th>Where it stands</th></tr></thead>
+        <tbody>
+          <tr>
+            <td><strong>SecuGen HP20</strong></td>
+            <td><span class="tag tag-green">Fully supported</span> on Android and Windows — zero setup on both.</td>
+          </tr>
+          <tr>
+            <td><strong>Mantra MFS100 / MFS500</strong></td>
+            <td><span class="tag tag-blue">Driver built in</span> (Android) — capture and matching through Mantra's own kit, with templates that match across brands, so a worker enrolled on one scanner verifies on the other. Activates once the Mantra SDK ships with the app.</td>
+          </tr>
+          <tr>
+            <td><strong>Aadhaar L1 devices (e.g. Mantra MFS110)</strong></td>
+            <td><span class="tag tag-red">Never usable</span> for attendance — see the warning below.</td>
+          </tr>
+          <tr>
+            <td><strong>Other brands</strong> (Morpho / IDEMIA, Startek, Tatvik, Precision…)</td>
+            <td><span class="tag tag-gray">Detected &amp; named</span> — the app's Diagnostics screen identifies each attached device and states the next step.</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="callout warn">
+      <strong>Buying scanners? Never buy an L1 device for attendance.</strong>
+      Aadhaar L1 scanners (such as the Mantra MFS110) encrypt every fingerprint inside the sensor itself — a UIDAI design requirement for Aadhaar authentication. No attendance app can read them, TrueCrew included, and no software update can change that. When in doubt, plug the device in: the Diagnostics screen explains exactly where it stands.
+    </div>
+    <div class="callout info">
+      <strong>What's New.</strong>
+      The portal's What's New page lists every release of the platform and the apps, so admins can see what changed without leaving TrueCrew.
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 13. FAQ ═══════════ -->
+<section id="faq">
+  <div class="card" style="background:transparent; border:none; box-shadow:none; padding:0 0 8px;">
+    <h2>13. FAQ / Troubleshooting</h2>
+  </div>
+
+  <details>
+    <summary>Someone forgot their password. What do they do?</summary>
+    <div>They can reset it themselves. On the sign-in page, click <strong>Forgot password?</strong>, enter the account email, and follow the reset link that is sent. Admins can also set a new password for their own users from the Users page — and you can do it for anyone.</div>
+  </details>
+
+  <details>
+    <summary>A user says login is blocked or "too many attempts".</summary>
+    <div>Sign-in allows <strong>5 attempts per minute</strong> from the same place. This slows down password-guessing. Wait a minute and try again — carefully. If the password is truly lost, use the Forgot password link instead of retrying.</div>
+  </details>
+
+  <details>
+    <summary>Where do Aadhaar PDFs and ID documents live? Are they public?</summary>
+    <div>No. All documents are kept in <strong>private storage</strong> — there are no public web links to them. A document can only be downloaded by a signed-in user whose role allows it: the contractor that owns the worker, or a company the worker is associated with. Every download goes through this permission check.</div>
+  </details>
+
+  <details>
+    <summary>Why can't a contractor delete or deactivate a worker?</summary>
+    <div>The <strong>engagement lock</strong>. Once a worker is deployed to a company — or is currently checked IN — the contractor cannot delete them, deactivate them, or remove their fingerprint. The deployment must be cancelled first (and the worker must be checked OUT). This protects companies from losing a worker mid-engagement. As Super Admin, you can override the lock when there is a genuine reason. Deleting a worker never deletes their attendance history.</div>
+  </details>
+
+  <details>
+    <summary>How do the usage counters on Subscriptions work?</summary>
+    <div><strong>Users</strong> and <strong>company links</strong> count what exists. <strong>Workers</strong> is fairer: a worker counts against the plan only once they have actually worked — deployed <em>and</em> marked IN at least once. Registering and CSV-importing workers is free. The quota check happens at first deployment, and deleting a worker who already worked does not free the slot.</div>
+  </details>
+
+  <details>
+    <summary>Can I change an organisation's plan without an upgrade request?</summary>
+    <div>Yes. Open <strong>Subscriptions</strong>, pick the organisation, and set any plan directly. Requests exist so organisations can ask — you are never limited to them.</div>
+  </details>
+
+  <details>
+    <summary>How do we test with duplicate Aadhaar numbers?</summary>
+    <div>In production, the same Aadhaar is always rejected across all contractors — that is the point of the check. <strong>Test environments may disable the duplicate check</strong> so demo workers can share a number. Ask the technical team whether your test server has it disabled.</div>
+  </details>
+
+  <details>
+    <summary>Which fingerprint scanners should organisations buy?</summary>
+    <div><strong>SecuGen HP20</strong> is fully supported on Android and Windows with zero setup. <strong>Mantra MFS100 / MFS500</strong> have a built-in driver (Android) that activates once the Mantra SDK ships with the app. <strong>Never buy Aadhaar L1 devices</strong> (such as the Mantra MFS110) for attendance — UIDAI's design encrypts fingerprints inside the sensor, so no attendance app can read them, and no update can change that. When in doubt, plug the scanner in: the app's Diagnostics screen explains exactly where each attached device stands.</div>
+  </details>
+
+  <details>
+    <summary>What does a photo-mismatch flag on a mark mean?</summary>
+    <div>Every gate capture is automatically compared with the worker's enrolled face. When they do not match, the day detail flags the capture. The flag is <strong>advisory</strong> — the mark still stands — but it is the buddy-punching alarm: someone other than the enrolled worker may have been at the camera. Open the day detail, compare the photos, and follow up with the gate.</div>
+  </details>
+
+  <details>
+    <summary>Do visitor approvals need WhatsApp?</summary>
+    <div>No. Where the WhatsApp Business connection is configured, hosts approve gate passes by replying YES or NO on WhatsApp. Without it, the gate records the host's decision manually — with a mandatory note — and every decision is audited either way. Entry is only ever allowed after an approval is on record.</div>
+  </details>
+
+  <details>
+    <summary>Where does technical setup live (servers, scanners, configuration)?</summary>
+    <div>In the <a href="developer-guide.html">Developer Guide</a> — the technical companion to this document. It covers installation, configuration, and integrations. This guide stays focused on running the platform.</div>
+  </details>
+</section>
+
+</div><!-- end .page -->
+
+<!-- FOOTER -->
+<footer>
+  TrueCrew · Platform v1.10.0 · Apps v0.9.34-preview · 22 August 2026 · Technical companion: <a href="developer-guide.html">Developer Guide</a>
+</footer>
+
+</body>
+</html>

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import { Building2, HardHat, Check, Fingerprint, ChevronLeft } from "lucide-react";
@@ -21,6 +21,14 @@ export default function Signup() {
   const [step, setStep] = useState(0);
   const [busy, setBusy] = useState(false);
   const [plans, setPlans] = useState(null);
+  const [featureLabels, setFeatureLabels] = useState({});
+
+  // Public plans catalogue (no auth involved — safe from the 401 interceptor).
+  useEffect(() => {
+    api.get("/plans-public")
+      .then((r) => { setPlans(r.data.plans); setFeatureLabels(r.data.feature_labels ?? {}); })
+      .catch(() => {}); // FALLBACK below covers offline/errors
+  }, []);
   const [form, setForm] = useState({
     org_type: "company",
     org_name: "", name: "", email: "", password: "", phone: "",
@@ -85,7 +93,7 @@ export default function Signup() {
               <div className="grid grid-cols-2 gap-3">
                 {[
                   { v: "company", icon: Building2, t: "Company", d: "We host workers at our sites and track their attendance" },
-                  { v: "vendor",  icon: HardHat,   t: "Vendor / Contractor", d: "We supply workers and deploy them to companies" },
+                  { v: "vendor",  icon: HardHat,   t: "Contractor", d: "We supply workers and deploy them to companies" },
                 ].map(({ v, icon: Icon, t, d }) => (
                   <button key={v} type="button" onClick={() => setForm((f) => ({ ...f, org_type: v }))}
                     className={`p-4 rounded-lg border text-left transition-colors ${form.org_type === v ? "border-brand-500 bg-brand-50" : "border-gray-200 hover:border-gray-300"}`}>
@@ -154,6 +162,9 @@ export default function Signup() {
                       <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> Aadhaar + biometric attendance</li>
                       <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> Android & Windows apps</li>
                       <li className="flex gap-2"><Check size={15} className="text-brand-600 shrink-0 mt-0.5" /> {p.support}</li>
+                      {(p.features ?? []).map((f) => (
+                        <li key={f} className="flex gap-2 text-[13px] text-gray-500"><Check size={14} className="text-teal-500 shrink-0 mt-0.5" /> {featureLabels[f] ?? f}</li>
+                      ))}
                     </ul>
                   </button>
                 );
