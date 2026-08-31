@@ -339,33 +339,44 @@ export default function WorkerList() {
                   </td>
                   <td className="px-4 py-4 hidden md:table-cell" onClick={(e) => e.stopPropagation()}>
                     {(() => {
-                      const doc = w.id_documents?.find(d => d.is_primary) ?? w.id_documents?.[0];
-                      if (!doc) return <span className="text-gray-300 text-xs">—</span>;
+                      // The Aadhaar PDF lives on the WORKER record
+                      // (workers.aadhaar_pdf_path), not in worker_id_documents —
+                      // two separate stores. Checking only the second one made
+                      // every Aadhaar-only worker look like it had no document.
+                      const other = w.id_documents?.find((d) => d.id_type !== "aadhaar" && d.has_document);
+                      const rows = [];
 
-                      const isAadhaar = doc.id_type === "aadhaar";
-                      const hasFile   = isAadhaar ? w.has_aadhaar_pdf : doc.has_document;
+                      if (w.has_aadhaar_pdf) {
+                        rows.push(
+                          <button key="aadhaar" type="button"
+                            onClick={() => downloadDoc(w.id, null, w.name, "Aadhaar", true)}
+                            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800">
+                            <Download size={11} /><FileText size={11} /> Aadhaar PDF
+                          </button>
+                        );
+                      }
+                      if (other) {
+                        rows.push(
+                          <button key={other.id} type="button"
+                            onClick={() => downloadDoc(w.id, other.id, w.name, other.type_label, false)}
+                            className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800">
+                            <Download size={11} /><FileText size={11} /> {other.type_label}
+                          </button>
+                        );
+                      }
+                      if (rows.length) return <div className="space-y-0.5">{rows}</div>;
 
-                      const handleDownload = isAadhaar
-                        ? () => downloadDoc(w.id, null, w.name, "Aadhaar", true)
-                        : () => downloadDoc(w.id, doc.id, w.name, doc.type_label, false);
-
-                      return (
-                        <div>
-                          <p className="text-xs text-gray-700 font-medium">{doc.type_label}</p>
-                          {hasFile ? (
-                            <button
-                              type="button"
-                              onClick={handleDownload}
-                              className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 mt-0.5"
-                            >
-                              <Download size={11} /><FileText size={11} />
-                              {isAadhaar ? "Download PDF" : "Download"}
-                            </button>
-                          ) : (
-                            <span className="text-xs text-gray-400">No file</span>
-                          )}
-                        </div>
-                      );
+                      // Aadhaar captured but no PDF (manual 12-digit entry) is a
+                      // normal state — say so instead of showing a bare dash.
+                      if (w.aadhaar_number_masked) {
+                        return (
+                          <span className="text-xs text-gray-400">
+                            Aadhaar on file{w.aadhaar_verified_at ? "" : " (unverified)"}
+                            <span className="block text-[10px]">no PDF</span>
+                          </span>
+                        );
+                      }
+                      return <span className="text-gray-300 text-xs">—</span>;
                     })()}
                   </td>
                   <td className="px-4 py-4">
