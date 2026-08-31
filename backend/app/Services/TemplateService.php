@@ -37,8 +37,8 @@ class TemplateService
         'gatepass_request' => [
             'label'   => 'Gate pass — visitor approval request',
             'subject' => 'Visitor at {{gate}}: {{guest_name}}',
-            'body'    => "Visitor request at {{company_name}} ({{gate}}):\n{{guest_name}}{{guest_phone}} wants to meet you.\nPurpose: {{purpose}}\nPass: {{code}}\n\nReply YES to allow or NO to deny.",
-            'vars'    => ['guest_name', 'guest_phone', 'purpose', 'code', 'gate', 'company_name', 'host_name'],
+            'body'    => "Visitor request at {{company_name}} ({{gate}}):\n{{guest_name}}{{guest_phone}} wants to meet you.\nPurpose: {{purpose}}\nPass: {{code}}\n\nTap to see their photo and decide:\n{{approve_url}}\n\nOr simply reply YES to allow, NO to deny.",
+            'vars'    => ['guest_name', 'guest_phone', 'purpose', 'code', 'gate', 'company_name', 'host_name', 'approve_url'],
         ],
         'welcome_user' => [
             'label'   => 'Welcome — new login created',

@@ -17,7 +17,8 @@ class GatePass extends Model
         'entry_at', 'exit_at', 'location_name', 'created_by',
     ];
 
-    protected $hidden = ['photo_path', 'vehicle_photo_path'];
+    // The token is a credential — it never rides along in a list payload.
+    protected $hidden = ['photo_path', 'vehicle_photo_path', 'approval_token'];
 
     protected $appends = ['has_photo', 'has_vehicle_photo'];
 

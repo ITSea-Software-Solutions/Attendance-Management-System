@@ -29,6 +29,13 @@ Route::get('/plans-public', fn () => response()->json([
 Route::post('/auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:signup');
 Route::post('/auth/reset-password',  [AuthController::class, 'resetPassword'])->middleware('throttle:login');
 
+// Host approval by link — the token IS the credential, so these are throttled.
+Route::middleware('throttle:30,1')->group(function () {
+    Route::get('visitor-pass/{token}',        [\App\Http\Controllers\VisitorController::class, 'publicPass']);
+    Route::get('visitor-pass/{token}/photo',  [\App\Http\Controllers\VisitorController::class, 'publicPassPhoto']);
+    Route::post('visitor-pass/{token}/decide',[\App\Http\Controllers\VisitorController::class, 'publicDecide']);
+});
+
 // WhatsApp inbound webhook (Meta Cloud API) — host YES/NO gate-pass replies
 Route::get('/whatsapp/webhook',  [\App\Http\Controllers\VisitorController::class, 'webhookVerify']);
 Route::post('/whatsapp/webhook', [\App\Http\Controllers\VisitorController::class, 'webhookReceive']);

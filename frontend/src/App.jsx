@@ -20,6 +20,7 @@ import Visitors from "@/pages/visitors/Visitors";
 import AttendanceExceptions from "@/pages/attendance/AttendanceExceptions";
 import Reports from "@/pages/Reports";
 import Payroll from "@/pages/Payroll";
+import VisitorApproval from "@/pages/VisitorApproval";
 import UserList from "@/pages/users/UserList";
 import Downloads from "@/pages/Downloads";
 import Signup from "@/pages/Signup";
@@ -44,7 +45,8 @@ export default function App() {
   return (
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-      <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
+      <Route path="/visitor-approval/:token" element={<VisitorApproval />} />
+        <Route path="/signup" element={user ? <Navigate to="/dashboard" /> : <Signup />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
       <Route path="/reset-password" element={<ResetPassword />} />
 

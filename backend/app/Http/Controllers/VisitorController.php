@@ -166,12 +166,13 @@ class VisitorController extends Controller
             'location_name' => ($user->isGateUser() && $user->location_name) ? $user->location_name : 'Main Gate',
             'created_by'    => $user->id,
         ]);
-        if ($photoPath || $vehiclePhotoPath) {
-            $pass->forceFill(array_filter([
-                'photo_path'         => $photoPath,
-                'vehicle_photo_path' => $vehiclePhotoPath,
-            ]))->save();
-        }
+        $pass->forceFill(array_filter([
+            'photo_path'         => $photoPath,
+            'vehicle_photo_path' => $vehiclePhotoPath,
+            // Set outside mass assignment on purpose: this token is the only
+            // thing standing between a link and a decision.
+            'approval_token'     => $needsOk ? \Illuminate\Support\Str::random(48) : null,
+        ]))->save();
 
         // Ask the host on WhatsApp only when their approval is actually needed.
         if ($needsOk) {
@@ -184,6 +185,9 @@ class VisitorController extends Controller
                 'gate'         => $pass->location_name,
                 'company_name' => $company?->name ?? '',
                 'host_name'    => $host->name,
+                'approve_url'  => $pass->approval_token
+                    ? rtrim(config('app.url'), '/').'/visitor-approval/'.$pass->approval_token
+                    : '',
             ],
             'company', $cid, $company?->plan ?? 'trial',
             (array) ($company?->settings ?? [])
@@ -263,6 +267,76 @@ class VisitorController extends Controller
     // ─── WhatsApp inbound webhook (Meta Cloud API) ───────────────────────────
 
     /** GET: Meta's verification handshake. */
+    /**
+     * PUBLIC — what the host sees when they tap the link. The token is the
+     * credential, so only the bare minimum needed to make the decision is
+     * returned, and only while the pass is still open.
+     */
+    public function publicPass(string $token): JsonResponse
+    {
+        $pass = GatePass::with('host:id,name,department')->where('approval_token', $token)->first();
+        abort_unless($pass, 404, 'This link is not valid.');
+
+        return response()->json([
+            'code'         => $pass->code,
+            'guest_name'   => $pass->guest_name,
+            'guest_phone'  => $pass->guest_phone,
+            'purpose'      => $pass->purpose,
+            'vehicle_number' => $pass->vehicle_number,
+            'has_photo'         => $pass->has_photo,
+            'has_vehicle_photo' => $pass->has_vehicle_photo,
+            'host_name'    => $pass->host?->name,
+            'company_name' => \App\Models\Company::find($pass->company_id)?->name,
+            'gate'         => $pass->location_name,
+            'requested_at' => $pass->created_at,
+            'status'       => $pass->status,
+            'decided_at'   => $pass->decided_at,
+            // Expired links stay readable but can no longer be acted on.
+            'actionable'   => $pass->status === GatePass::STATUS_PENDING
+                              && $pass->created_at->isToday(),
+        ]);
+    }
+
+    /** PUBLIC — the host taps Approve or Deny. */
+    public function publicDecide(Request $request, string $token): JsonResponse
+    {
+        $data = $request->validate(['decision' => 'required|in:approved,denied']);
+
+        $pass = GatePass::where('approval_token', $token)->first();
+        abort_unless($pass, 404, 'This link is not valid.');
+        abort_unless($pass->status === GatePass::STATUS_PENDING, 422,
+            'This visitor has already been '.$pass->status.'.');
+        abort_unless($pass->created_at->isToday(), 422, 'This link has expired.');
+
+        $pass->forceFill([
+            'status'        => $data['decision'],
+            'decided_via'   => 'link',
+            'decision_note' => 'Answered by the host from the approval link.',
+            'decided_at'    => now(),
+            'approval_token' => null,   // one decision per link
+        ])->save();
+
+        $this->audit->log(null, 'gatepass_decided_link', GatePass::class, $pass->id, $data);
+
+        return response()->json([
+            'message' => $data['decision'] === 'approved'
+                ? 'Approved — the gate can let them in.'
+                : 'Denied — the gate has been told.',
+            'status'  => $pass->status,
+        ]);
+    }
+
+    /** PUBLIC — the guest/vehicle photo behind an approval token. */
+    public function publicPassPhoto(Request $request, string $token)
+    {
+        $pass = GatePass::where('approval_token', $token)->first();
+        abort_unless($pass, 404);
+        $path = $request->input('type') === 'vehicle' ? $pass->vehicle_photo_path : $pass->photo_path;
+        abort_unless($path, 404);
+
+        return Storage::disk('private')->response($path);
+    }
+
     public function webhookVerify(Request $request)
     {
         $verify = config('services.whatsapp.webhook_verify', env('WHATSAPP_WEBHOOK_VERIFY', 'truecrew'));
