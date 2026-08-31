@@ -4,7 +4,7 @@
 set -euo pipefail
 
 DOMAIN="${DOMAIN:-yourdomain.in}"
-REPO="${REPO:-git@github.com:ITSea-Software-Solutions/Attendance-Management-System.git}"
+REPO="${REPO:-git@github.com:ITSea-Software-Solutions/truecrew.git}"
 DIR=/var/www/truecrew
 
 echo "── 1. Docker + basics ─────────────────────────────────────────────"

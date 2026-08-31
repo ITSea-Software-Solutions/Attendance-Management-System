@@ -166,7 +166,7 @@ server records both `marked_at` (device) and `synced_at`.
 
 ## 8. Repo & Workflow (DECIDED: monorepo — revised)
 
-Everything lives in **this repo** (`ITSea-Software-Solutions/Attendance-Management-System`):
+Everything lives in **this repo** (`ITSea-Software-Solutions/truecrew`):
 
 - Server (Laravel API) + web portal (React) + infra — as today.
 - Flutter app under **`client/`** — created on the Windows machine with

@@ -9,8 +9,8 @@ on a new machine. `CLIENT_APP_DESIGN.md` has the client-app architecture.
 
 | What | Where |
 |------|-------|
-| Git repo | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git` (remote `origin`) — work on `main`. This is the ONLY repo: the original `codetechx/adharbased_attendance_system` was retired on 2026-08-31 and must not be pushed to. |
-| GitHub releases / CI | `https://github.com/ITSea-Software-Solutions/Attendance-Management-System/releases` · `/actions` (workflow: `build-apps.yml`, triggers on `app-v*` tags) |
+| Git repo | `https://github.com/ITSea-Software-Solutions/truecrew.git` (remote `origin`) — work on `main`. This is the ONLY repo: the original `codetechx/adharbased_attendance_system` was retired on 2026-08-31 and must not be pushed to. |
+| GitHub releases / CI | `https://github.com/ITSea-Software-Solutions/truecrew/releases` · `/actions` (workflow: `build-apps.yml`, triggers on `app-v*` tags) |
 | Droplet (server) | `ssh root@142.93.88.143` → app lives in `/var/www/attendance` (DigitalOcean, sfo2). Key-based auth ONLY — see "Droplet access" below |
 | Web portal (demo) | `http://142.93.88.143` (login) · public signup `http://142.93.88.143/signup` |
 | Download page (public) | `http://142.93.88.143/download.html` — APK + Windows zip |
@@ -71,7 +71,7 @@ registration + biometric attendance SaaS.
 #    Visual Studio 2022 Community + "Desktop development with C++" workload
 #    (required by `flutter build windows`), Android Studio (only to build APKs).
 # 2. Code (your GitHub user has access):
-git clone https://github.com/ITSea-Software-Solutions/Attendance-Management-System.git truecrew
+git clone https://github.com/ITSea-Software-Solutions/truecrew.git truecrew
 cd truecrew
 # main is the working branch. The old `security-and-biometric-hardening` branch
 # was the trunk from June to 31 Aug 2026 and was merged into main (PR #1); it is
