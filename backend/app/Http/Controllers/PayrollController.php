@@ -201,6 +201,7 @@ class PayrollController extends Controller
 
         $updated = 0;
         $proposed = 0;
+        $denied = 0;
         $notify = [];
         foreach ($data['rates'] as $r) {
             $worker = Worker::find($r['worker_id']);
@@ -209,6 +210,14 @@ class PayrollController extends Controller
             }
             // A contractor may only price their own workers.
             if ($user->isVendorUser() && $worker->vendor_id !== $user->vendor_id) {
+                continue;
+            }
+            // And a company may only price workers who are theirs to pay for:
+            // deployed to them, or having worked for them before. The page
+            // already lists only those, but the endpoint takes worker ids and
+            // must not accept an id belonging to somebody else's site.
+            if ($user->isCompanyUser() && ! $this->companyMayPrice($user->company_id, $worker)) {
+                $denied++;
                 continue;
             }
 
@@ -271,12 +280,27 @@ class PayrollController extends Controller
         $parts = [];
         if ($updated)  { $parts[] = "{$updated} wage rate(s) saved."; }
         if ($proposed) { $parts[] = "{$proposed} change(s) sent to the company for approval."; }
+        if ($denied)   { $parts[] = "{$denied} skipped — not your worker(s) to price."; }
 
         return response()->json([
             'message'  => $parts ? implode(' ', $parts) : 'Nothing to change.',
             'updated'  => $updated,
             'proposed' => $proposed,
+            'denied'   => $denied,
         ]);
+    }
+
+    /**
+     * A company pays for a worker who is deployed to it, or who has worked
+     * there before (rates get corrected after a period closes). Anyone else's
+     * worker is none of their business.
+     */
+    private function companyMayPrice(int $companyId, Worker $worker): bool
+    {
+        return \App\Models\WorkerAssignment::where('worker_id', $worker->id)
+                ->where('company_id', $companyId)->exists()
+            || \App\Models\AttendanceLog::where('worker_id', $worker->id)
+                ->where('company_id', $companyId)->exists();
     }
 
     /** The company currently paying for this worker, if any. */
