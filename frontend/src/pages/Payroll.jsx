@@ -214,8 +214,8 @@ export default function Payroll() {
       </div>
 
       <PageHint id="payroll">
-        Your muster and wage sheet, filled in from real gate punches. Workers are paid a
-        <b>rate per day</b> for each day present; overtime is the day rate ÷ 8 per hour.
+        Your muster and wage sheet, filled in from real gate punches. Workers are paid a{" "}
+        <b>daily wage</b> for each day present; overtime is the day rate ÷ 8 per hour.
         Government holidays are paid, and anyone who works one earns overtime for the whole
         day. <b>Muster sheet</b> downloads the familiar day-by-day grid with P / A / WO / H
         codes and the overtime row beneath.
