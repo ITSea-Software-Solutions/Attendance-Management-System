@@ -271,7 +271,12 @@ class PayrollService
         $offs      = $this->weeklyOffs($company);
         $fullDay   = (float) config('payroll.full_day_hours', 8);
         $workerIds = $opts['worker_ids'] ?? [];
-        $vendorId  = $opts['vendor_id'] ?? null;
+        // One contractor or several — a company with four contractors needs a
+        // payroll per contractor, not one lump they have to unpick by hand.
+        $vendorIds = $opts['vendor_ids'] ?? null;
+        if (! $vendorIds && ! empty($opts['vendor_id'])) {
+            $vendorIds = [$opts['vendor_id']];
+        }
 
         // ── every day in the period ──────────────────────────────────────────
         $days = [];
@@ -298,7 +303,7 @@ class PayrollService
         }
 
         $workers = Worker::with('vendor:id,name')->whereIn('id', $ids)
-            ->when($vendorId, fn ($q) => $q->where('vendor_id', $vendorId))
+            ->when($vendorIds, fn ($q) => $q->whereIn('vendor_id', $vendorIds))
             ->orderBy('name')->get();
 
         // ── one grouped pass over the punches ────────────────────────────────

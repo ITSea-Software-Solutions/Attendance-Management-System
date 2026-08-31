@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { CalendarPlus, Check, X, Clock3, Loader2 } from "lucide-react";
 import api from "@/lib/axios";
@@ -13,7 +13,7 @@ import { useOrgScope } from "@/lib/scope";
  * is not attendance until the company agrees: nothing reaches attendance_logs
  * while it is pending, so a pending entry never quietly earns a day's wage.
  */
-export default function ManualAttendance({ companyId }) {
+export default function ManualAttendance({ companyId, prefillWorkerId = null, onClose = null }) {
   const qc = useQueryClient();
   const { user } = useAuth();
   const { isVendorUser } = useOrgScope();
@@ -21,6 +21,7 @@ export default function ManualAttendance({ companyId }) {
   const canRaise  = canDecide || user?.role === "vendor_admin";
 
   const [open, setOpen]   = useState(false);
+  const openedFor = useRef(null);
   const [form, setForm]   = useState({
     worker_id: "", work_date: "", in_time: "09:00", out_time: "18:00",
     location_name: "", reason: "",
@@ -28,7 +29,7 @@ export default function ManualAttendance({ companyId }) {
 
   const { data: workers } = useQuery({
     queryKey: ["manual-worker-options", companyId],
-    enabled: open,
+    enabled: open || !!prefillWorkerId,
     queryFn: () => api.get("/workers-options", {
       params: { company_id: companyId || undefined },
     }).then((r) => r.data),
@@ -43,6 +44,14 @@ export default function ManualAttendance({ companyId }) {
   });
   const pending = (requests ?? []).filter((r) => r.status === "pending");
 
+  // Opening for a specific worker fills them in and scrolls the form into view.
+  useEffect(() => {
+    if (!prefillWorkerId || openedFor.current === prefillWorkerId) return;
+    openedFor.current = prefillWorkerId;
+    setForm((f) => ({ ...f, worker_id: String(prefillWorkerId) }));
+    setOpen(true);
+  }, [prefillWorkerId]);
+
   const reset = () => setForm({
     worker_id: "", work_date: "", in_time: "09:00", out_time: "18:00",
     location_name: "", reason: "",
@@ -52,7 +61,7 @@ export default function ManualAttendance({ companyId }) {
     mutationFn: (body) => api.post("/attendance/manual", body),
     onSuccess: (r) => {
       toast.success(r.data?.message ?? "Recorded.", { duration: r.data?.proposed ? 7000 : 4000 });
-      reset(); setOpen(false);
+      reset(); setOpen(false); openedFor.current = null; onClose?.();
       qc.invalidateQueries({ queryKey: ["manual-requests"] });
       qc.invalidateQueries({ queryKey: ["attendance"] });
       qc.invalidateQueries({ queryKey: ["daily-summary"] });
@@ -129,7 +138,8 @@ export default function ManualAttendance({ companyId }) {
 
       {/* ── add a missed day ── */}
       <div className="card py-3">
-        <button className="btn-secondary text-sm" onClick={() => setOpen((v) => !v)}>
+        <button className="btn-secondary text-sm"
+          onClick={() => { const n = !open; setOpen(n); if (!n) { openedFor.current = null; onClose?.(); } }}>
           <CalendarPlus size={14} /> {open ? "Close" : "Add a missed day"}
         </button>
 
@@ -196,7 +206,8 @@ export default function ManualAttendance({ companyId }) {
                 {save.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
                 {canDecide ? "Record this day" : "Send for approval"}
               </button>
-              <button className="btn-secondary text-sm" onClick={() => { reset(); setOpen(false); }}>
+              <button className="btn-secondary text-sm"
+                onClick={() => { reset(); setOpen(false); openedFor.current = null; onClose?.(); }}>
                 Cancel
               </button>
             </div>

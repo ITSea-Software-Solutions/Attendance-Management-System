@@ -50,6 +50,11 @@ export default function Payroll() {
   const [[from, to], setRange] = useState(() => cyclePeriod(new Date(), 26));
   const [companyId, setCompanyId] = useState("");
   const [workerIds, setWorkerIds] = useState([]);
+  // A company with several contractors bills each one separately, so the
+  // register has to be filterable to one contractor — or a few — not just all.
+  const [vendorIds, setVendorIds] = useState(
+    (new URLSearchParams(window.location.search).get("vendor_ids") || "")
+      .split(",").filter(Boolean).map(Number));
   const [tab, setTab] = useState("register");        // register | contractors
   const [rateEdits, setRateEdits] = useState({});     // worker_id -> rate
   const [adjFor, setAdjFor] = useState(null);         // row being adjusted
@@ -58,8 +63,21 @@ export default function Payroll() {
     from, to,
     ...(companyId ? { company_id: companyId } : {}),
     ...(workerIds.length ? { worker_ids: workerIds.join(",") } : {}),
+    ...(vendorIds.length ? { vendor_ids: vendorIds.join(",") } : {}),
   };
   const ready = isCompanyUser || !!companyId;
+
+  const { data: vendorOpts } = useQuery({
+    queryKey: ["register-vendor-options", companyId],
+    enabled: ready && !isVendorUser,
+    queryFn: async () => {
+      const r = isCompanyUser
+        ? await api.get(`/companies/${(await api.get("/auth/me")).data.company_id}/vendors`)
+        : await api.get("/vendors", { params: { per_page: 100 } });
+      const rows = r.data?.data ?? r.data ?? [];
+      return (Array.isArray(rows) ? rows : []).map((v) => ({ id: v.id, name: v.name }));
+    },
+  });
 
   const { data: companies } = useQuery({
     queryKey: ["company-options"],
@@ -248,6 +266,10 @@ export default function Payroll() {
             <option value="">Select company…</option>
             {(companies ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
+        )}
+        {!isVendorUser && (
+          <MultiSelect label="Contractors" width="w-52" allLabel="All contractors"
+            options={vendorOpts ?? []} value={vendorIds} onChange={setVendorIds} />
         )}
         <MultiSelect label="Workers" width="w-48"
           options={(workerOptions ?? []).map((w) => ({

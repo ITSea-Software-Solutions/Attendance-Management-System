@@ -6,7 +6,9 @@ import PageHint from "@/components/PageHint";
 import MultiSelect from "@/components/MultiSelect";
 import { useOrgScope } from "@/lib/scope";
 import { IndianRupee, Save, Search, AlertTriangle, Loader2, Building2,
-  Check, X, Clock3 } from "lucide-react";
+  Check, X, Clock3, FileSpreadsheet, Download, CalendarPlus, ArrowRight } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import ManualAttendance from "@/components/ManualAttendance";
 
 const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFractionDigits: 0 });
 
@@ -20,6 +22,8 @@ const money = (n) => "₹" + Number(n || 0).toLocaleString("en-IN", { maximumFra
 export default function PayrollWages() {
   const qc = useQueryClient();
   const { isCompanyUser, isVendorUser } = useOrgScope();
+  const navigate = useNavigate();
+  const [manualFor, setManualFor] = useState(null);
 
   const [companyId, setCompanyId] = useState("");
   const [vendorIds, setVendorIds] = useState([]);   // [] = all contractors
@@ -94,6 +98,40 @@ export default function PayrollWages() {
     refetchInterval: 60_000,
   });
   const pendingFor = (id) => (wageRequests ?? []).find((r) => r.worker_id === id && r.status === "pending");
+
+  // Payroll for whoever is picked in the Contractors box above — a company
+  // with several contractors bills each separately, so "all" is rarely what
+  // they want at payout time.
+  const scopeParams = {
+    ...(companyId ? { company_id: companyId } : {}),
+    ...(vendorIds.length ? { vendor_ids: vendorIds.join(",") } : {}),
+  };
+  const payrollLink = "/payroll" + (vendorIds.length ? `?vendor_ids=${vendorIds.join(",")}` : "");
+
+  const exportPayroll = async (kind) => {
+    try {
+      const r = await api.get("/payroll/register-export", { params: scopeParams, responseType: "blob" });
+      const stamp = new Date().toISOString().slice(0, 10);
+      if (kind === "csv") {
+        const url = URL.createObjectURL(r.data);
+        const a = document.createElement("a");
+        a.href = url; a.download = `wage-register-${stamp}.csv`;
+        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+        return;
+      }
+      const XLSX = await import("xlsx");
+      const wb = XLSX.read(await r.data.text(), { type: "string", raw: true });
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      for (const c of Object.keys(ws)) {
+        if (c[0] !== "!" && typeof ws[c].v === "string" && /^'[=+\-@]/.test(ws[c].v)) ws[c].v = ws[c].v.slice(1);
+      }
+      const out = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(out, ws, "Wage register");
+      XLSX.writeFile(out, `truecrew-wage-register-${stamp}.xlsx`);
+    } catch (e) {
+      toast.error(e.response?.data?.message ?? "Could not build the payroll.");
+    }
+  };
 
   const decide = useMutation({
     mutationFn: ({ id, decision }) => api.post(`/payroll/wage-requests/${id}/decide`,
@@ -182,6 +220,30 @@ export default function PayrollWages() {
         </span>
       </div>
 
+      {/* ── run the payroll for whoever is selected above ── */}
+      <div className="card !py-3.5 flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium text-gray-700">
+          Payroll for {vendorIds.length
+            ? `${vendorIds.length} selected contractor${vendorIds.length > 1 ? "s" : ""}`
+            : "all contractors"}:
+        </span>
+        <button className="btn-primary text-sm" onClick={() => navigate(payrollLink)}>
+          <ArrowRight size={14} /> Open wage register
+        </button>
+        <button className="btn-secondary text-sm" onClick={() => exportPayroll("xlsx")}>
+          <FileSpreadsheet size={14} /> Register (Excel)
+        </button>
+        <button className="btn-secondary text-sm" onClick={() => exportPayroll("csv")}>
+          <Download size={14} /> Register CSV
+        </button>
+        <span className="text-[11.5px] text-gray-400 ml-auto">
+          Current pay cycle. Use the register for other periods and adjustments.
+        </span>
+      </div>
+
+      <ManualAttendance companyId={companyId || undefined}
+        prefillWorkerId={manualFor} onClose={() => setManualFor(null)} />
+
       {(wageRequests ?? []).some((r) => r.status === "pending") && (
         <div className="card space-y-3">
           <h2 className="font-semibold text-gray-900 flex items-center gap-2">
@@ -248,6 +310,7 @@ export default function PayrollWages() {
                 <th className="text-left px-3 py-2.5 font-medium text-gray-500">Grade</th>
                 <th className="text-left px-3 py-2.5 font-medium text-gray-500">Paid</th>
                 <th className="text-right px-3 py-2.5 font-medium text-gray-500">Rate (₹)</th>
+                <th className="text-right px-3 py-2.5 font-medium text-gray-500">Attendance</th>
                 <th className="text-right px-3 py-2.5 font-medium text-gray-500">Day rate</th>
               </tr>
             </thead>
@@ -282,6 +345,13 @@ export default function PayrollWages() {
                         value={rate} placeholder="set rate"
                         onChange={(e) => setRow(w, { rate: e.target.value })} />
                     </td>
+                    <td className="px-3 text-right">
+                      <button className="btn-secondary text-[11px] py-0.5 px-2"
+                        title="Record a day the gate missed for this worker"
+                        onClick={() => setManualFor(w.id)}>
+                        <CalendarPlus size={12} /> Attendance
+                      </button>
+                    </td>
                     <td className="px-3 text-right text-gray-600">
                       {dayRate ? money(dayRate) : (ratesLoaded ? "—" : "·")}
                       {pendingFor(w.id) && (
@@ -294,7 +364,7 @@ export default function PayrollWages() {
                 );
               })}
               {rows.length === 0 && (
-                <tr><td colSpan={6} className="text-center py-10 text-gray-400">
+                <tr><td colSpan={7} className="text-center py-10 text-gray-400">
                   {ready ? "No workers in this selection." : "Select a company to load workers."}
                 </td></tr>
               )}

@@ -45,7 +45,12 @@ class PayrollController extends Controller
 
         $opts = [];
         if ($user->isVendorUser()) {
-            $opts['vendor_id'] = $user->vendor_id;      // vendors see only their people
+            $opts['vendor_id'] = $user->vendor_id;      // contractors see only their people
+        } elseif ($ids = $request->input('vendor_ids')) {
+            // One contractor or several. Kept alongside the singular form so
+            // existing links and saved reports keep working.
+            $opts['vendor_ids'] = array_values(array_filter(
+                array_map('intval', is_array($ids) ? $ids : explode(',', $ids))));
         } elseif ($request->filled('vendor_id')) {
             $opts['vendor_id'] = (int) $request->input('vendor_id');
         }
