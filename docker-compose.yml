@@ -9,6 +9,9 @@ services:
     volumes:
       - ./nginx/conf.d:/etc/nginx/conf.d:ro
       - laravel_public:/var/www/html/public:ro
+      # App binaries served straight off disk — a missing file must 404 rather
+      # than fall through to the SPA and save as a corrupt download.
+      - ./frontend/public:/var/www/frontend/public:ro
       - ./nginx/logs:/var/log/nginx
     depends_on:
       - backend
