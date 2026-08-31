@@ -12,9 +12,6 @@ const NAV = [
     label: "Daily",
     items: [
       { to: "/dashboard",       icon: LayoutDashboard, label: "Dashboard", roles: ["all"] },
-      // The gate's whole job — it must never be buried.
-      { to: "/attendance/mark", icon: Fingerprint, label: "Mark Attendance",
-        roles: ["super_admin", "company_admin", "company_gate"] },
       { to: "/live",            icon: Activity, label: "Live Board", roles: ["all"] },
     ],
   },

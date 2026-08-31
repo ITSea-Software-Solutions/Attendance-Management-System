@@ -13,7 +13,6 @@ import WorkerList from "@/pages/workers/WorkerList";
 import WorkerDetail from "@/pages/workers/WorkerDetail";
 import WorkerRegister from "@/pages/workers/WorkerRegister";
 import WorkerAssign from "@/pages/workers/WorkerAssign";
-import AttendanceMark from "@/pages/attendance/AttendanceMark";
 import AttendanceList from "@/pages/attendance/AttendanceList";
 import LiveBoard from "@/pages/attendance/LiveBoard";
 import Visitors from "@/pages/visitors/Visitors";
@@ -131,11 +130,6 @@ export default function App() {
         <Route path="visitors" element={
           <PrivateRoute roles={["super_admin", "company_admin", "company_hr", "company_gate"]}>
             <Visitors />
-          </PrivateRoute>
-        } />
-        <Route path="attendance/mark" element={
-          <PrivateRoute roles={["super_admin", "company_admin", "company_gate"]}>
-            <AttendanceMark />
           </PrivateRoute>
         } />
         <Route path="attendance/exceptions" element={<AttendanceExceptions />} />

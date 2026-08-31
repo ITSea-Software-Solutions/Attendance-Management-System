@@ -143,7 +143,6 @@ export default function Dashboard() {
   ] : isCompany ? [
     // Only offer what this role can actually open — every link here is
     // checked against the route guards in App.jsx.
-    ...(role !== "company_hr" ? [{ label: "Mark Attendance", to: "/attendance/mark", icon: Fingerprint }] : []),
     { label: "Live Board", to: "/live", icon: Activity },
     ...(role !== "company_gate" ? [{ label: "Approvals", to: "/workers/assign", icon: CheckCircle }] : []),
     { label: "Visitors", to: "/visitors", icon: Camera },

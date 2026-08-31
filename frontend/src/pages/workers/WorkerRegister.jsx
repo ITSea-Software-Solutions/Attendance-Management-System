@@ -7,7 +7,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import api from "@/lib/axios";
 import toast from "react-hot-toast";
 import AadhaarFlow from "@/components/AadhaarFlow";
-import FingerprintCapture from "@/components/FingerprintCapture";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   CheckCircle, ChevronRight, User, CreditCard, Fingerprint,
@@ -154,7 +153,6 @@ const STEPS = [
   { id: "id_doc",      label: "Aadhaar",     icon: CreditCard  },
   { id: "details",     label: "Details",     icon: User        },
   { id: "employment",  label: "Employment",  icon: Briefcase   },
-  { id: "fingerprint", label: "Fingerprint", icon: Fingerprint },
   { id: "photo",       label: "Photo",       icon: Camera      },
   { id: "confirm",     label: "Confirm",     icon: CheckCircle },
 ];
@@ -188,7 +186,6 @@ export default function WorkerRegister() {
   const [consent, setConsent] = useState(false);
 
   // Step 2
-  const [reEnrollFP, setReEnrollFP] = useState(false); // edit: toggle to re-enroll
 
   // Step 3
   const [photoFile, setPhotoFile]           = useState(null);   // live capture blob/File
@@ -198,9 +195,9 @@ export default function WorkerRegister() {
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // Shared
+  // Read-only: shown on the summary. Enrolment itself belongs to the apps,
+  // which are the only clients that can talk to a scanner.
   const [fingerprint, setFP]    = useState(null);
-  const [fpSlot, setFpSlot]     = useState(1);      // 1 = primary, 2 = backup finger
-  const [fpOffer, setFpOffer]   = useState(0);     // 1 = offer 2nd finger, 2 = offer 3rd
   const [savedWorker, setSaved] = useState(null);
 
   // ── Employment & wages (step 2) ─────────────────────────────────────────
@@ -319,7 +316,7 @@ export default function WorkerRegister() {
     // Existing photo — shown in step 3
     if (existingWorker.photo_url) setPhotoPreview(existingWorker.photo_url);
 
-    // Existing fingerprint — shown in step 2
+    // Existing fingerprint — surfaced read-only on the summary
     if (existingWorker.fingerprint_enrolled_at) {
       setFP({ quality: existingWorker.fingerprint_quality ?? "?" });
     }
@@ -446,27 +443,6 @@ export default function WorkerRegister() {
     },
   });
 
-  // ── Step 2: fingerprint ───────────────────────────────────────────────────
-
-  const handleFingerprintCaptured = async (template, quality) => {
-    if (!savedWorker) return;
-    try {
-      await api.post(`/workers/${savedWorker.id}/fingerprint`, { template, quality, slot: fpSlot });
-      if (fpSlot === 3) {
-        toast.success("Third finger enrolled — any of the three verifies at the gate.");
-        setStep(4);
-      } else if (fpSlot === 2) {
-        toast.success("Backup finger enrolled — either finger now verifies at the gate.");
-        setFpOffer(2); // offer a third
-      } else {
-        setFP({ quality });
-        toast.success("Fingerprint enrolled!");
-        setFpOffer(1); // offer an optional backup finger before moving on
-      }
-    } catch (e) {
-      toast.error(e?.response?.data?.message || "Fingerprint enrollment failed. Please retry.");
-    }
-  };
 
   // ── Step 3: photo ─────────────────────────────────────────────────────────
 
@@ -485,7 +461,7 @@ export default function WorkerRegister() {
       }).catch(() => {});
       setUploadingPhoto(false);
     }
-    setStep(5);
+    setStep(4);
   };
 
   // ── Step 4: finish ────────────────────────────────────────────────────────
@@ -526,7 +502,7 @@ export default function WorkerRegister() {
         <p className="text-gray-500 text-sm mt-1">
           {isEdit
             ? `Editing: ${existingWorker?.name ?? "…"}`
-            : "ID Document → Details → Employment → Fingerprint → Photo → Confirm"}
+            : "ID Document → Details → Employment → Photo → Confirm"}
         </p>
       </div>
 
@@ -996,97 +972,7 @@ export default function WorkerRegister() {
         </div>
       )}
 
-      {/* ── Step 2: Fingerprint ───────────────────────────────────────────────── */}
       {step === 3 && savedWorker && (
-        <>
-          {/* Backup-finger offer after the primary enrolls */}
-          {fpOffer ? (
-            <div className="card space-y-5">
-              <div>
-                <h2 className="font-semibold text-gray-900">
-                  {fpOffer === 2 ? "Add a third finger?" : "Add a backup finger?"}
-                </h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {fpOffer === 2
-                    ? "Optional but useful on heavy manual sites: prints wear down, and a third finger keeps the gate working when two are unusable. Up to three fingers can be enrolled — any of them verifies."
-                    : "Recommended: enroll a second finger (e.g. the other thumb). If one finger is cut, bandaged or worn, the worker can still mark attendance with the other — the gate accepts whichever enrolled finger matches."}
-                </p>
-              </div>
-              <div className="flex gap-3">
-                <button type="button" className="btn-primary"
-                  onClick={() => { setFpSlot(fpOffer === 2 ? 3 : 2); setFpOffer(0); }}>
-                  <Fingerprint size={14} /> {fpOffer === 2 ? "Scan third finger" : "Scan backup finger"}
-                </button>
-                <button type="button" className="btn-secondary" onClick={() => setStep(4)}>
-                  {fpOffer === 2 ? "Skip — two fingers are enough" : "Skip — one finger is enough"}
-                </button>
-              </div>
-            </div>
-          ) : isEdit && existingWorker?.fingerprint_enrolled_at && !reEnrollFP ? (
-            <div className="card space-y-5">
-              <div>
-                <h2 className="font-semibold text-gray-900">Fingerprint</h2>
-                <p className="text-sm text-gray-500 mt-0.5">Worker already has a fingerprint enrolled.</p>
-              </div>
-
-              <div className="flex items-start gap-4 p-4 rounded-xl bg-green-50 border border-green-200">
-                <div className="w-10 h-10 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
-                  <Fingerprint size={20} className="text-green-600" />
-                </div>
-                <div>
-                  <p className="font-medium text-green-800">
-                    {existingWorker.fingers_enrolled > 1
-                      ? `${existingWorker.fingers_enrolled} fingers enrolled`
-                      : "Fingerprint enrolled"}
-                  </p>
-                  <p className="text-sm text-green-700 mt-0.5">
-                    Quality: {existingWorker.fingerprint_quality ?? "?"}%
-                    {existingWorker.fingers_enrolled > 1 && ` · backup ${existingWorker.fingerprint_quality_2 ?? "?"}%`}
-                    {existingWorker.fingers_enrolled > 2 && ` · third ${existingWorker.fingerprint_quality_3 ?? "?"}%`}
-                  </p>
-                  <p className="text-xs text-green-600 mt-0.5">
-                    Enrolled: {format(new Date(existingWorker.fingerprint_enrolled_at), "dd MMM yyyy")}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex gap-3 pt-2 border-t border-gray-100">
-                <button type="button" onClick={() => setStep(4)} className="btn-primary">
-                  Keep & Continue
-                </button>
-                <button type="button" onClick={() => { setFpSlot(1); setReEnrollFP(true); }} className="btn-secondary">
-                  <RefreshCw size={14} /> Re-enroll
-                </button>
-                {existingWorker.fingers_enrolled < 3 && (
-                  <button type="button"
-                    onClick={() => { setFpSlot(existingWorker.fingers_enrolled + 1); setReEnrollFP(true); }}
-                    className="btn-secondary">
-                    <Fingerprint size={14} />
-                    {existingWorker.fingers_enrolled === 1 ? "Add backup finger" : "Add third finger"}
-                  </button>
-                )}
-              </div>
-            </div>
-          ) : (
-            /* New registration, re-enroll, or backup finger */
-            <div className="space-y-3">
-              {fpSlot === 2 && (
-                <p className="text-sm font-medium text-brand-700 bg-blue-50 border border-blue-200 rounded-lg px-3 py-2">
-                  Scanning the {fpSlot === 3 ? "THIRD" : "BACKUP"} finger — use a finger not already enrolled.
-                </p>
-              )}
-              <FingerprintCapture
-                worker={savedWorker}
-                onCaptured={handleFingerprintCaptured}
-                onSkip={() => setStep(4)}
-              />
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── Step 3: Photo ─────────────────────────────────────────────────────── */}
-      {step === 4 && savedWorker && (
         <div className="card space-y-5">
           <div>
             <h2 className="font-semibold text-gray-900">Worker Photos</h2>
@@ -1164,7 +1050,7 @@ export default function WorkerRegister() {
       )}
 
       {/* ── Step 4: Confirm ───────────────────────────────────────────────────── */}
-      {step === 5 && savedWorker && (
+      {step === 4 && savedWorker && (
         <div className="card text-center space-y-4">
           {/* Photos side-by-side */}
           <div className="flex gap-3 justify-center">
@@ -1211,8 +1097,13 @@ export default function WorkerRegister() {
               : <p className="text-amber-500">⚠ No live photo — can be added later from the worker list</p>
             }
             {fingerprint
-              ? <p className="text-green-600 font-medium">✓ Fingerprint enrolled (quality: {fingerprint.quality}%)</p>
-              : <p className="text-amber-500">⚠ Fingerprint not enrolled</p>
+              ? <p className="text-green-600 font-medium">
+                  ✓ Fingerprint already enrolled (quality: {fingerprint.quality}%)
+                </p>
+              : <p className="text-amber-500">
+                  ⚠ Fingerprint not enrolled — enrol it from the TrueCrew app on the
+                  device with the scanner. The worker stays <b>pending</b> until then.
+                </p>
             }
           </div>
 
