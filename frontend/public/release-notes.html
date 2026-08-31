@@ -271,7 +271,21 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.18.1</span> PAN registration, wage approval &amp; one word for contractors <span class="date">31 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.19.0</span> Manual attendance &amp; payroll corrections <span class="date">31 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Record a day the gate missed</b> — scanners fail and people forget to scan out, and the day was worked anyway. <b>Attendance Log → Add a missed day</b> records it by hand, for today or any past date. It counts towards attendance and wages like any other day, and is always labelled a manual entry so your register never passes it off as a scan.</li>
+      <li><b>Contractors can raise one; the company agrees it</b> — a contractor can report a missed day for their worker, but nothing is added to the attendance record, and nothing is paid, until the company approves it. <b>Company admin and HR</b> can both decide. Both sides see the request, the reason, and the outcome.</li>
+      <li><b>It cannot be abused</b> — a manual day is only accepted against an approved deployment covering that date, is refused if the day already has attendance (a duplicate would be an overpayment), and the reason is mandatory and kept permanently. If the gate records the day while a request is waiting, the request is declined rather than doubled.</li>
+      <li><b>Fixed: a wage rate that saved but changed nothing</b> — the wage register's rate box wrote the monthly figure for every worker, including daily-wage workers, who are paid from the day rate. It said "saved" while the day rate and net payable stayed at zero. It now writes the rate the worker is actually paid from, and shows "per day" or "per month" beneath it.</li>
+      <li><b>Fixed: the Employment tab came back empty</b> — wages, bank details, PF/ESI numbers and the head-wise split saved correctly but were never loaded back, so reopening a worker showed blank fields.</li>
+      <li><b>"Daily wage" and "Monthly salary"</b> replace "monthly rate" through the worker form, the wage register and both exports — this product pays contract labour by the day.</li>
+      <li><b>Muster sheet in Excel</b>, alongside CSV — it is the sheet that replaces the paper form.</li>
+      <li><b>Security</b>: the spreadsheet library used to read imported Excel files was abandoned upstream and carried a prototype-pollution flaw. Replaced with the maintained official build.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.18.1</span> PAN registration, wage approval &amp; one word for contractors <span class="date">31 Aug 2026</span></h3>
     <ul>
       <li><b>Register a worker with a PAN card</b> — Aadhaar is no longer the only way in. Upload a PAN card as a <b>photo or a PDF</b> (e-PAN PDFs open with the date of birth as the password) and the name, father's name, date of birth and PAN number are read off it. Aadhaar works the same way from a photo now, not just the UIDAI PDF. A worker can be registered on either document; the second one can be added later.</li>
       <li><b>Register from the web portal</b> — registration no longer stops at the fingerprint step. A worker registered on the portal is saved as <b>Pending</b> and completes enrolment at the gate on the desktop or Android app, which is where the scanner is. Office staff can do the paperwork; the gate does the finger.</li>
