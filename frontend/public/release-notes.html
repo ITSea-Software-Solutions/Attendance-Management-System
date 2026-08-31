@@ -47,7 +47,15 @@
   <h2>Apps (Android + Windows)</h2>
 
   <div class="rel">
-    <h3><span class="tag">Apps v0.9.35</span> Backup finger <span class="date">27 Aug 2026 · current</span></h3>
+    <h3><span class="tag">Apps v0.9.37</span> Third finger &amp; visitor vehicles <span class="date">31 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>A third finger per worker</b> — heavy manual work wears prints down, so a third finger can be enrolled during registration or added later from the worker sheet. Any of the three opens the gate.</li>
+      <li><b>Vehicle on gate passes</b> — the number plate and a second photo of the vehicle. At least one photo is required, the visitor or the vehicle, so a pass can never be raised with no visual record.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag">Apps v0.9.35</span> Backup finger <span class="date">27 Aug 2026</span></h3>
     <ul>
       <li><b>Enroll TWO fingers per worker</b> — registration now offers a backup finger (e.g. the other thumb) right after the first scan, and existing workers get an "Add backup finger" action in the worker sheet. If a finger is cut, bandaged or worn, the other still marks attendance.</li>
       <li><b>Any enrolled finger verifies at the gate</b> — every scanner driver (SecuGen Windows, SecuGen Android, Mantra) matches the live scan against both enrolled fingers and takes the worker's best score. Thresholds and the two-worker ambiguity guard are unchanged — a worker's own two fingers can never look like two different people.</li>
@@ -263,7 +271,20 @@
   <h2>Web platform</h2>
 
   <div class="rel">
-    <h3><span class="tag amber">Platform v1.17.0</span> Hours, wage days &amp; cleaner attendance <span class="date">30 Aug 2026 · current</span></h3>
+    <h3><span class="tag amber">Platform v1.18.0</span> Payroll, holidays &amp; visitor approval <span class="date">31 Aug 2026 · current</span></h3>
+    <ul>
+      <li><b>Payroll &amp; wage register</b> — a new Payroll section. Workers are paid a <b>rate per day</b> (monthly supported for staff), broken into the heads an Indian manufacturing wage sheet uses: Basic, DA/VDA, HRA, conveyance, washing, medical, night shift, incentive and special allowance. PF, ESI, professional tax and LWF are computed from those heads, with bonus and gratuity provisions shown for contractor bill verification.</li>
+      <li><b>Government holidays</b> — set the year's holidays per company. They are marked automatically on the attendance log and muster, <b>paid</b> at the day rate, and anyone who works one earns overtime for the whole day.</li>
+      <li><b>Overtime rates you control</b> — per skill grade, overridable for a single worker, with separate multipliers for holidays and weekly offs.</li>
+      <li><b>Employment tab at registration</b> — designation, department, skill grade, UAN, PF and ESIC numbers, bank details and the wage structure, with a suggested split from the day rate.</li>
+      <li><b>Create gate passes from the portal</b>, with live photo capture, vehicle number and a vehicle photo. Host approval is now <b>optional per company</b>: switch it off and passes are usable immediately.</li>
+      <li><b>One-tap host approval</b> — the host gets a link showing the visitor's photo and taps Allow or Deny. No login, works over SMS as well as WhatsApp. Gate staff can no longer approve their own visitors.</li>
+      <li>Menu rebuilt around what people actually do, and <b>Mark Attendance</b> — previously missing from the menu entirely — is now the second item for gate staff.</li>
+    </ul>
+  </div>
+
+  <div class="rel">
+    <h3><span class="tag amber">Platform v1.17.0</span> Hours, wage days &amp; cleaner attendance <span class="date">30 Aug 2026</span></h3>
     <ul>
       <li><b>Hours &amp; wage-day reports</b> — a new report on the Reports page converts hours worked into payable days: <b>8h or more = 1 full day, 4h or more = half day (0.5), less = a short day</b>, with overtime counted beyond a full day. Roll it up <b>day by day, weekly, monthly, or as a total per worker</b>, over <b>any date range</b> (This month / Last month / This week / Last week / Last 30 days / custom). Every file carries the wage rule in a note line so whoever opens it in Excel knows how the days were counted. Thresholds are configurable per installation.</li>
       <li><b>Payable days everywhere</b> — the monthly totals export and the printable report now show full days, half days, payable days and overtime alongside hours.</li>
