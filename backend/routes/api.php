@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\CompanyController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\VendorController;
+use App\Http\Controllers\PanController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\WorkerController;
 use App\Http\Controllers\WorkerAssignmentController;
@@ -179,6 +180,11 @@ Route::middleware('auth:sanctum')->group(function () {
         // Hours / wage-day report: ?from=&to= (or ?month=) &group=daily|weekly|monthly|summary
         Route::get('hours-report',    [AttendanceController::class, 'hoursReport']);
     });
+
+    // ── PAN card identity (alternative to Aadhaar at registration) ───────────
+    Route::post('pan/extract',            [PanController::class, 'extract']);
+    Route::post('pan/upload/{worker}',    [PanController::class, 'upload']);
+    Route::get('pan/download/{worker}',   [PanController::class, 'download']);
 
     // ── Payroll / wage register ───────────────────────────────────────────────
     Route::prefix('payroll')->group(function () {

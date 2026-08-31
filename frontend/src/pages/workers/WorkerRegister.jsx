@@ -182,6 +182,44 @@ export default function WorkerRegister() {
   // Aadhaar is MANDATORY: manual 12-digit entry when there is no PDF to extract
   const [manualEntry, setManualEntry]     = useState(false);
   const [manualAadhaar, setManualAadhaar] = useState("");
+
+  // PAN — the alternative identity when a worker has no Aadhaar to hand.
+  const [panNumber, setPanNumber] = useState("");
+  const [panFile, setPanFile]     = useState(null);
+  const [panData, setPanData]     = useState(null);
+  const [panBusy, setPanBusy]     = useState(false);
+  const validPan = /^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/.test(panNumber.trim());
+
+  const readPanCard = async (file) => {
+    if (!file) return;
+    setPanBusy(true);
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const r = await api.post("/pan/extract", fd, { headers: { "Content-Type": "multipart/form-data" } });
+      setPanData(r.data);
+      setPanFile(file);
+      setPanNumber(r.data.pan_number ?? "");
+      if (r.data.name) setValue("name", r.data.name);
+      if (r.data.dob) setValue("dob", r.data.dob);
+      if (r.data.already_registered) {
+        toast.error("This PAN is already registered to another worker.");
+      } else {
+        toast.success("PAN card read — check the details and continue.");
+      }
+    } catch (e) {
+      toast.error(e.response?.data?.message ?? "Could not read the PAN card. Enter the number manually.");
+      setPanFile(file);
+    } finally {
+      setPanBusy(false);
+    }
+  };
+
+  const handlePanNext = () => {
+    if (!consent) { toast.error("Please confirm the worker's consent first (checkbox at the top)."); return; }
+    if (!validPan) { toast.error("Enter a valid PAN — ABCDE1234F."); return; }
+    setStep(1);
+  };
   // DPDP: registering org must confirm the worker's informed consent
   const [consent, setConsent] = useState(false);
 
@@ -397,6 +435,7 @@ export default function WorkerRegister() {
         aadhaar_number_masked:  aadhaarData?.aadhaar_number_masked,
         aadhaar_hash:           aadhaarData?.aadhaar_hash,          // extract path
         aadhaar_number:         manualAadhaar.trim() || undefined,  // manual path (hashed server-side)
+        pan_number:             panNumber.trim().toUpperCase() || undefined,
         aadhaar_data_extracted: aadhaarData ?? undefined,
         consent: consent,
       };
@@ -406,6 +445,14 @@ export default function WorkerRegister() {
     onSuccess: async (worker) => {
       setSaved(worker);
       if (!isEdit) {
+        // Keep the PAN card with the worker, same as the Aadhaar PDF.
+        if (panFile) {
+          const panFd = new FormData();
+          panFd.append("file", panFile);
+          api.post(`/pan/upload/${worker.id}`, panFd,
+            { headers: { "Content-Type": "multipart/form-data" } })
+            .catch(() => toast.error("Worker saved, but the PAN card file did not upload."));
+        }
         if (aadhaarPdf) {
           const fd = new FormData();
           fd.append("pdf", aadhaarPdf);
@@ -527,9 +574,11 @@ export default function WorkerRegister() {
       {step === 0 && (
         <div className="card space-y-5">
           <div>
-            <h2 className="font-semibold text-gray-900">Aadhaar</h2>
+            <h2 className="font-semibold text-gray-900">Identity document</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              {isEdit ? "Review or replace the worker's Aadhaar." : "Verify the worker's Aadhaar — PDF auto-fill or manual 12-digit entry."}
+              {isEdit
+                ? "Review or replace the worker's identity document."
+                : "Aadhaar is preferred. If the worker does not have one to hand, a PAN card is enough to register them and start attendance."}
             </p>
           </div>
 
@@ -639,8 +688,85 @@ export default function WorkerRegister() {
           {(!isEdit || changeDoc) && (
             <>
 
+              {!isEdit && (
+                <div className="flex gap-2 flex-wrap">
+                  {[["aadhaar", "Aadhaar"], ["pan", "PAN card"]].map(([v, label]) => (
+                    <button key={v} type="button" onClick={() => setIdType(v)}
+                      className={`rounded-lg px-3.5 py-2 text-sm font-medium border transition-colors ${
+                        idType === v
+                          ? "bg-brand-50 text-brand-700 border-brand-300"
+                          : "bg-white text-gray-600 border-gray-200 hover:border-gray-300"}`}>
+                      {label}
+                    </button>
+                  ))}
+                  <span className="text-xs text-gray-400 self-center">
+                    Either one registers the worker — the other can be added later.
+                  </span>
+                </div>
+              )}
+
               {idType === "aadhaar" && !manualEntry && (
                 <AadhaarFlow onExtracted={handleAadhaarExtracted} onSkip={() => setManualEntry(true)} />
+              )}
+
+              {idType === "pan" && (
+                <div className="space-y-4">
+                  <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center">
+                    <p className="text-sm text-gray-600">
+                      Upload the PAN card — a photo of the card or an e-PAN PDF.
+                      We read the number, name and date of birth from it.
+                    </p>
+                    <label className="btn-secondary mt-3 inline-flex cursor-pointer">
+                      <Upload size={14} /> {panBusy ? "Reading…" : "Choose PAN card"}
+                      <input type="file" accept="image/*,application/pdf" className="hidden"
+                        disabled={panBusy}
+                        onChange={(e) => readPanCard(e.target.files?.[0])} />
+                    </label>
+                    {panFile && (
+                      <p className="text-xs text-gray-500 mt-2">{panFile.name}</p>
+                    )}
+                  </div>
+
+                  {panData && (
+                    <div className="rounded-lg bg-green-50 border border-green-200 p-3 text-sm space-y-0.5">
+                      <p className="font-medium text-green-800">Read from the card</p>
+                      <p className="text-green-700">
+                        {panData.name}{panData.father_name ? ` · father: ${panData.father_name}` : ""}
+                        {panData.dob ? ` · DOB ${panData.dob}` : ""}
+                      </p>
+                      {panData.holder_type && panData.holder_type !== "individual" && (
+                        <p className="text-amber-700">
+                          This PAN belongs to a {panData.holder_type}, not an individual — check the card.
+                        </p>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="label">
+                      PAN number * <span className="text-gray-400 font-normal">(ABCDE1234F)</span>
+                    </label>
+                    <input
+                      value={panNumber}
+                      onChange={(e) => setPanNumber(e.target.value.toUpperCase().slice(0, 10))}
+                      className="input font-mono tracking-widest uppercase"
+                      placeholder="ABCDE1234F"
+                    />
+                    <p className="text-xs text-gray-400 mt-1">
+                      Read from the card above, or type it in if the photo is unclear.
+                    </p>
+                  </div>
+
+                  <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-xs text-amber-800">
+                    Registering on PAN alone is fine to get started. The worker stays
+                    <b> pending</b> until a finger is enrolled from the TrueCrew app, and
+                    the Aadhaar can be added later from the worker's page.
+                  </div>
+
+                  <button type="button" onClick={handlePanNext} className="btn-primary" disabled={!validPan}>
+                    Continue to Details
+                  </button>
+                </div>
               )}
 
               {idType === "aadhaar" && manualEntry && (

@@ -49,12 +49,14 @@ class Worker extends Model
     protected $hidden = [
         'aadhaar_pdf_path',
         'aadhaar_hash',
+        'pan_hash',
+        'pan_card_path',
         'fingerprint_template',
         'fingerprint_template_2',
         'fingerprint_template_3',
     ];
 
-    protected $appends = ['photo_url', 'has_aadhaar_pdf', 'fingers_enrolled'];
+    protected $appends = ['photo_url', 'has_aadhaar_pdf', 'has_pan_card', 'fingers_enrolled'];
 
     protected $casts = [
         'dob'                    => 'date',
@@ -69,6 +71,7 @@ class Worker extends Model
         'wage_components' => 'array',
         'pf_applicable'   => 'boolean',
         'esi_applicable'  => 'boolean',
+        'pan_verified_at' => 'datetime',
     ];
 
     // ─── Relationships ─────────────────────────────────────────────────────────
@@ -123,6 +126,11 @@ class Worker extends Model
     public function getHasAadhaarPdfAttribute(): bool
     {
         return !empty($this->attributes['aadhaar_pdf_path'] ?? null);
+    }
+
+    public function getHasPanCardAttribute(): bool
+    {
+        return ! empty($this->attributes['pan_card_path'] ?? null);
     }
 
     public function hasFingerprint(): bool

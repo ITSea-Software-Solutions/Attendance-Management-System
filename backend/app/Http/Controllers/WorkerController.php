@@ -201,7 +201,7 @@ class WorkerController extends Controller
             'phone'                  => 'nullable|string|max:15',
             'mobile'                 => 'nullable|string|max:15',
             'emp_code'               => 'nullable|string|max:30',
-            'pan_number'             => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
+            'pan_number'             => ['nullable', 'string', 'regex:/^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/'],
             'joining_date'           => 'nullable|date',
             // Employment & statutory (the vendor fills these on the Employment tab)
             'designation'            => 'nullable|string|max:80',
@@ -254,22 +254,52 @@ class WorkerController extends Controller
             return response()->json(['message' => 'vendor_id is required.'], 422);
         }
 
-        // ── Aadhaar mandatory + dedup ─────────────────────────────────────────
-        $resolved = $this->resolveAadhaar($data);
-        if ($resolved instanceof JsonResponse) {
-            return $resolved; // validation / duplicate error
+        // ── Identity: Aadhaar OR PAN, at least one, each deduped ─────────────
+        // A worker who arrives without an Aadhaar can still be registered on a
+        // PAN and start earning; the Aadhaar follows and is flagged unverified
+        // until it does.
+        $hasAadhaar = ! empty($data['aadhaar_number'])
+            || (! empty($data['aadhaar_number_masked']) && ! empty($data['aadhaar_hash']));
+        $hasPan = ! empty($data['pan_number']);
+
+        if (! $hasAadhaar && ! $hasPan) {
+            return response()->json([
+                'message' => 'An identity document is required.',
+                'errors'  => ['aadhaar_number' => [
+                    'Provide an Aadhaar (PDF or 12-digit number) or a PAN card.',
+                ]],
+            ], 422);
         }
-        [$aadhaarMasked, $aadhaarHash] = $resolved;
+
+        $aadhaarMasked = $aadhaarHash = null;
+        if ($hasAadhaar) {
+            $resolved = $this->resolveAadhaar($data);
+            if ($resolved instanceof JsonResponse) {
+                return $resolved; // validation / duplicate error
+            }
+            [$aadhaarMasked, $aadhaarHash] = $resolved;
+        }
+
+        $panHash = null;
+        if ($hasPan) {
+            $resolvedPan = $this->resolvePan($data['pan_number']);
+            if ($resolvedPan instanceof JsonResponse) {
+                return $resolvedPan;
+            }
+            [$data['pan_number'], $panHash] = $resolvedPan;
+        }
+
         unset($data['aadhaar_number'], $data['aadhaar_hash']); // never persist the raw number; hash set via forceFill
         $data['aadhaar_number_masked'] = $aadhaarMasked;
 
         $worker = new Worker($data);
-        $worker->forceFill([
+        $worker->forceFill(array_filter([
             'aadhaar_hash'         => $aadhaarHash,
+            'pan_hash'             => $panHash,
             'consent_confirmed_at' => now(),
             'status'               => Worker::STATUS_PENDING,
             'registered_by'        => $user->id,
-        ])->save();
+        ], fn ($v) => $v !== null))->save();
 
         $this->audit->log($user->id, 'worker_created', Worker::class, $worker->id, [
             'worker_name' => $worker->name,
@@ -655,6 +685,37 @@ class WorkerController extends Controller
      * 12-digit number (hashed + masked here; the raw number is discarded).
      * Returns a 422 JsonResponse when missing or already registered.
      */
+    /** Normalise + dedup a PAN. Returns [pan, hash] or a 422 response. */
+    private function resolvePan(string $pan, ?int $ignoreWorkerId = null): array|JsonResponse
+    {
+        $pan = strtoupper(preg_replace('/\s+/', '', $pan));
+
+        if (! preg_match(\App\Http\Controllers\PanController::PAN_REGEX, $pan)) {
+            return response()->json([
+                'message' => 'Invalid PAN.',
+                'errors'  => ['pan_number' => ['PAN must look like ABCDE1234F — five letters, four digits, one letter.']],
+            ], 422);
+        }
+
+        $hash = \App\Http\Controllers\PanController::hashNumber($pan);
+
+        // Same switch as Aadhaar: demo environments may allow duplicates.
+        $dupe = config('biometric.aadhaar_dedup', true)
+            ? Worker::withTrashed()->where('pan_hash', $hash)
+                ->when($ignoreWorkerId, fn ($q) => $q->where('id', '!=', $ignoreWorkerId))
+                ->exists()
+            : false;
+
+        if ($dupe) {
+            return response()->json([
+                'message' => 'Duplicate PAN.',
+                'errors'  => ['pan_number' => ['A worker with this PAN is already registered.']],
+            ], 422);
+        }
+
+        return [$pan, $hash];
+    }
+
     private function resolveAadhaar(array $data, ?int $ignoreWorkerId = null): array|JsonResponse
     {
         if (! empty($data['aadhaar_number'])) {
@@ -712,7 +773,7 @@ class WorkerController extends Controller
             'phone'   => 'nullable|string|max:15',
             'notes'   => 'nullable|string',
             'emp_code'     => 'nullable|string|max:30',
-            'pan_number'   => ['nullable', 'string', 'regex:/^[A-Z]{5}[0-9]{4}[A-Z]$/'],
+            'pan_number'   => ['nullable', 'string', 'regex:/^[A-Za-z]{5}[0-9]{4}[A-Za-z]$/'],
             // Employment & statutory (the vendor fills these on the Employment tab)
             'designation'            => 'nullable|string|max:80',
             'department'             => 'nullable|string|max:80',
@@ -762,6 +823,19 @@ class WorkerController extends Controller
             $clash = Worker::withTrashed()->where('vendor_id', $worker->vendor_id)
                 ->where('emp_code', $data['emp_code'])->where('id', '!=', $worker->id)->exists();
             abort_if($clash, 422, "Employee code {$data['emp_code']} is already used by another worker of this vendor.");
+        }
+
+        // Keep the PAN dedup hash in step whenever a PAN is added or changed.
+        if (! empty($data['pan_number'])) {
+            $resolvedPan = $this->resolvePan($data['pan_number'], $worker->id);
+            if ($resolvedPan instanceof JsonResponse) {
+                return $resolvedPan;
+            }
+            [$data['pan_number'], $panHash] = $resolvedPan;
+            $worker->forceFill([
+                'pan_hash'        => $panHash,
+                'pan_verified_at' => $worker->pan_verified_at ?? now(),
+            ]);
         }
 
         $worker->fill($data)->save();

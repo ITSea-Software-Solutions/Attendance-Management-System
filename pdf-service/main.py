@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from aadhaar_parser import AadhaarParser
+from pan_parser import PanParser
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("pdf-service")
@@ -28,6 +29,7 @@ app.add_middleware(
 )
 
 parser = AadhaarParser()
+pan_parser = PanParser()
 
 
 @app.get("/health")
@@ -69,6 +71,38 @@ async def extract_aadhaar(
         )
 
     return JSONResponse(content=result["data"])
+
+@app.post("/extract-pan")
+async def extract_pan(
+    file: UploadFile = File(..., description="PAN card — e-PAN PDF or a photo of the card"),
+    password: str = Form(default="", description="e-PAN PDF password (usually DOB as DDMMYYYY)"),
+):
+    """
+    Read a PAN card.
+
+    Accepts an e-PAN PDF (text, sometimes password protected) or a photograph
+    of the physical card, which is put through OCR.
+
+    Returns: pan_number, holder_type, name, father_name, dob, photo_base64.
+    """
+    name = (file.filename or "").lower()
+    if not name.endswith((".pdf", ".jpg", ".jpeg", ".png", ".webp")):
+        raise HTTPException(status_code=400, detail="Upload the PAN card as a PDF or an image.")
+
+    content = await file.read()
+    if len(content) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="File must not exceed 10 MB.")
+
+    logger.info(f"Processing PAN card: {file.filename}, size={len(content)}")
+    result = pan_parser.extract(content, filename=file.filename or "", password=password or None)
+
+    if not result["success"]:
+        raise HTTPException(
+            status_code=422,
+            detail={"message": result["message"], "code": result.get("code", "PARSE_ERROR")},
+        )
+    return JSONResponse(content=result["data"])
+
 
 @app.post("/face/embed")
 async def face_embed(image: UploadFile = File(..., description="Face image (JPEG/PNG)")):
