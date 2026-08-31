@@ -169,6 +169,12 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::post('mark',           [AttendanceController::class, 'mark']);
         Route::post('{log}/proof',    [AttendanceController::class, 'uploadProof']);
         Route::post('manual-out',     [AttendanceController::class, 'manualOut']);
+
+        // Manual attendance for a day the gate missed. The company enters it
+        // directly; a contractor's entry waits for the company to agree.
+        Route::post('manual',              [AttendanceController::class, 'manualStore']);
+        Route::get('manual-requests',      [AttendanceController::class, 'manualRequests']);
+        Route::post('manual-requests/{id}/decide', [AttendanceController::class, 'decideManual']);
         Route::get('proof/{log}',     [AttendanceController::class, 'proofPhoto']);       // serve proof image
         Route::get('today',           [AttendanceController::class, 'today']);
         Route::get('worker/{worker}', [AttendanceController::class, 'workerHistory']);

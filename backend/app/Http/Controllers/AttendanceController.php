@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\AttendanceLog;
+use App\Models\ManualAttendanceRequest;
 use Carbon\Carbon;
 use App\Models\User;
 use App\Models\Worker;
@@ -1434,5 +1435,284 @@ class AttendanceController extends Controller
         ]);
 
         return response()->json(['message' => 'Manual OUT recorded.', 'log' => $log]);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────
+    //  Manual attendance — a day the gate missed
+    //
+    //  A hand-entered day is paid exactly like a scanned one, so it is the
+    //  softest target in the system. Three rules hold it honest:
+    //    · the company that pays either enters it or approves it;
+    //    · it can only be entered against an approved deployment covering
+    //      that date, so nobody can invent a day for someone who was not
+    //      engaged;
+    //    · it can never overwrite or duplicate a day that already has logs.
+    //  Every entry is stamped method=manual and carries its reason, so the
+    //  attendance log always distinguishes it from a biometric mark.
+    // ─────────────────────────────────────────────────────────────────────
+
+    /** Roles that may agree a manual day for the company that pays for it. */
+    private function mayDecideManual($user): bool
+    {
+        return $user->isSuperAdmin()
+            || in_array($user->role, ['company_admin', 'company_hr'], true);
+    }
+
+    /** The approved deployment covering that date, or null. */
+    private function deploymentCovering(int $workerId, int $companyId, string $date): ?WorkerAssignment
+    {
+        return WorkerAssignment::where('worker_id', $workerId)
+            ->where('company_id', $companyId)
+            ->where('status', WorkerAssignment::STATUS_ACTIVE)
+            ->where('approval_status', 'approved')
+            ->whereDate('start_date', '<=', $date)
+            ->whereDate('end_date', '>=', $date)
+            ->first();
+    }
+
+    public function manualStore(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user->isGateUser(), 403,
+            'Gate logins mark attendance with the scanner, not by hand.');
+        abort_unless($this->mayDecideManual($user) || $user->role === 'vendor_admin', 403,
+            'Not permitted to enter attendance by hand.');
+
+        $data = $request->validate([
+            'worker_id'     => 'required|integer|exists:workers,id',
+            'company_id'    => 'nullable|integer|exists:companies,id',
+            'work_date'     => 'required|date|before_or_equal:today',
+            'in_time'       => 'required|date_format:H:i',
+            'out_time'      => 'nullable|date_format:H:i',
+            'location_name' => 'nullable|string|max:100',
+            'reason'        => 'required|string|min:3|max:500',
+        ]);
+
+        $worker = Worker::findOrFail($data['worker_id']);
+        if ($user->isVendorUser()) {
+            abort_unless($worker->vendor_id === $user->vendor_id, 403, 'That is not your worker.');
+        }
+
+        $companyId = $user->isCompanyUser()
+            ? $user->company_id
+            : (int) ($data['company_id'] ?? 0);
+        abort_unless($companyId, 422, 'Choose the company this day was worked at.');
+
+        $assignment = $this->deploymentCovering($worker->id, $companyId, $data['work_date']);
+        abort_unless($assignment, 422,
+            'That worker had no approved deployment to this company on '.$data['work_date'].'.');
+
+        $in  = Carbon::parse($data['work_date'].' '.$data['in_time']);
+        $out = ! empty($data['out_time'])
+            ? Carbon::parse($data['work_date'].' '.$data['out_time'])
+            : null;
+        // A night shift legitimately ends the next morning.
+        if ($out && $out->lessThanOrEqualTo($in)) {
+            $out->addDay();
+        }
+        abort_if($in->isFuture(), 422, 'That start time is in the future.');
+
+        // Never silently add a second version of a day that already exists —
+        // payroll counts days, and a duplicate is an overpayment.
+        $already = AttendanceLog::where('worker_id', $worker->id)
+            ->where('company_id', $companyId)
+            ->whereDate('marked_at', $data['work_date'])
+            ->exists();
+        abort_if($already, 422,
+            'That worker already has attendance recorded on '.$data['work_date'].'. '
+            .'Correct the existing record instead of adding another.');
+
+        $pending = ManualAttendanceRequest::where('worker_id', $worker->id)
+            ->where('company_id', $companyId)
+            ->whereDate('work_date', $data['work_date'])
+            ->where('status', ManualAttendanceRequest::STATUS_PENDING)
+            ->exists();
+        abort_if($pending, 422, 'A manual entry for that worker and date is already awaiting approval.');
+
+        $decides = $this->mayDecideManual($user);   // the payer needs no approval
+
+        $req = ManualAttendanceRequest::create([
+            'worker_id'     => $worker->id,
+            'company_id'    => $companyId,
+            'vendor_id'     => $worker->vendor_id,
+            'work_date'     => $data['work_date'],
+            'in_at'         => $in,
+            'out_at'        => $out,
+            'location_name' => $data['location_name'] ?? null,
+            'reason'        => $data['reason'],
+            'status'        => $decides
+                ? ManualAttendanceRequest::STATUS_APPROVED
+                : ManualAttendanceRequest::STATUS_PENDING,
+            'requested_by'  => $user->id,
+            'decided_by'    => $decides ? $user->id : null,
+            'decided_at'    => $decides ? now() : null,
+        ]);
+
+        if ($decides) {
+            $this->applyManual($req, $assignment, $request->ip());
+            $this->audit->log($user->id, 'manual_attendance_entered',
+                ManualAttendanceRequest::class, $req->id, $data);
+            $this->notifyManual($req, 'entered');
+
+            return response()->json([
+                'message' => 'Attendance recorded for '.$worker->name.' on '.$req->work_date->toDateString().'.',
+                'request' => $req->fresh(),
+            ]);
+        }
+
+        $this->audit->log($user->id, 'manual_attendance_requested',
+            ManualAttendanceRequest::class, $req->id, $data);
+        $this->notifyManual($req, 'requested');
+
+        return response()->json([
+            'message'  => 'Sent to the company for approval — the day is not counted until they agree.',
+            'request'  => $req->fresh(),
+            'proposed' => 1,
+        ]);
+    }
+
+    /** Write the actual IN/OUT logs. Only ever called for an approved entry. */
+    private function applyManual(ManualAttendanceRequest $req, ?WorkerAssignment $assignment, ?string $ip): void
+    {
+        $assignment ??= $this->deploymentCovering(
+            $req->worker_id, $req->company_id, $req->work_date->toDateString());
+
+        $base = [
+            'worker_id'       => $req->worker_id,
+            'company_id'      => $req->company_id,
+            'assignment_id'   => $assignment?->id,
+            'marked_by'       => $req->decided_by,
+            'method'          => 'manual',
+            'override_reason' => 'Manual entry: '.$req->reason,
+            'location_type'   => AttendanceLog::LOCATION_MAIN_GATE,
+            'location_name'   => $req->location_name ?: AttendanceLog::DEFAULT_LOCATION_NAME,
+            'ip_address'      => $ip,
+            'is_valid'        => true,
+        ];
+
+        $inLog = AttendanceLog::create($base + [
+            'type'      => AttendanceLog::TYPE_IN,
+            'marked_at' => $req->in_at,
+        ]);
+        $outLog = null;
+        if ($req->out_at) {
+            $outLog = AttendanceLog::create($base + [
+                'type'      => AttendanceLog::TYPE_OUT,
+                'marked_at' => $req->out_at,
+                'parent_id' => $inLog->id,
+            ]);
+        }
+
+        $req->forceFill(['in_log_id' => $inLog->id, 'out_log_id' => $outLog?->id])->save();
+        $this->lockActiveDeployment($req->worker_id, $req->company_id);
+    }
+
+    public function manualRequests(Request $request): JsonResponse
+    {
+        $user = $request->user();
+        abort_if($user->isGateUser(), 403, 'Gate logins do not review manual attendance.');
+
+        $rows = ManualAttendanceRequest::with([
+                'worker:id,name,emp_code', 'vendor:id,name', 'company:id,name',
+                'requestedBy:id,name', 'decidedBy:id,name'])
+            ->when($user->isCompanyUser(), fn ($q) => $q->where('company_id', $user->company_id))
+            ->when($user->isVendorUser(),  fn ($q) => $q->where('vendor_id', $user->vendor_id))
+            ->when(! $user->isCompanyUser() && $request->filled('company_id'),
+                fn ($q) => $q->where('company_id', (int) $request->input('company_id')))
+            ->when($request->input('status', 'pending') !== 'all',
+                fn ($q) => $q->where('status', $request->input('status', 'pending')))
+            ->orderByDesc('created_at')->limit(200)->get();
+
+        return response()->json($rows);
+    }
+
+    public function decideManual(Request $request, int $id): JsonResponse
+    {
+        $user = $request->user();
+        // Role first, so a contractor gets "not yours to approve" rather than
+        // a scope error that reads like a bug.
+        abort_if($user->isVendorUser(), 403, 'Only the company can approve a manual attendance entry.');
+        abort_unless($this->mayDecideManual($user), 403,
+            'Only a company admin or HR can approve a manual attendance entry.');
+
+        $data = $request->validate([
+            'decision' => 'required|in:approved,rejected',
+            'note'     => 'nullable|string|max:255',
+        ]);
+
+        $req = ManualAttendanceRequest::findOrFail($id);
+        abort_if($user->isCompanyUser() && $req->company_id !== $user->company_id, 403,
+            'That entry belongs to another company.');
+        abort_unless($req->status === ManualAttendanceRequest::STATUS_PENDING, 422,
+            'This entry has already been decided.');
+
+        $req->forceFill([
+            'status'        => $data['decision'],
+            'decision_note' => $data['note'] ?? null,
+            'decided_by'    => $user->id,
+            'decided_at'    => now(),
+        ])->save();
+
+        if ($data['decision'] === ManualAttendanceRequest::STATUS_APPROVED) {
+            // Re-check on the way in: the deployment may have been cancelled,
+            // or the gate may have recorded the day, since it was raised.
+            $clash = AttendanceLog::where('worker_id', $req->worker_id)
+                ->where('company_id', $req->company_id)
+                ->whereDate('marked_at', $req->work_date->toDateString())
+                ->exists();
+            if ($clash) {
+                $req->forceFill(['status' => ManualAttendanceRequest::STATUS_REJECTED,
+                    'decision_note' => 'The gate already recorded that day.'])->save();
+                return response()->json([
+                    'message' => 'That day now has real gate attendance, so the manual entry was not applied.',
+                ], 422);
+            }
+            $this->applyManual($req, null, $request->ip());
+        }
+
+        $this->audit->log($user->id, 'manual_attendance_'.$data['decision'],
+            ManualAttendanceRequest::class, $req->id, $data);
+        $this->notifyManual($req->fresh(), 'decided');
+
+        return response()->json([
+            'message' => $data['decision'] === ManualAttendanceRequest::STATUS_APPROVED
+                ? 'Approved — the day now counts towards attendance and wages.'
+                : 'Rejected — nothing was added to the attendance record.',
+        ]);
+    }
+
+    private function notifyManual(ManualAttendanceRequest $req, string $event): void
+    {
+        $notify = app(\App\Services\NotifyService::class);
+        $day    = $req->work_date->format('d M Y');
+        $who    = $req->worker?->name ?? 'a worker';
+
+        if ($event === 'requested') {
+            $admins = User::where('company_id', $req->company_id)
+                ->whereIn('role', ['company_admin', 'company_hr'])->get();
+            $notify->inApp($admins, 'manual_attendance_requested',
+                "Manual attendance to approve: {$who}",
+                sprintf('%s says %s worked %s (%s). Nothing is counted until you approve.',
+                    $req->vendor?->name ?? 'A contractor', $who, $day, $req->reason),
+                ['worker_id' => $req->worker_id]);
+            return;
+        }
+
+        // Both a company entry and a decision are news for the contractor —
+        // it changes what they will be paid.
+        if (! $req->vendor_id) {
+            return;
+        }
+        $vendorUsers = User::where('vendor_id', $req->vendor_id)->where('role', 'vendor_admin')->get();
+        $notify->inApp($vendorUsers, 'manual_attendance_'.$event,
+            $event === 'entered'
+                ? "Attendance added for {$who}"
+                : ($req->status === ManualAttendanceRequest::STATUS_APPROVED
+                    ? "Manual attendance approved: {$who}"
+                    : "Manual attendance rejected: {$who}"),
+            $req->status === ManualAttendanceRequest::STATUS_APPROVED
+                ? "{$day} now counts as worked."
+                : "{$day} was not added.".($req->decision_note ? ' Reason: '.$req->decision_note : ''),
+            ['worker_id' => $req->worker_id]);
     }
 }

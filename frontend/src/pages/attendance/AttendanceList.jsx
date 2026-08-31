@@ -6,6 +6,7 @@ import AuthImg from "@/components/AuthImg";
 import PageHint from "@/components/PageHint";
 import { useOrgScope } from "@/lib/scope";
 import MultiSelect from "@/components/MultiSelect";
+import ManualAttendance from "@/components/ManualAttendance";
 import { Download, Printer, X, User, CalendarRange, Calendar } from "lucide-react";
 import { format, differenceInMinutes } from "date-fns";
 import { LogIn, LogOut, MapPin, Building2, Search } from "lucide-react";
@@ -163,6 +164,8 @@ export default function AttendanceList() {
           )}
         </p>
       </div>
+
+      <ManualAttendance companyId={companyId || undefined} />
 
       {/* ── Exports — always follow the filters set below ── */}
       <div className="card space-y-3 py-3">
